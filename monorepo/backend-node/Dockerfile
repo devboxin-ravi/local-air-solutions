@@ -5,42 +5,54 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy server package files
 COPY package*.json ./
-
-# Install dependencies (including dev deps for build)
-# Using npm install instead of npm ci for more flexibility
 RUN npm install
 
-# Copy server source code
 COPY . ./
+
+# Generate Prisma client before TypeScript compile
+RUN npx prisma generate
 
 # Build the server (tsc outputs to dist/)
 RUN npm run build
 
+# =========================
 # Stage 2: Production runtime
+# =========================
 FROM node:20-alpine
 
-# Install curl for health checks
 RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Copy server package files
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm install --only=production
+# Production deps + tools needed at startup for migrate/seed
+RUN npm install --omit=dev \
+  && npm install prisma@5.22.0 ts-node@10.9.2 typescript@5.3.2 --no-save
 
-# Copy built server output from builder (dist/app.js and related)
+# Prisma schema + migrations (required for migrate deploy)
+COPY --from=builder /app/prisma ./prisma
+
+# App source needed by seed.ts (imports src/config + constants)
+COPY --from=builder /app/src ./src
+
+# Compiled server
 COPY --from=builder /app/dist ./dist
 
-# Expose the port
-EXPOSE 5000
+# Entrypoint: migrate → seed → start
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
-# Set environment variables
+# Generate Prisma client in the runtime image
+RUN npx prisma generate
+
+EXPOSE 8000
+
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8000
+ENV RUN_MIGRATIONS=true
+ENV RUN_SEED=true
 
-# Start the application
-CMD ["node", "dist/app.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "dist/server.js"]

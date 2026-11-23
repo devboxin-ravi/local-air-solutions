@@ -3,26 +3,26 @@
 # =========================
 FROM node:20-alpine AS builder
 
-# Set working directory once
 WORKDIR /app
 
-# Copy package files first (for better layer caching)
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy all source files
 COPY . ./
 
-# Build arguments (Vite envs)
+# Build-time Vite envs (Coolify → Build Arguments)
 ARG VITE_API_BASE_URL
+ARG VITE_ASSET_BASE_URL
+ARG VITE_APP_NAME=Local Air Solutions
+ARG VITE_APP_VERSION=1.0.0
+ARG VITE_GOOGLE_MAPS_KEY=
 
-
-# Set env vars for Vite build
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_ASSET_BASE_URL=${VITE_ASSET_BASE_URL}
+ENV VITE_APP_NAME=${VITE_APP_NAME}
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
+ENV VITE_GOOGLE_MAPS_KEY=${VITE_GOOGLE_MAPS_KEY}
 
-# Build the app
 RUN npm run build
 
 # =========================
@@ -30,10 +30,8 @@ RUN npm run build
 # =========================
 FROM nginx:alpine
 
-# Remove default config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Custom nginx config (SPA support)
 RUN echo 'server { \
     listen 80; \
     server_name _; \
@@ -44,11 +42,8 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-# Copy built files from builder (dist is now at /app/dist)
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Expose port
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
