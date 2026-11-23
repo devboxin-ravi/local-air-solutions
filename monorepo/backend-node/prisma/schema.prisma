@@ -2,7 +2,9 @@
 // MySQL 8+ / Prisma ORM. Money is always DECIMAL(12,2). Historical records are never hard-deleted.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // node:20-alpine ships OpenSSL 3; without this target Prisma loads openssl-1.1 and crashes.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

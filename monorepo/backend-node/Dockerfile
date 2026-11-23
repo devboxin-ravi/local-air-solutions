@@ -3,6 +3,9 @@
 # =========================
 FROM node:20-alpine AS builder
 
+# OpenSSL required for Prisma engine detection/generate on Alpine
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -10,7 +13,7 @@ RUN npm install
 
 COPY . ./
 
-# Generate Prisma client before TypeScript compile
+# Generate Prisma client (includes linux-musl-openssl-3.0.x from schema)
 RUN npx prisma generate
 
 # Build the server (tsc outputs to dist/)
@@ -21,7 +24,8 @@ RUN npm run build
 # =========================
 FROM node:20-alpine
 
-RUN apk add --no-cache curl
+# curl = healthchecks; openssl = Prisma query engine (libssl)
+RUN apk add --no-cache curl openssl
 
 WORKDIR /app
 
@@ -44,7 +48,7 @@ COPY --from=builder /app/dist ./dist
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-# Generate Prisma client in the runtime image
+# Generate Prisma client in the runtime image (openssl-3 musl engine)
 RUN npx prisma generate
 
 EXPOSE 8000
