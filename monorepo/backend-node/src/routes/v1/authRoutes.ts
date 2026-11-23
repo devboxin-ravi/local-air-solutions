@@ -1,0 +1,41 @@
+/**
+ * /api/v1/auth — route definitions only.
+ */
+
+import { Router } from 'express';
+import * as c from '../../controllers/authController';
+import { authenticate, optionalAuthenticate } from '../../middleware/auth';
+import { validate } from '../../middleware/validate';
+import { authLimiter } from '../../middleware/security';
+import {
+  changePasswordSchema,
+  deviceTokenSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  logoutSchema,
+  otpVerifySchema,
+  refreshSchema,
+  registerCustomerSchema,
+  resetPasswordSchema,
+} from '../../validations/auth';
+
+const r = Router();
+
+r.post('/admin/login', authLimiter, validate({ body: loginSchema }), c.adminLogin);
+r.post('/login', authLimiter, validate({ body: loginSchema }), c.appLogin);
+r.post('/otp/verify', authLimiter, validate({ body: otpVerifySchema }), c.verifyOtp);
+r.post('/register', authLimiter, validate({ body: registerCustomerSchema }), c.register);
+r.post('/refresh', authLimiter, validate({ body: refreshSchema }), c.refresh);
+r.post('/forgot-password', authLimiter, validate({ body: forgotPasswordSchema }), c.forgotPassword);
+r.post('/reset-password', authLimiter, validate({ body: resetPasswordSchema }), c.resetPassword);
+
+r.post('/logout', validate({ body: logoutSchema }), optionalAuthenticate, c.logout);
+r.post('/logout-all', authenticate, c.logoutAll);
+r.get('/me', authenticate, c.me);
+r.get('/sessions', authenticate, c.sessions);
+r.post('/change-password', authenticate, validate({ body: changePasswordSchema }), c.changePassword);
+r.post('/devices', authenticate, validate({ body: deviceTokenSchema }), c.registerDevice);
+r.delete('/devices', authenticate, validate({ body: deviceTokenSchema.pick({ token: true }) }), c.unregisterDevice);
+
+export { r as authRoutes };
+
