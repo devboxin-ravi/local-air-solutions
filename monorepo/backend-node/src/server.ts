@@ -9,7 +9,8 @@ import { startJobs, stopJobs } from './jobs/scheduler';
 import { logger } from './utils/logger';
 
 const app = createApp();
-const server = app.listen(config.port, () => {
+// Bind 0.0.0.0 so Coolify/Docker proxy can reach the process (default can miss in some images).
+const server = app.listen(config.port, '0.0.0.0', () => {
   logger.info(`${config.appName} listening`, { port: config.port, env: config.nodeEnv });
   if (config.jobs.enabled) startJobs();
 });
