@@ -4,12 +4,16 @@
 
 import { z } from 'zod';
 
+/** Empty build-args become "" in Docker/Vite; treat them as unset so Zod defaults apply. */
+const emptyToUndefined = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
 const EnvSchema = z.object({
-  VITE_API_BASE_URL: z.string().url().default('http://localhost:8000/api/v1'),
-  VITE_ASSET_BASE_URL: z.string().url().default('http://localhost:8000'),
-  VITE_APP_NAME: z.string().default('Local Air Solutions'),
-  VITE_APP_VERSION: z.string().default('1.0.0'),
-  VITE_GOOGLE_MAPS_KEY: z.string().optional().default(''),
+  VITE_API_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().default('http://localhost:8000/api/v1')),
+  VITE_ASSET_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().default('http://localhost:8000')),
+  VITE_APP_NAME: z.preprocess(emptyToUndefined, z.string().default('Local Air Solutions')),
+  VITE_APP_VERSION: z.preprocess(emptyToUndefined, z.string().default('1.0.0')),
+  VITE_GOOGLE_MAPS_KEY: z.preprocess(emptyToUndefined, z.string().optional().default('')),
 });
 
 const env = EnvSchema.parse(import.meta.env);
