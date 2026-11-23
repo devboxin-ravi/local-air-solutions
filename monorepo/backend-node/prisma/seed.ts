@@ -125,9 +125,18 @@ async function main() {
     }
   }
 
-  // Super Admin
+  // Super Admin — create once; if SEED_ADMIN_PASSWORD is set, sync email/mobile/password on every seed
+  // so Coolify env remains the source of truth after redeploys.
   const superRole = await prisma.role.findUniqueOrThrow({ where: { code: RoleCodes.SUPER_ADMIN } });
-  const existingAdmin = await prisma.user.findFirst({ where: { OR: [{ email: config.seed.adminEmail }, { mobile: config.seed.adminMobile }] } });
+  const existingAdmin = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: config.seed.adminEmail },
+        { mobile: config.seed.adminMobile },
+        { userType: 'ADMIN', roles: { some: { role: { code: RoleCodes.SUPER_ADMIN } } } },
+      ],
+    },
+  });
   if (!existingAdmin) {
     if (!config.seed.adminPassword) throw new Error('SEED_ADMIN_PASSWORD is required to create the first Super Admin');
     const admin = await prisma.user.create({
@@ -141,6 +150,21 @@ async function main() {
     });
     await prisma.userRole.create({ data: { userId: admin.id, roleId: superRole.id } });
     console.log(`Created Super Admin: ${config.seed.adminEmail}`);
+  } else if (config.seed.adminPassword) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: {
+        email: config.seed.adminEmail,
+        mobile: config.seed.adminMobile,
+        passwordHash: await bcrypt.hash(config.seed.adminPassword, config.security.bcryptRounds),
+        failedLoginCount: 0,
+        lockedUntil: null,
+        status: 'ACTIVE',
+      },
+    });
+    const hasRole = await prisma.userRole.findFirst({ where: { userId: existingAdmin.id, roleId: superRole.id } });
+    if (!hasRole) await prisma.userRole.create({ data: { userId: existingAdmin.id, roleId: superRole.id } });
+    console.log(`Updated Super Admin credentials: ${config.seed.adminEmail}`);
   }
 
   // Settings & templates
