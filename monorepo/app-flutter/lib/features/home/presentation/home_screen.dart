@@ -49,48 +49,65 @@ class HomeScreen extends ConsumerWidget {
         },
         child: CustomScrollView(slivers: [
           SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.vertical(bottom: Radius.circular(28))),
-              padding: EdgeInsets.fromLTRB(Space.page, MediaQuery.paddingOf(context).top + Space.md, Space.page, Space.xl),
+            child: GradientHeader(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md)), child: const BrandLogo(height: 30, markOnly: true)),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md), boxShadow: AppShadows.raised),
+                    child: const BrandLogo(height: 30, markOnly: true),
+                  ),
                   const SizedBox(width: Space.md),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('$greet,', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                      Text(user?.firstName ?? 'there', style: t.titleLarge?.copyWith(color: Colors.white)),
+                      Text('$greet 👋', style: TextStyle(color: Colors.white.withValues(alpha: 0.78), fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text(user?.firstName ?? 'there', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.headlineSmall?.copyWith(color: Colors.white)),
                     ]),
                   ),
-                  Badge(
-                    isLabelVisible: unread > 0,
-                    label: Text('$unread'),
-                    child: IconButton(onPressed: () => context.push(AppRoutes.notifications), icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), tooltip: 'Notifications'),
-                  ),
+                  GlassIconButton(icon: Icons.notifications_none_rounded, tooltip: 'Notifications', badge: unread, onPressed: () => context.push(AppRoutes.notifications)),
                 ]),
-                const SizedBox(height: Space.md),
-                InkWell(
-                  onTap: () => context.push(AppRoutes.addresses),
-                  child: Row(children: [
-                    const Icon(Icons.location_on_rounded, color: AppColors.green, size: 18),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(defaultAddress?.full ?? 'Add your service address', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))),
-                    const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white),
-                  ]),
+                const SizedBox(height: Space.lg),
+                // Service address as a translucent "glass" chip.
+                Material(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: StadiumBorder(side: BorderSide(color: Colors.white.withValues(alpha: 0.2))),
+                  child: InkWell(
+                    onTap: () => context.push(AppRoutes.addresses),
+                    customBorder: const StadiumBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                      child: Row(children: [
+                        const Icon(Icons.location_on_rounded, color: AppColors.green, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(defaultAddress?.full ?? 'Add your service address', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5))),
+                        const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white),
+                      ]),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: Space.lg),
-                InkWell(
-                  onTap: () => context.go(AppRoutes.services),
-                  borderRadius: BorderRadius.circular(Radii.md),
-                  child: Container(
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: Space.lg),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.md)),
-                    child: const Row(children: [
-                      Icon(Icons.search_rounded, color: AppColors.slate),
-                      SizedBox(width: Space.sm),
-                      Expanded(child: Text('Search for AC service, repair…', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.slateLight))),
-                    ]),
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(Radii.button),
+                  elevation: 0,
+                  child: InkWell(
+                    onTap: () => context.go(AppRoutes.services),
+                    borderRadius: BorderRadius.circular(Radii.button),
+                    child: Container(
+                      height: 54,
+                      padding: const EdgeInsets.only(left: Space.lg, right: 6),
+                      child: Row(children: [
+                        const Icon(Icons.search_rounded, color: AppColors.blue),
+                        const SizedBox(width: Space.sm),
+                        const Expanded(child: Text('Search for AC service, repair…', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.slateLight, fontSize: 14.5))),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(gradient: AppColors.ctaGradient, borderRadius: BorderRadius.circular(Radii.md)),
+                          child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+                        ),
+                      ]),
+                    ),
                   ),
                 ),
               ]),
@@ -113,26 +130,59 @@ class HomeScreen extends ConsumerWidget {
               ],
               // Promo banner (content managed in Admin → Settings → Customer App Home)
               if (showBanner) Container(
-                constraints: const BoxConstraints(minHeight: 150),
+                constraints: const BoxConstraints(minHeight: 160),
                 clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF5E8F27), AppColors.green], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(Radii.xl), boxShadow: AppShadows.card),
+                decoration: BoxDecoration(gradient: AppColors.greenGradient, borderRadius: BorderRadius.circular(Radii.xl), boxShadow: AppShadows.glow(AppColors.greenDark)),
                 child: Stack(children: [
-                  Positioned(right: -18, bottom: -18, child: Icon(Icons.ac_unit_rounded, size: 170, color: Colors.white.withValues(alpha: 0.18))),
+                  const DecorBubbles(opacity: 0.12),
+                  Positioned(right: -14, bottom: -22, child: Icon(Icons.ac_unit_rounded, size: 150, color: Colors.white.withValues(alpha: 0.22))),
                   Padding(
-                    padding: const EdgeInsets.all(Space.xl),
+                    padding: const EdgeInsets.fromLTRB(Space.xl, Space.xl, 110, Space.xl),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(settings?.bannerTitle ?? HomeDefaults.bannerTitle, style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(Radii.pill)),
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.local_offer_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Featured', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                        ]),
+                      ),
+                      const SizedBox(height: Space.sm),
+                      Text(settings?.bannerTitle ?? HomeDefaults.bannerTitle, style: t.titleLarge?.copyWith(color: Colors.white, fontSize: 22, height: 1.2)),
                       const SizedBox(height: 4),
-                      Text(settings?.bannerSubtitle ?? HomeDefaults.bannerSubtitle, style: const TextStyle(color: Colors.white, height: 1.35)),
-                      const SizedBox(height: Space.md),
-                      FilledButton(
+                      Text(settings?.bannerSubtitle ?? HomeDefaults.bannerSubtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.92), height: 1.4, fontSize: 13.5)),
+                      const SizedBox(height: Space.lg),
+                      FilledButton.icon(
                         onPressed: () => context.go(AppRoutes.services),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.greenDark, minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 18)),
-                        child: Text(settings?.bannerButtonText ?? HomeDefaults.bannerButtonText),
+                        iconAlignment: IconAlignment.end,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.greenDark, minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 18), shape: const StadiumBorder()),
+                        label: Text(settings?.bannerButtonText ?? HomeDefaults.bannerButtonText),
                       ),
                     ]),
                   ),
                 ]),
+              ),
+              const SizedBox(height: Space.lg),
+              // Trust strip
+              Row(
+                children: [
+                  for (final (i, point) in HomeDefaults.trustPoints.indexed) ...[
+                    if (i > 0) const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 10),
+                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(Radii.md), border: Border.all(color: AppColors.borderSoft)),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Icon(Icons.verified_rounded, size: 15, color: AppColors.green),
+                          const SizedBox(width: 4),
+                          Flexible(child: Text(point, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.navy))),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: Space.xxl),
               SectionHeader('Categories', action: 'See all', onAction: () => context.go(AppRoutes.services)),
@@ -142,10 +192,10 @@ class HomeScreen extends ConsumerWidget {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.82,
+                  childAspectRatio: 0.78,
                   mainAxisSpacing: Space.sm,
                   crossAxisSpacing: Space.sm,
-                  children: list.take(8).map((c) => CategoryTile(category: c, onTap: () => context.push(AppRoutes.categoryPath(c.id), extra: c.name))).toList(),
+                  children: [for (final (i, c) in list.take(8).indexed) CategoryTile(category: c, index: i, onTap: () => context.push(AppRoutes.categoryPath(c.id), extra: c.name))],
                 ),
                 loading: () => const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
                 error: (e, _) => ErrorView(message: friendlyError(e), onRetry: () => ref.invalidate(categoriesProvider)),
@@ -209,25 +259,38 @@ class HomeScreen extends ConsumerWidget {
               // Book a repair
               AppCard(
                 onTap: () => startBooking(context, ref, type: 'REPAIR'),
-                color: AppColors.blueSoft,
-                border: false,
+                gradient: AppColors.brandGradient,
+                padding: const EdgeInsets.all(Space.xl),
                 child: Row(children: [
-                  const IconBox(Icons.build_circle_rounded, color: Colors.white, background: AppColors.blue, size: 52),
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(Radii.lg), border: Border.all(color: Colors.white.withValues(alpha: 0.25))),
+                    child: const Icon(Icons.build_circle_rounded, color: Colors.white, size: 28),
+                  ),
                   const SizedBox(width: Space.lg),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Something not working?', style: t.titleMedium),
-                      Text('Describe the problem and we’ll send an expert.', style: t.bodyMedium),
+                      Text('Something not working?', style: t.titleMedium?.copyWith(color: Colors.white)),
+                      const SizedBox(height: 2),
+                      Text('Describe the problem and we’ll send an expert.', style: t.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.82))),
                     ]),
                   ),
-                  const Icon(Icons.arrow_forward_rounded, color: AppColors.blue),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.arrow_forward_rounded, color: AppColors.blue, size: 20),
+                  ),
                 ]),
               ),
               const SizedBox(height: Space.md),
               AppCard(
                 onTap: () => context.go(AppRoutes.amc),
+                color: AppColors.greenSoft,
+                border: false,
                 child: Row(children: [
-                  const IconBox(Icons.verified_user_rounded, color: AppColors.greenDark, background: AppColors.greenSoft, size: 52),
+                  const IconBox(Icons.verified_user_rounded, color: Colors.white, gradient: AppColors.greenGradient, size: 52),
                   const SizedBox(width: Space.lg),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

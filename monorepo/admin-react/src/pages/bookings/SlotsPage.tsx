@@ -12,6 +12,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import { WEEKDAYS } from '@/constants/ui';
 import { cn, toYmd } from '@/lib/utils';
+import { slotGenerateSchema } from '@/lib/validation';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { toast } from 'sonner';
 import type { Slot } from '@/types';
 import { EmptyState, ErrorState, Field, LoadingBlock, PageHeader } from '@/components/common';
 import { DateRange } from '@/components/Filters';
@@ -28,7 +31,36 @@ export default function SlotsPage() {
   const { data, isLoading, error, refetch } = useSlots({ branchId: effectiveBranch, ...range });
   const actions = useSlotActions();
   const [genOpen, setGenOpen] = useState(false);
-  const [gen, setGen] = useState({ fromDate: range.from, toDate: toYmd(new Date(Date.now() + 29 * 86_400_000)), startTime: '09:00', endTime: '19:00', slotDurationMinutes: 120, capacity: 3, workingDays: [1, 2, 3, 4, 5, 6] });
+  const [gen, setGen] = useState<{ fromDate: string; toDate: string; startTime: string; endTime: string; slotDurationMinutes: number | string; capacity: number | string; workingDays: number[] }>({
+    fromDate: range.from,
+    toDate: toYmd(new Date(Date.now() + 29 * 86_400_000)),
+    startTime: '09:00',
+    endTime: '19:00',
+    slotDurationMinutes: 120,
+    capacity: 3,
+    workingDays: [1, 2, 3, 4, 5, 6],
+  });
+  const { errors, validate, clear, fromServer, reset } = useFormErrors();
+  const setGenField = <K extends keyof typeof gen>(key: K, value: (typeof gen)[K]) => {
+    setGen((g) => ({ ...g, [key]: value }));
+    clear(key);
+  };
+  const generate = () => {
+    const parsed = validate(slotGenerateSchema, gen);
+    if (!parsed || !effectiveBranch) return;
+    actions.generate.mutate({ branchId: effectiveBranch, ...parsed }, { onSuccess: () => setGenOpen(false), onError: (e) => fromServer(e) });
+  };
+  /** Inline capacity edit: must stay between what is already booked and 100. */
+  const saveCapacity = (slot: Slot, input: HTMLInputElement) => {
+    const value = Number(input.value);
+    if (value === slot.capacity) return;
+    if (!Number.isInteger(value) || value < Math.max(1, slot.bookedCount) || value > 100) {
+      toast.error(`Capacity must be a whole number from ${Math.max(1, slot.bookedCount)} to 100`);
+      input.value = String(slot.capacity);
+      return;
+    }
+    actions.update.mutate({ id: slot.id, body: { capacity: value } });
+  };
 
   const byDate = useMemo(() => {
     const m = new Map<string, Slot[]>();
@@ -78,7 +110,7 @@ export default function SlotsPage() {
                       </div>
                       {can('slots.edit') && (
                         <>
-                          <Input type="number" min={s.bookedCount} max={100} defaultValue={s.capacity} aria-label="Capacity" className="h-8 w-16 text-center" onBlur={(e) => Number(e.target.value) !== s.capacity && actions.update.mutate({ id: s.id, body: { capacity: Number(e.target.value) } })} />
+                          <Input type="number" min={Math.max(1, s.bookedCount)} max={100} defaultValue={s.capacity} aria-label="Capacity" className="h-8 w-16 text-center" onBlur={(e) => saveCapacity(s, e.currentTarget)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
                           <Button variant="ghost" size="icon-sm" aria-label={s.isActive ? 'Deactivate slot' : 'Activate slot'} onClick={() => actions.update.mutate({ id: s.id, body: { isActive: !s.isActive } })}>
                             <Power className={s.isActive ? 'text-brand-green-600' : ''} />
                           </Button>
@@ -98,22 +130,22 @@ export default function SlotsPage() {
         </div>
       )}
 
-      <Dialog open={genOpen} onOpenChange={setGenOpen}>
+      <Dialog open={genOpen} onOpenChange={(o) => { setGenOpen(o); if (!o) reset(); }}>
         <DialogContent>
           <DialogHeader title="Generate slots" description={`Branch: ${branches?.find((b) => b.id === effectiveBranch)?.name ?? ''}. Existing slots are kept.`} />
           <DialogBody className="grid gap-4 sm:grid-cols-2">
-            <Field label="From"><Input type="date" value={gen.fromDate} onChange={(e) => setGen({ ...gen, fromDate: e.target.value })} /></Field>
-            <Field label="To" hint="Max 60 days"><Input type="date" value={gen.toDate} min={gen.fromDate} onChange={(e) => setGen({ ...gen, toDate: e.target.value })} /></Field>
-            <Field label="Start time"><Input type="time" value={gen.startTime} onChange={(e) => setGen({ ...gen, startTime: e.target.value })} /></Field>
-            <Field label="End time"><Input type="time" value={gen.endTime} onChange={(e) => setGen({ ...gen, endTime: e.target.value })} /></Field>
-            <Field label="Slot length (minutes)"><Input type="number" min={30} max={480} step={30} value={gen.slotDurationMinutes} onChange={(e) => setGen({ ...gen, slotDurationMinutes: Number(e.target.value) })} /></Field>
-            <Field label="Max jobs per slot"><Input type="number" min={1} max={100} value={gen.capacity} onChange={(e) => setGen({ ...gen, capacity: Number(e.target.value) })} /></Field>
-            <Field label="Working days" className="sm:col-span-2">
+            <Field label="From" required error={errors.fromDate} htmlFor="gen-from"><Input id="gen-from" type="date" value={gen.fromDate} onChange={(e) => setGenField('fromDate', e.target.value)} /></Field>
+            <Field label="To" required error={errors.toDate} htmlFor="gen-to" hint="Max 60 days"><Input id="gen-to" type="date" value={gen.toDate} min={gen.fromDate} onChange={(e) => setGenField('toDate', e.target.value)} /></Field>
+            <Field label="Start time" required error={errors.startTime} htmlFor="gen-start"><Input id="gen-start" type="time" value={gen.startTime} onChange={(e) => setGenField('startTime', e.target.value)} /></Field>
+            <Field label="End time" required error={errors.endTime} htmlFor="gen-end"><Input id="gen-end" type="time" value={gen.endTime} onChange={(e) => setGenField('endTime', e.target.value)} /></Field>
+            <Field label="Slot length (minutes)" required error={errors.slotDurationMinutes} htmlFor="gen-duration" hint="30 to 480"><Input id="gen-duration" type="number" min={30} max={480} step={30} value={gen.slotDurationMinutes} onChange={(e) => setGenField('slotDurationMinutes', e.target.value)} /></Field>
+            <Field label="Max jobs per slot" required error={errors.capacity} htmlFor="gen-capacity" hint="1 to 100"><Input id="gen-capacity" type="number" min={1} max={100} value={gen.capacity} onChange={(e) => setGenField('capacity', e.target.value)} /></Field>
+            <Field label="Working days" required error={errors.workingDays} className="sm:col-span-2">
               <div className="flex flex-wrap gap-1.5">
                 {WEEKDAYS.map((d, i) => {
                   const on = gen.workingDays.includes(i);
                   return (
-                    <button key={d} type="button" aria-pressed={on} onClick={() => setGen({ ...gen, workingDays: on ? gen.workingDays.filter((x) => x !== i) : [...gen.workingDays, i] })} className={cn('h-9 w-12 rounded-lg border text-xs font-semibold', on ? 'border-brand-blue bg-brand-blue text-white' : 'bg-white text-slate-600')}>
+                    <button key={d} type="button" aria-pressed={on} onClick={() => setGenField('workingDays', on ? gen.workingDays.filter((x) => x !== i) : [...gen.workingDays, i].sort())} className={cn('h-9 w-12 rounded-lg border text-xs font-semibold transition-colors', on ? 'border-brand-blue bg-brand-blue text-white' : 'bg-white text-slate-600 hover:border-brand-blue-200')}>
                       {d}
                     </button>
                   );
@@ -123,7 +155,7 @@ export default function SlotsPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGenOpen(false)}>Cancel</Button>
-            <Button loading={actions.generate.isPending} onClick={() => actions.generate.mutate({ branchId: effectiveBranch, ...gen }, { onSuccess: () => setGenOpen(false) })}>Generate</Button>
+            <Button loading={actions.generate.isPending} onClick={generate}>Generate</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

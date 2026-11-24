@@ -4,12 +4,15 @@
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CHART_COLORS } from '@/constants/ui';
-import { formatCompactMoney, formatMoney, formatNumber, humanize } from '@/lib/utils';
+import { formatCompactMoney, formatMoney, formatNumber, formatPeriod, humanize } from '@/lib/utils';
 import { EmptyState } from './common';
 import { BarChart3 } from 'lucide-react';
 
 const axis = { stroke: '#94A3B8', fontSize: 11.5, tickLine: false, axisLine: false } as const;
 const tooltipStyle = { borderRadius: 12, border: '1px solid #E2E8F0', boxShadow: '0 8px 24px rgba(15,31,61,0.10)', fontSize: 12.5 };
+/** Legend in the top-right corner keeps the plot area clean. */
+const legend = { iconType: 'circle', iconSize: 8, verticalAlign: 'top', align: 'right', height: 32, wrapperStyle: { fontSize: 12 } } as const;
+const periodLabel = (v: string) => formatPeriod(String(v));
 
 const NoData = () => <EmptyState icon={BarChart3} title="No data for this period" description="Data appears as bookings and invoices are recorded." className="py-10" />;
 
@@ -20,12 +23,12 @@ export const RevenueChart = ({ data }: { data: Array<{ month: string; revenue: n
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={data} margin={{ left: -10, right: 8, top: 8 }} barGap={6}>
         <CartesianGrid stroke="#EEF2F7" vertical={false} />
-        <XAxis dataKey="month" {...axis} />
+        <XAxis dataKey="month" {...axis} tickFormatter={periodLabel} />
         <YAxis {...axis} tickFormatter={formatCompactMoney} width={64} />
-        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} cursor={{ fill: '#F1F5F9' }} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="revenue" name="Billed" fill="#0048A8" radius={[6, 6, 0, 0]} maxBarSize={56} />
-        <Bar dataKey="collected" name="Collected" fill="#88C040" radius={[6, 6, 0, 0]} maxBarSize={56} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} labelFormatter={periodLabel} cursor={{ fill: '#F1F5F9' }} />
+        <Legend {...legend} />
+        <Bar dataKey="revenue" name="Billed" fill="#0048A8" radius={[6, 6, 0, 0]} maxBarSize={28} />
+        <Bar dataKey="collected" name="Collected" fill="#88C040" radius={[6, 6, 0, 0]} maxBarSize={28} />
       </BarChart>
     </ResponsiveContainer>
   ) : (
@@ -42,12 +45,12 @@ export const RevenueChart = ({ data }: { data: Array<{ month: string; revenue: n
           </linearGradient>
         </defs>
         <CartesianGrid stroke="#EEF2F7" vertical={false} />
-        <XAxis dataKey="month" {...axis} />
+        <XAxis dataKey="month" {...axis} tickFormatter={periodLabel} />
         <YAxis {...axis} tickFormatter={formatCompactMoney} width={64} />
-        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-        <Area type="monotone" dataKey="revenue" name="Billed" stroke="#0048A8" strokeWidth={2.2} fill="url(#rev)" />
-        <Area type="monotone" dataKey="collected" name="Collected" stroke="#6FA22F" strokeWidth={2.2} fill="url(#col)" />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatMoney(v)} labelFormatter={periodLabel} />
+        <Legend {...legend} />
+        <Area type="monotone" dataKey="revenue" name="Billed" stroke="#0048A8" strokeWidth={2.4} fill="url(#rev)" dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+        <Area type="monotone" dataKey="collected" name="Collected" stroke="#6FA22F" strokeWidth={2.4} fill="url(#col)" dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -57,15 +60,15 @@ export const BookingTrendChart = ({ data }: { data: Array<{ period: string; tota
     <NoData />
   ) : (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={data} margin={{ left: -18, right: 8, top: 8 }} barGap={2}>
+      <BarChart data={data} margin={{ left: -18, right: 8, top: 8 }} barGap={3} barCategoryGap="30%">
         <CartesianGrid stroke="#EEF2F7" vertical={false} />
-        <XAxis dataKey="period" {...axis} />
+        <XAxis dataKey="period" {...axis} tickFormatter={periodLabel} />
         <YAxis {...axis} allowDecimals={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: '#F1F5F9' }} />
-        <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="total" name="Total" fill="#0048A8" radius={[6, 6, 0, 0]} maxBarSize={40} />
-        <Bar dataKey="completed" name="Completed" fill="#88C040" radius={[6, 6, 0, 0]} maxBarSize={40} />
-        <Bar dataKey="cancelled" name="Cancelled" fill="#F87171" radius={[6, 6, 0, 0]} maxBarSize={40} />
+        <Tooltip contentStyle={tooltipStyle} labelFormatter={periodLabel} cursor={{ fill: '#F1F5F9' }} />
+        <Legend {...legend} />
+        <Bar dataKey="total" name="Total" fill="#0048A8" radius={[5, 5, 0, 0]} maxBarSize={18} />
+        <Bar dataKey="completed" name="Completed" fill="#88C040" radius={[5, 5, 0, 0]} maxBarSize={18} />
+        <Bar dataKey="cancelled" name="Cancelled" fill="#F87171" radius={[5, 5, 0, 0]} maxBarSize={18} />
       </BarChart>
     </ResponsiveContainer>
   );

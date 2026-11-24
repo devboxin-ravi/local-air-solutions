@@ -40,7 +40,7 @@ export default function InvoicesPage() {
     <>
       <PageHeader title="Invoices" description="GST invoices for completed jobs, AMC contracts and manual billing." breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Invoices' }]} actions={can('invoices.create') && <Button onClick={() => navigate(ROUTES.INVOICE_NEW)}><FilePlus2 /> Manual invoice</Button>} />
       {ids.length > 0 && (
-        <div className="sticky top-[84px] sm:top-[92px] lg:top-[148px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-blue-200 bg-brand-blue-50 px-4 py-2.5 shadow-sm animate-slide-down">
+        <div className="sticky top-[77px] lg:top-[97px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-blue-200 bg-brand-blue-50 px-4 py-2.5 shadow-sm animate-slide-down">
           <span className="text-[13px] font-semibold text-brand-blue-800">{ids.length} selected</span>
           <Button size="sm" variant="outline" loading={actions.share.isPending} onClick={() => actions.share.mutate({ invoiceIds: ids, channel: 'EMAIL', toCustomer: true })}><Mail /> Email customers</Button>
           <Button size="sm" variant="outline" onClick={() => actions.share.mutate({ invoiceIds: ids, channel: 'WHATSAPP' })}><MessageCircle className="text-green-600" /> WhatsApp</Button>

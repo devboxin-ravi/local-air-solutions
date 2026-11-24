@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +16,7 @@ import { ROUTES } from '@/constants/routes';
 import { formatMoney, toYmd } from '@/lib/utils';
 import { amcSchema, emptyToNull, type AmcForm } from '@/lib/validation';
 import type { Customer } from '@/types';
-import { Field, PageHeader, SectionCard } from '@/components/common';
+import { Field, FormCard, FormSection, PageHeader } from '@/components/common';
 import { ChipMultiSelect, CustomerPicker } from '@/components/Pickers';
 import { Button, Checkbox, Input, Label, NativeSelect, Textarea } from '@/components/ui/primitives';
 
@@ -32,13 +33,14 @@ export default function AmcFormPage() {
   const { data: branches } = useBranches({ activeOnly: true });
   const { data: services } = useServiceLookup();
   const actions = useAmcActions();
+  const { branchId: scopeBranchId } = useBranchScope();
 
   const form = useForm<AmcForm>({
     resolver: zodResolver(amcSchema),
     defaultValues: {
       customerId: 0,
       addressId: 0,
-      branchId: 0,
+      branchId: scopeBranchId ?? 0,
       productDetails: '',
       serviceIds: [],
       startDate: toYmd(today),
@@ -61,7 +63,11 @@ export default function AmcFormPage() {
     if (branchId) form.setValue('branchId', branchId);
   }, [selected, form]);
 
-  const onSubmit = form.handleSubmit((v) => actions.create.mutate(emptyToNull(v as Record<string, unknown>), { onSuccess: (a) => navigate(ROUTES.AMC_DETAIL(a.id)) }));
+  const onSubmit = form.handleSubmit((v) =>
+    actions.create.mutate(emptyToNull(v as Record<string, unknown>), {
+      onSuccess: (a) => navigate(ROUTES.AMC_DETAIL(a.id)),
+    }),
+  );
 
   return (
     <form onSubmit={onSubmit} noValidate>
@@ -69,10 +75,30 @@ export default function AmcFormPage() {
         title="Create AMC"
         description="Contracts start as drafts. Issue the invoice, record payment, and the AMC activates with visits scheduled automatically."
         breadcrumbs={[{ label: 'AMC', to: ROUTES.AMC }, { label: 'Create AMC' }]}
-        actions={<><Button type="button" variant="outline" onClick={() => navigate(ROUTES.AMC)}>Cancel</Button><Button type="submit" loading={actions.create.isPending}><Save /> Save draft</Button></>}
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={() => navigate(ROUTES.AMC)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={actions.create.isPending}>
+              <Save /> Save draft
+            </Button>
+          </>
+        }
       />
-      <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="Customer">
+      <FormCard
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => navigate(ROUTES.AMC)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={actions.create.isPending}>
+              <Save /> Save draft
+            </Button>
+          </>
+        }
+      >
+        <FormSection step={1} title="Customer" description="Who the contract is for, the service address and branch.">
           <div className="space-y-4">
             <Field label="Customer" required error={e.customerId?.message}>
               <CustomerPicker value={selected} options={results.data ?? []} loading={results.isFetching} search={search} onSearchChange={setSearch} onSelect={setCustomer} invalid={!!e.customerId} />
@@ -81,13 +107,21 @@ export default function AmcFormPage() {
               <Field label="Service address" required error={e.addressId?.message}>
                 <NativeSelect {...form.register('addressId')} disabled={!selected}>
                   <option value={0}>Select address</option>
-                  {selected?.addresses.map((a) => <option key={a.id} value={a.id}>{a.label} — {a.line1}</option>)}
+                  {selected?.addresses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label} — {a.line1}
+                    </option>
+                  ))}
                 </NativeSelect>
               </Field>
               <Field label="Branch" required error={e.branchId?.message}>
                 <NativeSelect {...form.register('branchId')}>
                   <option value={0}>Select branch</option>
-                  {branches?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {branches?.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
                 </NativeSelect>
               </Field>
             </div>
@@ -95,28 +129,45 @@ export default function AmcFormPage() {
               <Textarea {...form.register('productDetails')} maxLength={1000} className="min-h-[64px]" />
             </Field>
           </div>
-        </SectionCard>
-        <SectionCard title="Contract terms">
+        </FormSection>
+        <FormSection step={2} title="Contract terms" description="Duration, number of visits and contract value.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Start date" required error={e.startDate?.message}><Input type="date" {...form.register('startDate')} /></Field>
-            <Field label="End date" required error={e.endDate?.message}><Input type="date" {...form.register('endDate')} /></Field>
-            <Field label="Number of visits" required error={e.totalVisits?.message}><Input type="number" min={1} max={52} {...form.register('totalVisits')} /></Field>
-            <Field label="Visit every (months)" required error={e.visitFrequencyMonths?.message}><Input type="number" min={1} max={12} {...form.register('visitFrequencyMonths')} /></Field>
-            <Field label="Contract amount (₹)" required error={e.contractAmount?.message} hint={`Before GST · ${formatMoney(form.watch('contractAmount'))}`}><Input type="number" min={0} step="0.01" {...form.register('contractAmount')} /></Field>
-            <Controller control={form.control} name="applyGst" render={({ field }) => (
-              <label className="flex items-center gap-2.5 self-end rounded-lg border px-3 py-2.5"><Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} /><Label>Apply GST on AMC invoice</Label></label>
-            )} />
+            <Field label="Start date" required error={e.startDate?.message}>
+              <Input type="date" {...form.register('startDate')} />
+            </Field>
+            <Field label="End date" required error={e.endDate?.message}>
+              <Input type="date" {...form.register('endDate')} />
+            </Field>
+            <Field label="Number of visits" required error={e.totalVisits?.message}>
+              <Input type="number" min={1} max={52} {...form.register('totalVisits')} />
+            </Field>
+            <Field label="Visit every (months)" required error={e.visitFrequencyMonths?.message}>
+              <Input type="number" min={1} max={12} {...form.register('visitFrequencyMonths')} />
+            </Field>
+            <Field label="Contract amount (₹)" required error={e.contractAmount?.message} hint={`Before GST · ${formatMoney(form.watch('contractAmount'))}`}>
+              <Input type="number" min={0} step="0.01" {...form.register('contractAmount')} />
+            </Field>
+            <Controller
+              control={form.control}
+              name="applyGst"
+              render={({ field }) => (
+                <label className="flex items-center gap-2.5 self-end rounded-lg border px-3 py-2.5">
+                  <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+                  <Label>Apply GST on AMC invoice</Label>
+                </label>
+              )}
+            />
           </div>
-        </SectionCard>
-        <SectionCard title="Covered services" className="xl:col-span-2">
+        </FormSection>
+        <FormSection step={3} title="Covered services" description="Services included in every scheduled visit.">
           <Field error={e.serviceIds?.message}>
             <Controller control={form.control} name="serviceIds" render={({ field }) => <ChipMultiSelect options={services ?? []} value={field.value} onChange={field.onChange} />} />
           </Field>
-        </SectionCard>
-        <SectionCard title="Terms & conditions" className="xl:col-span-2">
+        </FormSection>
+        <FormSection step={4} title="Terms & conditions" description="Printed on the contract and its invoice.">
           <Textarea {...form.register('terms')} maxLength={10000} className="min-h-[120px]" />
-        </SectionCard>
-      </div>
+        </FormSection>
+      </FormCard>
     </form>
   );
 }

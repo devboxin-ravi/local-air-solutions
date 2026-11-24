@@ -122,6 +122,9 @@ abstract class HomeDefaults {
   static const String bannerTitle = 'Summer-ready AC';
   static const String bannerSubtitle = 'Deep cleaning & servicing for better cooling and lower bills';
   static const String bannerButtonText = 'Book now';
+
+  /// Short reassurance points shown under the home banner (from the app's onboarding promises).
+  static const List<String> trustPoints = ['Trained technicians', 'Clear pricing', 'GST invoices'];
 }
 
 abstract class Messages {

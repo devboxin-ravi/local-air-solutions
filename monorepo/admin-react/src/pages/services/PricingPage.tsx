@@ -7,8 +7,11 @@ import { History, IndianRupee } from 'lucide-react';
 import { useServiceActions, useServicePricing } from '@/hooks/useCatalog';
 import { useBranches, useServiceLookup } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { priceSchema } from '@/lib/validation';
 import { ROUTES } from '@/constants/routes';
 import { formatDateTime, formatMoney, humanize, priceLabel } from '@/lib/utils';
+import { SearchSelect } from '@/components/Pickers';
 import { Badge, EmptyState, Field, PageHeader, SectionCard } from '@/components/common';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
 
@@ -22,20 +25,28 @@ export default function PricingPage() {
   const actions = useServiceActions();
   const [branchId, setBranchId] = useState<string>('');
   const [price, setPrice] = useState('');
+  const { errors, validate, clear, fromServer } = useFormErrors();
 
-  const priceNum = Number(price);
-  const valid = price !== '' && priceNum >= 0 && Number.isFinite(priceNum);
+  const updatePrice = () => {
+    const parsed = validate(priceSchema, { price });
+    if (!parsed || !serviceId) return;
+    actions.setPrice.mutate({ id: serviceId, branchId: branchId ? Number(branchId) : null, price: parsed.price }, { onSuccess: () => setPrice(''), onError: (e) => fromServer(e) });
+  };
 
   return (
     <>
       <PageHeader title="Service Pricing" description="Set base prices and branch overrides. Every change is kept as history; existing bookings keep their price." breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: 'Pricing' }]} />
       <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-        <Card className="space-y-4 p-5 xl:sticky xl:top-36 xl:self-start">
+        <Card className="space-y-4 p-5 xl:sticky xl:top-[113px] xl:self-start">
           <Field label="Service">
-            <NativeSelect value={serviceId ?? ''} onChange={(e) => setServiceId(Number(e.target.value) || undefined)}>
-              <option value="">Select a service</option>
-              {services?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </NativeSelect>
+            <SearchSelect
+              id="pricing-service"
+              placeholder="Select a service"
+              searchPlaceholder="Type a service name or code…"
+              value={serviceId ?? null}
+              options={(services ?? []).map((s) => ({ value: s.id, label: s.name, hint: s.code, meta: priceLabel(s) }))}
+              onChange={(id) => setServiceId(id ?? undefined)}
+            />
           </Field>
           {service && (
             <>
@@ -52,10 +63,10 @@ export default function PricingPage() {
                       {branches?.map((b) => <option key={b.id} value={b.id}>{b.name} override</option>)}
                     </NativeSelect>
                   </Field>
-                  <Field label="New price (₹)">
-                    <Input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+                  <Field label="New price (₹)" required error={errors.price} htmlFor="new-price">
+                    <Input id="new-price" type="number" inputMode="decimal" min="0" step="0.01" placeholder="0.00" value={price} onChange={(e) => { setPrice(e.target.value); clear('price'); }} />
                   </Field>
-                  <Button className="w-full" disabled={!valid} loading={actions.setPrice.isPending} onClick={() => serviceId && actions.setPrice.mutate({ id: serviceId, branchId: branchId ? Number(branchId) : null, price: priceNum }, { onSuccess: () => setPrice('') })}>
+                  <Button className="w-full" loading={actions.setPrice.isPending} onClick={updatePrice}>
                     <IndianRupee /> Update price
                   </Button>
                 </>

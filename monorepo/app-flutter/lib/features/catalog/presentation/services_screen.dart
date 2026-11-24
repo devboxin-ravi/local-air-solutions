@@ -55,7 +55,7 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
                     scrollDirection: Axis.horizontal,
                     itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(width: Space.md),
-                    itemBuilder: (_, i) => SizedBox(width: 80, child: CategoryTile(category: list[i], onTap: () => context.push(AppRoutes.categoryPath(list[i].id), extra: list[i].name))),
+                    itemBuilder: (_, i) => SizedBox(width: 80, child: CategoryTile(category: list[i], index: i, onTap: () => context.push(AppRoutes.categoryPath(list[i].id), extra: list[i].name))),
                   ),
                 ),
                 loading: () => const SizedBox(height: 112),

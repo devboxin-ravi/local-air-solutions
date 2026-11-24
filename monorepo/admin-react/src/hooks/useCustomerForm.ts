@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useBranchScope } from './useBranchScope';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +20,7 @@ export type CustomerCreateForm = z.infer<typeof createSchema>;
 export function useCustomerForm(id?: number) {
   const navigate = useNavigate();
   const existing = useCustomer(id);
+  const { branchId: scopeBranchId } = useBranchScope();
   const actions = useCustomerActions();
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function useCustomerForm(id?: number) {
       mobile: '',
       email: '',
       alternateMobile: '',
-      branchId: '',
+      branchId: (scopeBranchId ?? '') as never,
       customerType: 'INDIVIDUAL',
       status: 'ACTIVE',
       notes: '',

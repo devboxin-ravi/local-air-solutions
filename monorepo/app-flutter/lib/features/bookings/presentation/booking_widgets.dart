@@ -17,11 +17,12 @@ class BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final (fg, bg) = StatusColors.of(booking.status);
     return AppCard(
       onTap: onTap,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          IconBox(booking.type == 'REPAIR' ? Icons.build_rounded : Icons.ac_unit_rounded, size: 40),
+          IconBox(booking.type == 'REPAIR' ? Icons.build_rounded : Icons.ac_unit_rounded, size: 44, color: fg, background: bg),
           const SizedBox(width: Space.md),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -31,15 +32,19 @@ class BookingCard extends StatelessWidget {
           ),
           StatusBadge(booking.status),
         ]),
-        const Padding(padding: EdgeInsets.symmetric(vertical: Space.md), child: Divider()),
-        Row(children: [
-          const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.slate),
-          const SizedBox(width: 6),
-          Text(Fmt.dateOnlyShort(booking.scheduledDate), style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.navy)),
-          if (booking.scheduledTime != null) Text('  ·  ${booking.scheduledTime}', style: t.bodySmall),
-          const Spacer(),
-          Text(booking.estimatedTotal > 0 ? Fmt.money(booking.estimatedTotal) : 'On inspection', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy)),
-        ]),
+        const SizedBox(height: Space.md),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: 10),
+          decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(Radii.md)),
+          child: Row(children: [
+            const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.blue),
+            const SizedBox(width: 6),
+            Text(Fmt.dateOnlyShort(booking.scheduledDate), style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.navy)),
+            if (booking.scheduledTime != null) Flexible(child: Text('  ·  ${booking.scheduledTime}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall)),
+            const Spacer(),
+            Text(booking.estimatedTotal > 0 ? Fmt.money(booking.estimatedTotal) : 'On inspection', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.blue)),
+          ]),
+        ),
         if (booking.technicianName != null) ...[
           const SizedBox(height: Space.sm),
           Row(children: [const Icon(Icons.engineering_rounded, size: 16, color: AppColors.green), const SizedBox(width: 6), Text(booking.technicianName!, style: t.bodySmall?.copyWith(fontWeight: FontWeight.w600))]),

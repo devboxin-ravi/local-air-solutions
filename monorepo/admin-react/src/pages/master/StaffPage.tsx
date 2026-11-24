@@ -10,7 +10,9 @@ import { useListState } from '@/hooks/useListState';
 import { useStaffActions, useStaffHistory, useStaffList } from '@/hooks/usePeople';
 import { errorMessage, fieldErrors, useBranches, useRoles, useServiceAreas, useSkills } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { ROUTES } from '@/constants/routes';
+import { LIMITS } from '@/constants/ui';
 import { formatDate, humanize, initials } from '@/lib/utils';
 import { emptyToNull, staffSchema, type StaffForm } from '@/lib/validation';
 import type { Staff } from '@/types';
@@ -21,10 +23,11 @@ import { ChipMultiSelect } from '@/components/Pickers';
 import { Avatar, Button, Input, Label, NativeSelect, Switch } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 
-const DEFAULTS: StaffForm = { name: '', mobile: '', email: '', password: '', roleCodes: ['TECHNICIAN'], designation: '', branchId: 0, experienceYears: 0, workStartTime: '09:00', workEndTime: '18:00', isTechnician: true, isAvailable: true, status: 'ACTIVE', skillIds: [], serviceAreaIds: [] };
+const DEFAULTS: StaffForm = { name: '', mobile: '', email: '', username: '', password: '', roleCodes: ['TECHNICIAN'], designation: '', branchId: 0, experienceYears: 0, workStartTime: '09:00', workEndTime: '18:00', isTechnician: true, isAvailable: true, status: 'ACTIVE', skillIds: [], serviceAreaIds: [] };
 
 export default function StaffPage() {
   const { can, user } = useAuth();
+  const { branchId: scopeBranchId } = useBranchScope();
   const list = useListState();
   const { data, isLoading, error, refetch } = useStaffList(list.query);
   const actions = useStaffActions();
@@ -41,12 +44,13 @@ export default function StaffPage() {
 
   useEffect(() => {
     setFormError(null);
-    if (editing === 'new') form.reset({ ...DEFAULTS, branchId: user?.isCompanyWide ? 0 : user?.branchId ?? 0 });
+    if (editing === 'new') form.reset({ ...DEFAULTS, branchId: user?.isCompanyWide ? scopeBranchId ?? 0 : user?.branchId ?? 0 });
     else if (editing)
       form.reset({
         name: editing.user.name,
         mobile: editing.user.mobile,
         email: editing.user.email ?? '',
+        username: editing.user.username ?? '',
         password: '',
         roleCodes: editing.user.roles.map((r) => r.role.code),
         designation: editing.designation ?? '',
@@ -60,7 +64,7 @@ export default function StaffPage() {
         skillIds: editing.skills.map((s) => s.skill.id),
         serviceAreaIds: editing.serviceAreas.map((a) => a.serviceArea.id),
       });
-  }, [editing, form, user]);
+  }, [editing, form, user, scopeBranchId]);
 
   const save = form.handleSubmit(async (v) => {
     const body = emptyToNull({ ...v, password: v.password || undefined } as Record<string, unknown>);
@@ -76,7 +80,7 @@ export default function StaffPage() {
 
   const columns: Column<Staff>[] = [
     { key: 'name', header: 'Staff', cell: (s) => <div className="flex items-center gap-3"><Avatar fallback={initials(s.user.name)} /><div><p className="font-semibold text-brand-navy">{s.user.name}</p><p className="text-xs text-muted-foreground">{s.staffCode} · {s.designation ?? '—'}</p></div></div> },
-    { key: 'contact', header: 'Contact', cell: (s) => <div><p>{s.user.mobile}</p><p className="text-xs text-muted-foreground">{s.user.email ?? '—'}</p></div> },
+    { key: 'contact', header: 'Contact', cell: (s) => <div><p>{s.user.mobile}</p><p className="text-xs text-muted-foreground">{s.user.username ? `@${s.user.username}` : s.user.email ?? '—'}</p></div> },
     { key: 'roles', header: 'Role', cell: (s) => <div className="flex flex-wrap gap-1">{s.user.roles.map((r) => <Badge key={r.role.id} tone={r.role.code === 'TECHNICIAN' ? 'blue' : 'violet'}>{r.role.name}</Badge>)}</div> },
     { key: 'branch', header: 'Branch', cell: (s) => s.branch.name },
     { key: 'skills', header: 'Skills', cell: (s) => <span className="line-clamp-1 max-w-[200px] text-xs text-slate-600">{s.skills.map((k) => k.skill.name).join(', ') || '—'}</span> },
@@ -111,7 +115,7 @@ export default function StaffPage() {
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent size="xl">
-          <DialogHeader title={editing === 'new' ? 'Add staff member' : `Edit ${editing ? editing.user.name : ''}`} description="A login is created with the mobile/email. Leave password empty to let them use “Forgot password”." />
+          <DialogHeader title={editing === 'new' ? 'Add staff member' : `Edit ${editing ? editing.user.name : ''}`} description="A login is created with the mobile/username. Leave password empty to let them use “Forgot password”." />
           <form onSubmit={save} noValidate className="flex min-h-0 flex-1 flex-col">
             <DialogBody>
               <Tabs defaultValue="profile">
@@ -124,6 +128,7 @@ export default function StaffPage() {
                   <Field label="Full name" required error={e.name?.message}><Input {...form.register('name')} maxLength={100} /></Field>
                   <Field label="Mobile" required error={e.mobile?.message}><Input {...form.register('mobile')} inputMode="numeric" maxLength={10} /></Field>
                   <Field label="Email" error={e.email?.message}><Input type="email" {...form.register('email')} /></Field>
+                  <Field label="Username" error={e.username?.message} hint="For login, e.g. ravi.k"><Input autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={LIMITS.USERNAME_MAX} {...form.register('username')} /></Field>
                   <Field label={editing === 'new' ? 'Password' : 'New password'} error={e.password?.message} hint="Min 8 chars, letter + number"><Input type="password" autoComplete="new-password" {...form.register('password')} /></Field>
                   <Field label="Designation" error={e.designation?.message}><Input {...form.register('designation')} maxLength={100} /></Field>
                   <Field label="Branch" required error={e.branchId?.message}>

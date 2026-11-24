@@ -28,9 +28,28 @@ class PrimaryButton extends StatelessWidget {
   final Color? color;
 
   @override
-  Widget build(BuildContext context) => FilledButton(
+  Widget build(BuildContext context) {
+    // Gradient fill + coloured glow; stays filled (not greyed) while loading.
+    final active = onPressed != null;
+    final tone = color ?? AppColors.blue;
+    return AnimatedContainer(
+      duration: Motion.medium,
+      curve: Motion.curve,
+      decoration: BoxDecoration(
+        gradient: active && color == null ? AppColors.ctaGradient : null,
+        color: active && color != null ? color : null,
+        borderRadius: BorderRadius.circular(Radii.button),
+        boxShadow: active && !loading ? AppShadows.glow(tone) : null,
+      ),
+      child: FilledButton(
         onPressed: loading ? null : onPressed,
-        style: color == null ? null : FilledButton.styleFrom(backgroundColor: color),
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: active ? Colors.transparent : AppColors.border,
+          disabledForegroundColor: active ? Colors.white : AppColors.slateLight,
+        ),
         child: AnimatedSwitcher(
           duration: Motion.fast,
           child: loading
@@ -40,28 +59,111 @@ class PrimaryButton extends StatelessWidget {
                   Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
                 ]),
         ),
-      );
+      ),
+    );
+  }
 }
 
+/// Surface card. White cards float on a soft layered shadow; tinted cards ([color]) sit flat.
 class AppCard extends StatelessWidget {
-  const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(Space.lg), this.onTap, this.color, this.border = true});
+  const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(Space.lg), this.onTap, this.color, this.border = true, this.gradient});
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
   final Color? color;
   final bool border;
+  final Gradient? gradient;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: color ?? AppColors.surface,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(Radii.lg),
-          child: Ink(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.lg), border: border ? Border.all(color: AppColors.border) : null),
-            child: Padding(padding: padding, child: child),
-          ),
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(Radii.lg);
+    final elevated = gradient == null && (color == null || color == AppColors.surface) && border;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: gradient,
+        color: gradient == null ? (color ?? AppColors.surface) : null,
+        boxShadow: elevated ? AppShadows.soft : (gradient != null ? AppShadows.glow(AppColors.blue) : null),
+        border: elevated ? Border.all(color: AppColors.borderSoft) : null,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(onTap: onTap, borderRadius: radius, child: Padding(padding: padding, child: child)),
+      ),
+    );
+  }
+}
+
+/// Paints soft translucent circles; place inside a [Stack] over a gradient to add depth.
+class DecorBubbles extends StatelessWidget {
+  const DecorBubbles({super.key, this.opacity = 0.10});
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) => Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _BubblePainter(opacity))));
+}
+
+class _BubblePainter extends CustomPainter {
+  const _BubblePainter(this.opacity);
+  final double opacity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()..color = Colors.white.withValues(alpha: opacity);
+    final ring = Paint()
+      ..color = Colors.white.withValues(alpha: opacity * 1.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(Offset(size.width * 0.95, size.height * 0.05), size.shortestSide * 0.6, fill);
+    canvas.drawCircle(Offset(size.width * 0.80, size.height * 1.0), size.shortestSide * 0.3, fill);
+    canvas.drawCircle(Offset(size.width * 0.04, size.height * 0.18), size.shortestSide * 0.24, ring);
+  }
+
+  @override
+  bool shouldRepaint(_BubblePainter old) => old.opacity != opacity;
+}
+
+/// Full-bleed gradient hero used at the top of dashboards and auth screens.
+class GradientHeader extends StatelessWidget {
+  const GradientHeader({super.key, required this.child, this.gradient = AppColors.brandGradient, this.bottomPadding = Space.xxl});
+  final Widget child;
+  final Gradient gradient;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(Radii.xxl + 4)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: gradient),
+          child: Stack(children: [
+            const DecorBubbles(),
+            Padding(
+              padding: EdgeInsets.fromLTRB(Space.page, MediaQuery.paddingOf(context).top + Space.lg, Space.page, bottomPadding),
+              child: child,
+            ),
+          ]),
+        ),
+      );
+}
+
+/// Round translucent icon button for use on gradient headers.
+class GlassIconButton extends StatelessWidget {
+  const GlassIconButton({super.key, required this.icon, required this.onPressed, this.tooltip, this.badge = 0});
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) => Badge(
+        isLabelVisible: badge > 0,
+        label: Text('$badge'),
+        backgroundColor: AppColors.green,
+        offset: const Offset(-2, 2),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.14),
+          shape: CircleBorder(side: BorderSide(color: Colors.white.withValues(alpha: 0.22))),
+          child: IconButton(onPressed: onPressed, tooltip: tooltip, icon: Icon(icon, color: Colors.white)),
         ),
       );
 }
@@ -109,17 +211,25 @@ class SectionHeader extends StatelessWidget {
 }
 
 class IconBox extends StatelessWidget {
-  const IconBox(this.icon, {super.key, this.color = AppColors.blue, this.background = AppColors.blueSoft, this.size = Sizes.iconBox});
+  const IconBox(this.icon, {super.key, this.color = AppColors.blue, this.background = AppColors.blueSoft, this.size = Sizes.iconBox, this.gradient});
   final IconData icon;
   final Color color;
   final Color background;
   final double size;
 
+  /// When set, fills the box with this gradient (pair with a white [color]).
+  final Gradient? gradient;
+
   @override
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(Radii.md)),
+        decoration: BoxDecoration(
+          color: gradient == null ? background : null,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(size * 0.32),
+          boxShadow: gradient == null ? null : AppShadows.glow(gradient!.colors.first),
+        ),
         child: Icon(icon, color: color, size: size * 0.5),
       );
 }
@@ -158,7 +268,7 @@ class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin 
   @override
   Widget build(BuildContext context) => FadeTransition(
         opacity: Tween(begin: 0.45, end: 1.0).animate(_c),
-        child: Container(height: widget.height, decoration: BoxDecoration(color: const Color(0xFFE8EDF4), borderRadius: BorderRadius.circular(Radii.lg))),
+        child: Container(height: widget.height, decoration: BoxDecoration(color: AppColors.borderSoft, borderRadius: BorderRadius.circular(Radii.lg))),
       );
 }
 
@@ -176,10 +286,10 @@ class EmptyView extends StatelessWidget {
           padding: const EdgeInsets.all(Space.xxxl),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(gradient: AppColors.freshGradient, borderRadius: BorderRadius.circular(Radii.xl)),
-              child: Icon(icon, size: 32, color: AppColors.blue),
+              width: 112,
+              height: 112,
+              decoration: const BoxDecoration(gradient: AppColors.freshGradient, shape: BoxShape.circle),
+              child: Center(child: IconBox(icon, size: 60, color: Colors.white, gradient: AppColors.brandGradient)),
             ),
             const SizedBox(height: Space.lg),
             Text(title, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),

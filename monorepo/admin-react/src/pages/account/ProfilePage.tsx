@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useChangePassword } from '@/hooks/useAccount';
-import { passwordField } from '@/lib/validation';
+import { changePasswordSchema } from '@/lib/validation';
+import { useFormErrors } from '@/hooks/useFormErrors';
 import { formatDateTime, initials } from '@/lib/utils';
 import { Badge, Field, KeyValue, PageHeader, SectionCard } from '@/components/common';
 import { Avatar, Button, Input } from '@/components/ui/primitives';
@@ -17,14 +18,22 @@ export default function ProfilePage() {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [err, setErr] = useState<string>();
+  const { errors, validate, clear, fromServer } = useFormErrors();
 
   const submit = () => {
-    const r = passwordField.safeParse(next);
-    if (!r.success) return setErr(r.error.issues[0].message);
-    if (next !== confirm) return setErr('Passwords do not match');
-    setErr(undefined);
-    change.mutate({ current, next }, { onSuccess: () => { setCurrent(''); setNext(''); setConfirm(''); } });
+    const parsed = validate(changePasswordSchema, { current, next, confirm });
+    if (!parsed) return;
+    change.mutate(
+      { current: parsed.current, next: parsed.next },
+      {
+        onSuccess: () => {
+          setCurrent('');
+          setNext('');
+          setConfirm('');
+        },
+        onError: (e) => fromServer(e),
+      },
+    );
   };
 
   if (!user) return null;
@@ -44,10 +53,16 @@ export default function ProfilePage() {
         </SectionCard>
         <SectionCard title="Change password" description="All other sessions are signed out after a change.">
           <div className="space-y-4">
-            <Field label="Current password"><Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></Field>
-            <Field label="New password" error={err}><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /></Field>
-            <Field label="Confirm new password"><Input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></Field>
-            <Button disabled={!current || !next} loading={change.isPending} onClick={submit}><KeyRound /> Update password</Button>
+            <Field label="Current password" required error={errors.current} htmlFor="pw-current">
+              <Input id="pw-current" type="password" autoComplete="current-password" value={current} onChange={(e) => { setCurrent(e.target.value); clear('current'); }} />
+            </Field>
+            <Field label="New password" required error={errors.next} htmlFor="pw-next" hint="At least 8 characters with a letter and a number">
+              <Input id="pw-next" type="password" autoComplete="new-password" value={next} onChange={(e) => { setNext(e.target.value); clear('next'); }} />
+            </Field>
+            <Field label="Confirm new password" required error={errors.confirm} htmlFor="pw-confirm">
+              <Input id="pw-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); clear('confirm'); }} />
+            </Field>
+            <Button loading={change.isPending} onClick={submit}><KeyRound /> Update password</Button>
           </div>
         </SectionCard>
       </div>

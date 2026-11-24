@@ -18,6 +18,7 @@ import {
   optionalEmail,
   optionalMobile,
   optionalTrimmed,
+  optionalUsername,
   password,
 } from './common';
 
@@ -51,6 +52,7 @@ export const staffSchema = z.object({
   name,
   mobile,
   email: optionalEmail,
+  username: optionalUsername,
   password: password.optional(),
   roleCodes: z.array(z.string().max(50)).min(1).default(['TECHNICIAN']),
   designation: optionalTrimmed(100),

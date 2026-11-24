@@ -11,9 +11,12 @@ import { config } from '../src/config';
 const prisma = new PrismaClient({ datasources: { db: { url: config.databaseUrl } } });
 const DEMO_PASSWORD = 'Demo@1234';
 
-async function userWithRole(data: { name: string; email: string; mobile: string; userType: 'ADMIN' | 'STAFF' | 'CUSTOMER'; branchId?: number }, roleCode: string) {
+async function userWithRole(data: { name: string; email: string; username?: string; mobile: string; userType: 'ADMIN' | 'STAFF' | 'CUSTOMER'; branchId?: number }, roleCode: string) {
   const existing = await prisma.user.findUnique({ where: { mobile: data.mobile } });
-  if (existing) return existing;
+  if (existing) {
+    if (data.username && !existing.username) return prisma.user.update({ where: { id: existing.id }, data: { username: data.username } });
+    return existing;
+  }
   const role = await prisma.role.findUniqueOrThrow({ where: { code: roleCode } });
   const user = await prisma.user.create({ data: { ...data, passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10) } });
   await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } });
@@ -36,9 +39,9 @@ async function main() {
     update: {},
   });
 
-  await userWithRole({ name: 'Demo Branch Manager', email: 'manager@demo.local', mobile: '9000000003', userType: 'ADMIN', branchId: branch.id }, 'BRANCH_MANAGER');
+  await userWithRole({ name: 'Demo Branch Manager', email: 'manager@demo.local', username: 'manager', mobile: '9000000003', userType: 'ADMIN', branchId: branch.id }, 'BRANCH_MANAGER');
 
-  const techUser = await userWithRole({ name: 'Ravi Technician (Demo)', email: 'tech@demo.local', mobile: '9000000004', userType: 'STAFF', branchId: branch.id }, 'TECHNICIAN');
+  const techUser = await userWithRole({ name: 'Ravi Technician (Demo)', email: 'tech@demo.local', username: 'tech', mobile: '9000000004', userType: 'STAFF', branchId: branch.id }, 'TECHNICIAN');
   const staff = await prisma.staffProfile.upsert({
     where: { userId: techUser.id },
     create: { userId: techUser.id, staffCode: 'STF-DEMO1', branchId: branch.id, designation: 'Senior Technician', experienceYears: 6 },

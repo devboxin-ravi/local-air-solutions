@@ -3,9 +3,9 @@
  */
 
 import { z } from 'zod';
-import { Limits } from '../constants';
-import { SettingKeys } from '../constants/settings';
-import { boolish, dateOnly, gstRate, id, listQuery, money, notes, optionalTrimmed, trimmed } from './common';
+import { Limits, Patterns, ValidationMessages } from '../constants';
+import { PaymentPolicies, SettingKeys, type SettingKey } from '../constants/settings';
+import { boolish, dateOnly, email, gstRate, hhmm, id, listQuery, mobile, money, notes, optionalTrimmed, trimmed } from './common';
 
 // ─── Invoices ───
 export const invoiceLineSchema = z.object({
@@ -180,6 +180,83 @@ export const settingKeyParams = z.object({
   key: z.enum(Object.values(SettingKeys) as [string, ...string[]]),
 });
 export const settingValueSchema = z.record(z.unknown()).refine((v) => JSON.stringify(v).length < 20000, 'Settings payload too large');
+
+/*
+ * Per-section rules. Every field is optional (a save may send part of a section; it is merged
+ * with the stored value), but whatever is sent must be valid. Unknown keys are dropped.
+ */
+const text = (max: number) => z.string().trim().max(max).optional();
+const blankOr = <T extends z.ZodTypeAny>(schema: T) => z.union([z.literal(''), schema]).optional();
+const intIn = (min: number, max: number) => z.coerce.number().int().min(min).max(max).optional();
+const flag = z.boolean().optional();
+const timeOfDay = hhmm.optional();
+
+export const settingValueSchemas: Record<SettingKey, z.ZodTypeAny> = {
+  company: z.object({
+    name: trimmed(Limits.NAME_MIN, Limits.NAME_MAX).optional(),
+    legalName: text(150),
+    tagline: text(150),
+    email: blankOr(email),
+    phone: blankOr(mobile),
+    website: blankOr(z.string().trim().url().max(200)),
+    address: text(Limits.ADDRESS_MAX),
+    gstin: blankOr(z.string().trim().toUpperCase().regex(Patterns.GSTIN, ValidationMessages.GSTIN)),
+    stateCode: blankOr(z.string().trim().regex(Patterns.GST_STATE_CODE, ValidationMessages.GST_STATE_CODE)),
+    logoUrl: text(500),
+    supportPhone: blankOr(mobile),
+    supportWhatsapp: blankOr(mobile),
+  }),
+  general: z.object({
+    timezone: trimmed(3, 64).optional(),
+    currency: z.string().trim().length(3).optional(),
+    dateFormat: text(30),
+    allowCustomerCancellationHours: intIn(0, 168),
+    requireCompletionOtp: flag,
+    technicianCanReject: flag,
+    showTechnicianPhoneToCustomer: flag,
+  }),
+  gst: z.object({
+    enabled: flag,
+    defaultRate: z.coerce.number().refine((v) => [0, 5, 12, 18, 28].includes(v), ValidationMessages.GST_RATE).optional(),
+    pricesIncludeGst: flag,
+    sacCode: blankOr(z.string().trim().regex(Patterns.SAC_CODE, ValidationMessages.SAC_CODE)),
+  }),
+  payment: z
+    .object({
+      policy: z.enum(Object.values(PaymentPolicies) as [string, ...string[]]).optional(),
+      upiEnabled: flag,
+      upiId: blankOr(z.string().trim().regex(Patterns.UPI_ID, ValidationMessages.UPI_ID)),
+      upiPayeeName: text(100),
+      razorpayEnabled: flag,
+      cashEnabled: flag,
+    })
+    .superRefine((v, ctx) => {
+      if (v.upiEnabled === true && v.upiId === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId'], message: 'UPI ID is required while UPI is enabled' });
+      if (v.upiEnabled === false && v.cashEnabled === false && v.razorpayEnabled === false) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cashEnabled'], message: 'Enable at least one payment method' });
+      }
+    }),
+  reminder: z.object({ enabled: flag, defaultIntervalMonths: intIn(1, 36), daysBeforeDue: intIn(0, 60), amcExpiryNoticeDays: intIn(0, 180) }),
+  notification: z.object({ inApp: flag, push: flag, email: flag, whatsapp: flag }),
+  whatsapp: z.object({ manualSharingEnabled: flag, cloudApiEnabled: flag, businessNumber: blankOr(mobile) }),
+  email: z.object({ sendBookingUpdates: flag, sendInvoices: flag, sendReminders: flag }),
+  appHome: z
+    .object({ bannerEnabled: flag, bannerTitle: text(60), bannerSubtitle: text(160), bannerButtonText: text(24), announcement: text(160) })
+    .superRefine((v, ctx) => {
+      if (v.bannerEnabled !== true) return;
+      if (v.bannerTitle === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerTitle'], message: 'Required while the banner is shown' });
+      if (v.bannerButtonText === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerButtonText'], message: 'Required while the banner is shown' });
+    }),
+  workingHours: z
+    .object({
+      workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
+      startTime: timeOfDay,
+      endTime: timeOfDay,
+      slotDurationMinutes: intIn(30, 480),
+      maxJobsPerSlot: intIn(1, 100),
+    })
+    .refine((v) => !v.startTime || !v.endTime || v.endTime > v.startTime, { message: ValidationMessages.END_AFTER_START, path: ['endTime'] }),
+};
 export const templateUpdateSchema = z.object({ subject: optionalTrimmed(200), body: trimmed(1, 5000).optional(), isActive: z.boolean().optional() });
 export const auditListQuery = listQuery.extend({
   entityType: z.string().max(50).optional(),

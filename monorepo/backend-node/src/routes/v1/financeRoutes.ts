@@ -7,7 +7,7 @@ import { z } from 'zod';
 import * as fin from '../../controllers/financeController';
 import * as eng from '../../controllers/engagementController';
 import { authenticate, requireAnyPermission, requirePermission, requireUserType } from '../../middleware/auth';
-import { validate } from '../../middleware/validate';
+import { validate, validateBodyBy } from '../../middleware/validate';
 import { perm } from '../../constants';
 import { REPORT_KEYS } from '../../constants/reports';
 import { idParams, listQuery } from '../../validations/common';
@@ -38,6 +38,7 @@ import {
   reportQuery,
   settingKeyParams,
   settingValueSchema,
+  settingValueSchemas,
   shareQuery,
   templateUpdateSchema,
 } from '../../validations/finance';
@@ -98,7 +99,7 @@ r.post('/notifications/read', authenticate, validate({ body: notificationReadSch
 
 // ─── Settings & audit ───
 r.get('/settings', authenticate, admin, requirePermission(perm('settings', 'view')), eng.getSettings);
-r.put('/settings/:key', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: settingKeyParams, body: settingValueSchema }), eng.updateSetting);
+r.put('/settings/:key', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: settingKeyParams, body: settingValueSchema }), validateBodyBy((req) => settingValueSchemas[req.params.key as keyof typeof settingValueSchemas]), eng.updateSetting);
 r.get('/notification-templates', authenticate, admin, requirePermission(perm('notifications', 'view')), eng.listTemplates);
 r.patch('/notification-templates/:id', authenticate, admin, requirePermission(perm('notifications', 'manage')), validate({ params: idParams, body: templateUpdateSchema }), eng.updateTemplate);
 r.get('/audit-logs', authenticate, admin, requirePermission(perm('auditLogs', 'view')), validate({ query: auditListQuery }), eng.listAuditLogs);

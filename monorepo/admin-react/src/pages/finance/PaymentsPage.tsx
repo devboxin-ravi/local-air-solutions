@@ -12,6 +12,8 @@ import { PAYMENT_METHODS } from '@/constants/ui';
 import { assetUrl, formatDate, formatDateTime, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Payment } from '@/types';
 import { ConfirmDialog, Field, PageHeader, StatusBadge } from '@/components/common';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { refundSchema } from '@/lib/validation';
 import { DataTable, type Column } from '@/components/DataTable';
 import { DateRange, FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button, Input, Textarea } from '@/components/ui/primitives';
@@ -26,6 +28,13 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
   const [note, setNote] = useState('');
   const [refund, setRefund] = useState<Payment | null>(null);
   const [refundAmount, setRefundAmount] = useState('');
+  const refundErrors = useFormErrors();
+  const submitRefund = () => {
+    if (!refund) return;
+    const parsed = refundErrors.validate(refundSchema(toNumber(refund.amount)), { amount: refundAmount, reason: note });
+    if (!parsed) return;
+    actions.refund.mutate({ id: refund.id, amount: parsed.amount, reason: parsed.reason }, { onSuccess: () => setRefund(null), onError: (e) => refundErrors.fromServer(e) });
+  };
 
   const columns: Column<Payment>[] = [
     { key: 'no', header: 'Payment', cell: (p) => <div><p className="font-semibold text-brand-navy">{p.paymentNumber}</p><p className="text-xs text-muted-foreground">{formatDateTime(p.createdAt ?? p.receivedAt)}</p></div> },
@@ -92,16 +101,20 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
         loading={actions.verify.isPending}
         onConfirm={(reason) => review && actions.verify.mutate({ id: review.payment.id, approve: review.approve, note: reason || note || undefined }, { onSuccess: () => setReview(null) })}
       />
-      <Dialog open={!!refund} onOpenChange={(o) => !o && setRefund(null)}>
+      <Dialog open={!!refund} onOpenChange={(o) => { if (!o) { setRefund(null); refundErrors.reset(); } }}>
         <DialogContent size="sm">
           <DialogHeader title="Record refund" description="Posts a REFUND entry to the ledger and re-opens the invoice balance." />
           <DialogBody className="space-y-4">
-            <Field label="Amount (₹)" required><Input type="number" min="0.01" max={toNumber(refund?.amount)} step="0.01" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} /></Field>
-            <Field label="Reason" required><Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} /></Field>
+            <Field label="Amount (₹)" required error={refundErrors.errors.amount} htmlFor="refund-amount" hint={refund ? `Up to ${formatMoney(refund.amount)}` : undefined}>
+              <Input id="refund-amount" type="number" inputMode="decimal" min="0.01" max={toNumber(refund?.amount)} step="0.01" value={refundAmount} onChange={(e) => { setRefundAmount(e.target.value); refundErrors.clear('amount'); }} />
+            </Field>
+            <Field label="Reason" required error={refundErrors.errors.reason} htmlFor="refund-reason" counter={{ value: note.length, max: 1000 }}>
+              <Textarea id="refund-reason" value={note} onChange={(e) => { setNote(e.target.value); refundErrors.clear('reason'); }} maxLength={1000} />
+            </Field>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRefund(null)}>Cancel</Button>
-            <Button variant="destructive" disabled={!(Number(refundAmount) > 0) || note.trim().length < 3} loading={actions.refund.isPending} onClick={() => refund && actions.refund.mutate({ id: refund.id, amount: Number(refundAmount), reason: note.trim() }, { onSuccess: () => setRefund(null) })}>Refund</Button>
+            <Button variant="destructive" loading={actions.refund.isPending} onClick={submitRefund}>Refund</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

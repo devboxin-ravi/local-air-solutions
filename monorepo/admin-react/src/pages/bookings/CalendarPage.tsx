@@ -95,7 +95,7 @@ export default function CalendarPage() {
             </div>
           )}
         </Card>
-        <SectionCard title={format(selected, 'EEEE, dd MMM')} description={`${dayBookings.length} booking(s)`} bodyClassName="p-0" className="xl:sticky xl:top-36 xl:self-start">
+        <SectionCard title={format(selected, 'EEEE, dd MMM')} description={`${dayBookings.length} booking(s)`} bodyClassName="p-0" className="xl:sticky xl:top-[113px] xl:self-start">
           {!dayBookings.length ? (
             <EmptyState title="No bookings" description="Nothing scheduled for this day." className="py-10" />
           ) : (

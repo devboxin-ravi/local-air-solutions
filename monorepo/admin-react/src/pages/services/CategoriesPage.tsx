@@ -7,6 +7,8 @@ import { ArrowDown, ArrowUp, FolderTree, Pencil, Plus, Trash2 } from 'lucide-rea
 import { useServiceActions } from '@/hooks/useCatalog';
 import { useCategories } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { categorySchema } from '@/lib/validation';
 import { ROUTES } from '@/constants/routes';
 import { LIMITS } from '@/constants/ui';
 import type { Category } from '@/types';
@@ -24,12 +26,18 @@ export default function CategoriesPage() {
   const [form, setForm] = useState(EMPTY);
   const [toDelete, setToDelete] = useState<Category | null>(null);
   const [order, setOrder] = useState<Category[]>([]);
+  const { errors, validate, clear, fromServer, reset } = useFormErrors();
+  const setField = <K extends keyof typeof EMPTY>(key: K, value: (typeof EMPTY)[K]) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    clear(key);
+  };
 
   useEffect(() => setOrder(data ?? []), [data]);
   useEffect(() => {
+    reset();
     if (editing === 'new') setForm(EMPTY);
     else if (editing) setForm({ name: editing.name, description: editing.description ?? '', icon: editing.icon ?? '', isActive: editing.isActive });
-  }, [editing]);
+  }, [editing, reset]);
 
   const move = (i: number, dir: -1 | 1) => {
     const next = [...order];
@@ -41,9 +49,12 @@ export default function CategoriesPage() {
   };
 
   const save = () => {
-    const body = { ...form, name: form.name.trim(), description: form.description.trim() || null, icon: form.icon.trim() || null };
-    if (editing === 'new') actions.createCategory.mutate(body, { onSuccess: () => setEditing(null) });
-    else if (editing) actions.updateCategory.mutate({ id: editing.id, body }, { onSuccess: () => setEditing(null) });
+    const parsed = validate(categorySchema, form);
+    if (!parsed) return;
+    const body = { ...parsed, description: parsed.description || null, icon: parsed.icon || null };
+    const handlers = { onSuccess: () => setEditing(null), onError: (e: unknown) => fromServer(e) };
+    if (editing === 'new') actions.createCategory.mutate(body, handlers);
+    else if (editing) actions.updateCategory.mutate({ id: editing.id, body }, handlers);
   };
 
   return (
@@ -92,21 +103,23 @@ export default function CategoriesPage() {
         <DialogContent>
           <DialogHeader title={editing === 'new' ? 'Add category' : 'Edit category'} />
           <DialogBody className="space-y-4">
-            <Field label="Name" required error={form.name.trim().length > 0 && form.name.trim().length < 2 ? 'Min 2 characters' : undefined}>
-              <Input value={form.name} maxLength={LIMITS.NAME_MAX} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+            <Field label="Name" required error={errors.name} htmlFor="category-name">
+              <Input id="category-name" value={form.name} maxLength={LIMITS.NAME_MAX} onChange={(e) => setField('name', e.target.value)} autoFocus />
             </Field>
-            <Field label="Description" counter={{ value: form.description.length, max: LIMITS.DESCRIPTION_MAX }}>
-              <Textarea value={form.description} maxLength={LIMITS.DESCRIPTION_MAX} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Field label="Description" error={errors.description} htmlFor="category-description" counter={{ value: form.description.length, max: LIMITS.DESCRIPTION_MAX }}>
+              <Textarea id="category-description" value={form.description} maxLength={LIMITS.DESCRIPTION_MAX} onChange={(e) => setField('description', e.target.value)} />
             </Field>
-            <Field label="Icon name" hint="Optional Lucide icon name used by the apps, e.g. air-vent"><Input value={form.icon} maxLength={50} onChange={(e) => setForm({ ...form, icon: e.target.value })} /></Field>
-            <div className="flex items-center justify-between rounded-lg border px-3.5 py-3">
+            <Field label="Icon name" error={errors.icon} htmlFor="category-icon" hint="Optional Lucide icon name used by the apps, e.g. air-vent">
+              <Input id="category-icon" value={form.icon} maxLength={50} onChange={(e) => setField('icon', e.target.value.toLowerCase())} />
+            </Field>
+            <div className="flex items-center justify-between rounded-xl border bg-slate-50/50 px-4 py-3">
               <Label>Active</Label>
-              <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+              <Switch checked={form.isActive} onCheckedChange={(v) => setField('isActive', v)} />
             </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button disabled={form.name.trim().length < 2} loading={actions.createCategory.isPending || actions.updateCategory.isPending} onClick={save}>Save</Button>
+            <Button loading={actions.createCategory.isPending || actions.updateCategory.isPending} onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

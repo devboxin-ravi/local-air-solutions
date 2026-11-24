@@ -23,3 +23,19 @@ export const validate =
       next(err);
     }
   };
+
+/**
+ * Body validation whose schema depends on the (already validated) request, e.g. a route
+ * parameter that selects the section being saved.
+ */
+export const validateBodyBy =
+  (pick: (req: Request) => ZodTypeAny | undefined) =>
+  (req: Request, _res: Response, next: NextFunction): void => {
+    try {
+      const schema = pick(req);
+      if (schema) req.body = schema.parse(req.body ?? {});
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };

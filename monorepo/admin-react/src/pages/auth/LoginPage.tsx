@@ -1,5 +1,5 @@
 /**
- * Admin login: centered card on a soft branded background, sign-in by mobile or email,
+ * Admin login: centered card on a soft branded background, sign-in by username or email,
  * show/hide password, OTP step, lockout/error feedback.
  */
 
@@ -8,21 +8,24 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
-import { AlertCircle, Copyright, Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react';
+import { AlertCircle, Copyright, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { errorMessage } from '@/hooks/useApi';
 import { ROUTES } from '@/constants/routes';
-import { MESSAGES, PATTERNS } from '@/constants/ui';
+import { LIMITS, MESSAGES, PATTERNS } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 import { BrandLogo, Field } from '@/components/common';
 import { Button, Input } from '@/components/ui/primitives';
 
-type Method = 'mobile' | 'email';
+type Method = 'username' | 'email';
 
 const schemaFor = (method: Method) =>
   z.object({
-    identifier: method === 'mobile' ? z.string().trim().regex(PATTERNS.MOBILE, MESSAGES.MOBILE) : z.string().trim().email('Enter a valid email'),
+    identifier:
+      method === 'username'
+        ? z.string().trim().toLowerCase().regex(PATTERNS.USERNAME, MESSAGES.USERNAME)
+        : z.string().trim().toLowerCase().email(MESSAGES.EMAIL).max(LIMITS.EMAIL_MAX),
     password: z.string().min(1, 'Enter your password'),
   });
 
@@ -47,7 +50,6 @@ const LoginBackground = () => (
       <path d="M0 90 C 240 20, 480 60, 720 70 S 1200 100, 1440 30 L 1440 160 L 0 160 Z" fill="#EEF4FD" fillOpacity="0.9" />
       <path d="M0 120 C 300 70, 560 120, 860 110 S 1260 80, 1440 100 L 1440 160 L 0 160 Z" fill="#F4F9EC" fillOpacity="0.9" />
     </svg>
-    <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-brand-blue via-brand-blue-400 to-brand-green-500" />
   </div>
 );
 
@@ -56,7 +58,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? ROUTES.DASHBOARD;
-  const [method, setMethod] = useState<Method>('mobile');
+  const [method, setMethod] = useState<Method>('username');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [otpUser, setOtpUser] = useState<number | null>(null);
@@ -115,7 +117,7 @@ export default function LoginPage() {
         </div>
         <div className="h-px bg-slate-200" />
 
-        <p className="mt-6 text-center text-[15px] text-slate-500">{otpUser ? 'Verify Your Sign In' : 'Sign In To Admin Panel'}</p>
+        {otpUser && <p className="mt-6 text-center text-[15px] text-slate-500">Verify Your Sign In</p>}
 
         {error && (
           <div role="alert" className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] text-red-700">
@@ -128,7 +130,7 @@ export default function LoginPage() {
             <div>
               <p className="mb-2 text-[13.5px] font-semibold text-slate-700">Sign In With</p>
               <div role="tablist" aria-label="Sign in method" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
-                {(['mobile', 'email'] as const).map((m) => (
+                {(['username', 'email'] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -140,28 +142,30 @@ export default function LoginPage() {
                       method === m ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-500 hover:text-brand-navy',
                     )}
                   >
-                    {m === 'mobile' ? 'Mobile' : 'Email'}
+                    {m === 'username' ? 'Username' : 'Email'}
                   </button>
                 ))}
               </div>
             </div>
 
-            <Field label={method === 'mobile' ? 'Mobile Number' : 'Email'} error={e.identifier?.message} htmlFor="identifier">
+            <Field label={method === 'username' ? 'Username' : 'Email'} error={e.identifier?.message} htmlFor="identifier">
               <div className="relative">
-                {method === 'mobile' ? (
-                  <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
+                {method === 'username' ? (
+                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
                 ) : (
                   <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
                 )}
                 <Input
                   id="identifier"
                   key={method}
-                  type={method === 'mobile' ? 'tel' : 'email'}
-                  inputMode={method === 'mobile' ? 'numeric' : 'email'}
-                  maxLength={method === 'mobile' ? 10 : 254}
+                  type={method === 'username' ? 'text' : 'email'}
+                  inputMode={method === 'username' ? 'text' : 'email'}
+                  maxLength={method === 'username' ? LIMITS.USERNAME_MAX : LIMITS.EMAIL_MAX}
+                  autoCapitalize="none"
+                  spellCheck={false}
                   autoComplete="username"
                   autoFocus
-                  placeholder={method === 'mobile' ? '10-digit mobile number' : 'Email address'}
+                  placeholder={method === 'username' ? 'Your username' : 'Email address'}
                   className={fieldClass}
                   aria-invalid={!!e.identifier}
                   {...form.register('identifier')}

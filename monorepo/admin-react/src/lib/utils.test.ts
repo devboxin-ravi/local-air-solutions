@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatMoney, humanize, initials, mapsDirectionsUrl, priceLabel } from './utils';
 import { customerSchema, paymentSchema, serviceSchema } from './validation';
-import { NAVIGATION } from '@/constants/navigation';
+import { NAVIGATION, SETTINGS_MENU } from '@/constants/navigation';
 
 describe('formatting helpers', () => {
   it('formats INR money', () => {
@@ -40,8 +40,12 @@ describe('form validation', () => {
 });
 
 describe('top navigation', () => {
-  it('has the 10 required modules in order with no sidebar', () => {
-    expect(NAVIGATION.map((m) => m.label)).toEqual(['Dashboard', 'Bookings', 'Services', 'Assignments', 'Customers', 'AMC', 'Finance', 'Reports', 'Master Data', 'Settings']);
+  it('has the 9 top-bar modules in order with no sidebar', () => {
+    expect(NAVIGATION.map((m) => m.label)).toEqual(['Dashboard', 'Bookings', 'Services', 'Assignments', 'Customers', 'AMC', 'Finance', 'Reports', 'Master Data']);
+  });
+  it('keeps Settings out of the top bar, in the profile menu', () => {
+    expect(SETTINGS_MENU.permission).toBeTruthy();
+    expect(SETTINGS_MENU.children.length).toBeGreaterThan(0);
   });
   it('every module has a permission and submenu items', () => {
     NAVIGATION.forEach((m) => {

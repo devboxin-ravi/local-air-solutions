@@ -12,7 +12,7 @@ import { fieldErrors, useBranches, useCategories, useSkills, errorMessage } from
 import { ROUTES } from '@/constants/routes';
 import { LIMITS, PRICING_TYPES } from '@/constants/ui';
 import { emptyToNull, serviceSchema, type ServiceForm } from '@/lib/validation';
-import { ErrorState, Field, LoadingBlock, PageHeader, SectionCard } from '@/components/common';
+import { ErrorState, Field, FormCard, FormSection, LoadingBlock, PageHeader } from '@/components/common';
 import { ChipMultiSelect } from '@/components/Pickers';
 import { Button, Input, Label, NativeSelect, Switch, Textarea } from '@/components/ui/primitives';
 import { toast } from 'sonner';
@@ -45,7 +45,10 @@ export default function ServiceFormPage() {
   const { data: skills } = useSkills();
   const { data: branches } = useBranches();
   const actions = useServiceActions();
-  const form = useForm<ServiceForm>({ resolver: zodResolver(serviceSchema), defaultValues: DEFAULTS });
+  const form = useForm<ServiceForm>({
+    resolver: zodResolver(serviceSchema),
+    defaultValues: DEFAULTS,
+  });
   const e = form.formState.errors;
   const pricingType = form.watch('pricingType');
   const gstApplicable = form.watch('gstApplicable');
@@ -75,7 +78,10 @@ export default function ServiceFormPage() {
   }, [existing.data, form]);
 
   const onSubmit = form.handleSubmit(async (v) => {
-    const body = emptyToNull({ ...v, basePrice: v.pricingType === 'FREE' || v.pricingType === 'QUOTATION' ? 0 : v.basePrice });
+    const body = emptyToNull({
+      ...v,
+      basePrice: v.pricingType === 'FREE' || v.pricingType === 'QUOTATION' ? 0 : v.basePrice,
+    });
     try {
       if (id) await actions.update.mutateAsync({ id, body });
       else await actions.create.mutateAsync(body);
@@ -97,76 +103,138 @@ export default function ServiceFormPage() {
         breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: id ? 'Edit' : 'Add Service' }]}
         actions={
           <>
-            <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SERVICES)}>Cancel</Button>
-            <Button type="submit" loading={form.formState.isSubmitting}><Save /> Save service</Button>
+            <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SERVICES)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={form.formState.isSubmitting}>
+              <Save /> Save service
+            </Button>
           </>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-        <div className="space-y-6">
-          <SectionCard title="Details">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Service name" required error={e.name?.message}><Input {...form.register('name')} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.name} /></Field>
-              <Field label="Service code" required error={e.code?.message} hint="Unique, e.g. AC-GEN-SVC"><Input {...form.register('code')} className="uppercase" maxLength={30} aria-invalid={!!e.code} /></Field>
-              <Field label="Category" required error={e.categoryId?.message}>
-                <NativeSelect {...form.register('categoryId')} aria-invalid={!!e.categoryId}>
-                  <option value={0}>Select category</option>
-                  {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}{c.isActive ? '' : ' (inactive)'}</option>)}
-                </NativeSelect>
-              </Field>
-              <Field label="Estimated duration (minutes)" required error={e.durationMinutes?.message}><Input type="number" min={10} step={5} {...form.register('durationMinutes')} /></Field>
-              <Field label="Description" className="sm:col-span-2" error={e.description?.message} counter={{ value: (form.watch('description') ?? '').length, max: LIMITS.DESCRIPTION_MAX }}>
-                <Textarea {...form.register('description')} maxLength={LIMITS.DESCRIPTION_MAX} />
-              </Field>
-              <Field label="Image URL" className="sm:col-span-2" error={e.imageUrl?.message} hint="Optional HTTPS image shown in the customer app"><Input {...form.register('imageUrl')} placeholder="https://…" /></Field>
-            </div>
-          </SectionCard>
+      <FormCard
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => navigate(ROUTES.SERVICES)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={form.formState.isSubmitting}>
+              <Save /> Save service
+            </Button>
+          </>
+        }
+      >
+        <FormSection step={1} title="Details" description="Name, code, category and how long the job takes.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Service name" required error={e.name?.message}>
+              <Input {...form.register('name')} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.name} />
+            </Field>
+            <Field label="Service code" required error={e.code?.message} hint="Unique, e.g. AC-GEN-SVC">
+              <Input {...form.register('code')} className="uppercase" maxLength={30} aria-invalid={!!e.code} />
+            </Field>
+            <Field label="Category" required error={e.categoryId?.message}>
+              <NativeSelect {...form.register('categoryId')} aria-invalid={!!e.categoryId}>
+                <option value={0}>Select category</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.isActive ? '' : ' (inactive)'}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Estimated duration (minutes)" required error={e.durationMinutes?.message}>
+              <Input type="number" min={10} step={5} {...form.register('durationMinutes')} />
+            </Field>
+            <Field
+              label="Description"
+              className="sm:col-span-2"
+              error={e.description?.message}
+              counter={{
+                value: (form.watch('description') ?? '').length,
+                max: LIMITS.DESCRIPTION_MAX,
+              }}
+            >
+              <Textarea {...form.register('description')} maxLength={LIMITS.DESCRIPTION_MAX} />
+            </Field>
+            <Field label="Image URL" className="sm:col-span-2" error={e.imageUrl?.message} hint="Optional HTTPS image shown in the customer app">
+              <Input {...form.register('imageUrl')} placeholder="https://…" />
+            </Field>
+          </div>
+        </FormSection>
 
-          <SectionCard title="Pricing & tax" description="Changing the price never alters existing bookings or invoices.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Pricing type" required>
-                <NativeSelect {...form.register('pricingType')}>{PRICING_TYPES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</NativeSelect>
-              </Field>
-              <Field label="Base price (₹)" required={pricingType === 'FIXED' || pricingType === 'STARTING'} error={e.basePrice?.message}>
-                <Input type="number" step="0.01" min="0" disabled={pricingType === 'FREE' || pricingType === 'QUOTATION'} {...form.register('basePrice')} aria-invalid={!!e.basePrice} />
-              </Field>
-              <ToggleRow control={form.control} name="gstApplicable" label="GST applicable" />
-              <Field label="GST rate (%)" error={e.gstRate?.message}>
-                <NativeSelect {...form.register('gstRate')} disabled={!gstApplicable}>{[0, 5, 12, 18, 28].map((r) => <option key={r} value={r}>{r}%</option>)}</NativeSelect>
-              </Field>
-            </div>
-          </SectionCard>
+        <FormSection step={2} title="Pricing & tax" description="Changing the price never alters existing bookings or invoices.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Pricing type" required>
+              <NativeSelect {...form.register('pricingType')}>
+                {PRICING_TYPES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Base price (₹)" required={pricingType === 'FIXED' || pricingType === 'STARTING'} error={e.basePrice?.message}>
+              <Input type="number" step="0.01" min="0" disabled={pricingType === 'FREE' || pricingType === 'QUOTATION'} {...form.register('basePrice')} aria-invalid={!!e.basePrice} />
+            </Field>
+            <ToggleRow control={form.control} name="gstApplicable" label="GST applicable" />
+            <Field label="GST rate (%)" error={e.gstRate?.message}>
+              <NativeSelect {...form.register('gstRate')} disabled={!gstApplicable}>
+                {[0, 5, 12, 18, 28].map((r) => (
+                  <option key={r} value={r}>
+                    {r}%
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
+        </FormSection>
 
-          <SectionCard title="Required technician skills" description="Used to suggest the right technician.">
-            <Controller control={form.control} name="skillIds" render={({ field }) => <ChipMultiSelect options={skills ?? []} value={field.value} onChange={field.onChange} emptyText="Add skills in Master Data first." />} />
-          </SectionCard>
+        <FormSection step={3} title="Technician skills" description="Used to suggest the right technician.">
+          <Controller
+            control={form.control}
+            name="skillIds"
+            render={({ field }) => <ChipMultiSelect options={skills ?? []} value={field.value} onChange={field.onChange} emptyText="Add skills in Master Data first." />}
+          />
+        </FormSection>
 
-          <SectionCard title="Branch availability" description="Leave empty to offer this service in every branch.">
-            <Controller control={form.control} name="branchIds" render={({ field }) => <ChipMultiSelect options={branches ?? []} value={field.value} onChange={field.onChange} emptyText="No branches yet." />} />
-          </SectionCard>
-        </div>
-        <div className="space-y-6 xl:sticky xl:top-36 xl:self-start">
-          <SectionCard title="Visibility">
-            <div className="space-y-4">
-              <ToggleRow control={form.control} name="isActive" label="Active" hint="Inactive services are hidden from booking" />
-              <ToggleRow control={form.control} name="isPopular" label="Popular service" hint="Highlighted on the customer home screen" />
-            </div>
-          </SectionCard>
-          <SectionCard title="Service reminders">
-            <div className="space-y-4">
-              <ToggleRow control={form.control} name="reminderEligible" label="Create reminder after completion" />
-              <Field label="Interval (months)" hint="Empty = company default (6 months)" error={e.reminderIntervalMonths?.message}>
-                <Input type="number" min={1} max={36} disabled={!reminderEligible} {...form.register('reminderIntervalMonths')} />
-              </Field>
-            </div>
-          </SectionCard>
-        </div>
-      </div>
+        <FormSection step={4} title="Branch availability" description="Leave empty to offer this service in every branch.">
+          <Controller
+            control={form.control}
+            name="branchIds"
+            render={({ field }) => <ChipMultiSelect options={branches ?? []} value={field.value} onChange={field.onChange} emptyText="No branches yet." />}
+          />
+        </FormSection>
+        <FormSection step={5} title="Visibility" description="Whether customers can book it and if it is featured.">
+          <div className="space-y-4">
+            <ToggleRow control={form.control} name="isActive" label="Active" hint="Inactive services are hidden from booking" />
+            <ToggleRow control={form.control} name="isPopular" label="Popular service" hint="Highlighted on the customer home screen" />
+          </div>
+        </FormSection>
+        <FormSection step={6} title="Service reminders" description="Follow-up reminder to the customer after the job.">
+          <div className="space-y-4">
+            <ToggleRow control={form.control} name="reminderEligible" label="Create reminder after completion" />
+            <Field label="Interval (months)" hint="Empty = company default (6 months)" error={e.reminderIntervalMonths?.message}>
+              <Input type="number" min={1} max={36} disabled={!reminderEligible} {...form.register('reminderIntervalMonths')} />
+            </Field>
+          </div>
+        </FormSection>
+      </FormCard>
     </form>
   );
 }
 
-const ToggleRow = ({ control, name, label, hint }: { control: ReturnType<typeof useForm<ServiceForm>>['control']; name: 'gstApplicable' | 'isActive' | 'isPopular' | 'reminderEligible'; label: string; hint?: string }) => (
+const ToggleRow = ({
+  control,
+  name,
+  label,
+  hint,
+}: {
+  control: ReturnType<typeof useForm<ServiceForm>>['control'];
+  name: 'gstApplicable' | 'isActive' | 'isPopular' | 'reminderEligible';
+  label: string;
+  hint?: string;
+}) => (
   <Controller
     control={control}
     name={name}

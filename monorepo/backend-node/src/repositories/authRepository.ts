@@ -16,7 +16,7 @@ export type UserWithAccess = Prisma.UserGetPayload<{ include: typeof userAuthInc
 export class AuthRepository {
   findByIdentifier(identifier: string, db: Db = prisma): Promise<UserWithAccess | null> {
     return db.user.findFirst({
-      where: { deletedAt: null, OR: [{ email: identifier }, { mobile: identifier }] },
+      where: { deletedAt: null, OR: [{ email: identifier }, { mobile: identifier }, { username: identifier }] },
       include: userAuthInclude,
     });
   }

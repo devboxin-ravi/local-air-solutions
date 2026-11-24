@@ -38,12 +38,12 @@ class ServiceThumb extends StatelessWidget {
     final fallback = Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(gradient: AppColors.freshGradient, borderRadius: BorderRadius.circular(Radii.md)),
+      decoration: BoxDecoration(gradient: AppColors.freshGradient, borderRadius: BorderRadius.circular(Radii.lg)),
       child: Icon(iconForCategory(service.categoryName), color: AppColors.blue, size: size * 0.45),
     );
     if (service.imageUrl == null || service.imageUrl!.isEmpty) return fallback;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(Radii.md),
+      borderRadius: BorderRadius.circular(Radii.lg),
       child: CachedNetworkImage(imageUrl: service.imageUrl!, width: size, height: size, fit: BoxFit.cover, placeholder: (_, __) => fallback, errorWidget: (_, __, ___) => fallback),
     );
   }
@@ -62,25 +62,39 @@ class ServiceCard extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.all(Space.md),
       child: Row(children: [
-        ServiceThumb(service: service),
+        ServiceThumb(service: service, size: 72),
         const SizedBox(width: Space.md),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(service.name, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
             Row(children: [
-              Flexible(child: Text(service.name, style: t.titleSmall, maxLines: 2, overflow: TextOverflow.ellipsis)),
-              if (service.isPopular) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 16)),
+              const Icon(Icons.schedule_rounded, size: 13, color: AppColors.slateLight),
+              const SizedBox(width: 3),
+              Text('${service.durationMinutes} min', style: t.bodySmall),
+              if (service.isPopular) ...[
+                const SizedBox(width: Space.sm),
+                const Icon(Icons.star_rounded, color: AppColors.star, size: 14),
+                const SizedBox(width: 2),
+                Text('Popular', style: t.bodySmall?.copyWith(color: AppColors.amber, fontWeight: FontWeight.w700)),
+              ],
             ]),
-            const SizedBox(height: 3),
-            Text('${service.durationMinutes} min · ${service.categoryName}', style: t.bodySmall),
-            const SizedBox(height: 6),
-            Text(priceText(service), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.blue, fontSize: 15)),
+            const SizedBox(height: Space.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.blueSoft, borderRadius: BorderRadius.circular(Radii.pill)),
+              child: Text(priceText(service), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.blue, fontSize: 13.5)),
+            ),
           ]),
         ),
         if (onBook != null)
-          FilledButton(
-            onPressed: onBook,
-            style: FilledButton.styleFrom(minimumSize: const Size(72, 40), padding: const EdgeInsets.symmetric(horizontal: 14), backgroundColor: AppColors.green),
-            child: const Text('Book'),
+          DecoratedBox(
+            decoration: BoxDecoration(gradient: AppColors.greenGradient, borderRadius: BorderRadius.circular(Radii.pill), boxShadow: AppShadows.glow(AppColors.green)),
+            child: FilledButton(
+              onPressed: onBook,
+              style: FilledButton.styleFrom(minimumSize: const Size(72, 40), padding: const EdgeInsets.symmetric(horizontal: 16), backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: const StadiumBorder()),
+              child: const Text('Book'),
+            ),
           ),
       ]),
     );
@@ -88,23 +102,34 @@ class ServiceCard extends StatelessWidget {
 }
 
 class CategoryTile extends StatelessWidget {
-  const CategoryTile({super.key, required this.category, required this.onTap});
+  const CategoryTile({super.key, required this.category, required this.onTap, this.index = 0});
   final Category category;
   final VoidCallback onTap;
 
+  /// Position in the list; picks the tile's colour so neighbouring categories differ.
+  final int index;
+
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        child: Column(children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.lg), border: Border.all(color: AppColors.border), boxShadow: AppShadows.card),
-            child: Icon(iconForCategory(category.name), color: AppColors.blue, size: 30),
+  Widget build(BuildContext context) {
+    final (fg, bg) = AppColors.tintAt(index);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Radii.lg),
+      child: Column(children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(Radii.xl),
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: fg.withValues(alpha: 0.14), blurRadius: 12, offset: const Offset(0, 5))],
           ),
-          const SizedBox(height: Space.sm),
-          Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.navy, height: 1.2)),
-        ]),
-      );
+          child: Icon(iconForCategory(category.name), color: fg, size: 30),
+        ),
+        const SizedBox(height: Space.sm),
+        Text(category.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navy, height: 1.2)),
+      ]),
+    );
+  }
 }

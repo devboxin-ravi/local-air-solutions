@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, ChevronRight, Inbox, RefreshCw, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowUpRight, ChevronRight, Inbox, RefreshCw, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import { cn, humanize } from '@/lib/utils';
 import { GENERIC_STATUS_TONE, type Tone } from '@/constants/ui';
 import { Button, Card, Label, Textarea } from './ui/primitives';
@@ -209,6 +209,48 @@ export const StatCard = ({
   );
 };
 
+// ─── Single-card forms ───
+/** One card holding a whole form; sections are separated by dividers, optional footer for actions. */
+export const FormCard = ({ children, footer, className }: { children: React.ReactNode; footer?: React.ReactNode; className?: string }) => (
+  <Card className={cn('overflow-hidden', className)}>
+    <div className="divide-y divide-border/70">{children}</div>
+    {footer && <div className="flex flex-col-reverse gap-2 border-t bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">{footer}</div>}
+  </Card>
+);
+
+/** A titled step inside a FormCard: heading on the left (desktop) or on top (mobile), fields beside it. */
+export const FormSection = ({
+  step,
+  title,
+  description,
+  actions,
+  children,
+  className,
+}: {
+  step?: number;
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <section className={cn('grid gap-5 px-5 py-6 sm:px-6 xl:grid-cols-[230px_minmax(0,1fr)] xl:gap-10', className)}>
+    <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        {step !== undefined && (
+          <span className="num flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-blue-50 text-[12px] font-bold text-brand-blue ring-1 ring-brand-blue-100">{step}</span>
+        )}
+        <div className="min-w-0 pt-0.5">
+          <h3 className="font-display text-[15px] font-bold leading-tight text-brand-navy">{title}</h3>
+          {description && <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">{description}</p>}
+        </div>
+      </div>
+      {actions && <div className={cn('mt-3 flex flex-wrap gap-2', step !== undefined && 'pl-10')}>{actions}</div>}
+    </div>
+    <div className="min-w-0">{children}</div>
+  </section>
+);
+
 // ─── Form field wrapper ───
 export const Field = ({
   label,
@@ -229,7 +271,15 @@ export const Field = ({
   className?: string;
   children: React.ReactNode;
 }) => (
-  <div className={cn('space-y-1.5', className)}>
+  <div
+    data-invalid={error ? 'true' : undefined}
+    className={cn(
+      'space-y-1.5',
+      // Invalid: red outline on whatever control sits inside (input, select, textarea, picker button).
+      error && '[&_:is(input,select,textarea,button[aria-haspopup])]:border-red-400 [&_:is(input,select,textarea,button[aria-haspopup])]:bg-red-50/40 [&_:is(input,select,textarea)]:focus-visible:ring-red-200',
+      className,
+    )}
+  >
     {(label || counter) && (
       <div className="flex items-center justify-between">
         {label && (
@@ -242,7 +292,14 @@ export const Field = ({
       </div>
     )}
     {children}
-    {error ? <p className="text-[12px] font-medium text-red-600">{error}</p> : hint ? <p className="text-[12px] text-muted-foreground">{hint}</p> : null}
+    {error ? (
+      <p role="alert" className="flex items-start gap-1.5 text-[12px] font-medium text-red-600">
+        <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+        {error}
+      </p>
+    ) : hint ? (
+      <p className="text-[12px] text-muted-foreground">{hint}</p>
+    ) : null}
   </div>
 );
 
@@ -281,7 +338,7 @@ export const ConfirmDialog = ({
         <DialogHeader title={title} description={description} />
         {requireReason && (
           <DialogBody>
-            <Field label={reasonLabel} required counter={{ value: reason.length, max: 1000 }}>
+            <Field label={reasonLabel} required hint="At least 3 characters" counter={{ value: reason.length, max: 1000 }}>
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} autoFocus />
             </Field>
           </DialogBody>
