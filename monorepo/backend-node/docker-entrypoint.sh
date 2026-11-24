@@ -32,13 +32,14 @@ else
 fi
 
 if [ "${RUN_SEED:-true}" = "true" ]; then
-  echo "[entrypoint] Running prisma seed..."
-  # Seed is idempotent; do not block API boot if it fails after migrations
-  if ! npx ts-node --transpile-only prisma/seed.ts; then
-    echo "[entrypoint] WARNING: seed failed — starting API anyway. Check logs / SEED_* env." >&2
-  else
-    echo "[entrypoint] Seed complete."
+  echo "[entrypoint] Running compiled seed (SEED_ADMIN_* from env)..."
+  if [ ! -f dist-seed/prisma/seed.js ]; then
+    echo "[entrypoint] ERROR: dist-seed/prisma/seed.js missing — rebuild the image." >&2
+    exit 1
   fi
+  # Fail hard so Coolify does not serve an API without Super Admin
+  node dist-seed/prisma/seed.js
+  echo "[entrypoint] Seed complete."
 else
   echo "[entrypoint] Skipping seed (RUN_SEED!=true)."
 fi

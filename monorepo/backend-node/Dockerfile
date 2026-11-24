@@ -1,5 +1,5 @@
 # =========================
-# Stage 1: Build the server
+# Stage 1: Build the server + seed
 # =========================
 FROM node:20-alpine AS builder
 
@@ -16,7 +16,7 @@ COPY . ./
 # Generate Prisma client (includes linux-musl-openssl-3.0.x from schema)
 RUN npx prisma generate
 
-# Build the server (tsc outputs to dist/)
+# Build API (dist/) + compiled seed (dist-seed/) — no ts-node at runtime
 RUN npm run build
 
 # =========================
@@ -31,18 +31,16 @@ WORKDIR /app
 
 COPY package*.json ./
 
-# Production deps + tools needed at startup for migrate/seed
+# Production deps + Prisma CLI for migrate deploy
 RUN npm install --omit=dev \
-  && npm install prisma@5.22.0 ts-node@10.9.2 typescript@5.3.2 --no-save
+  && npm install prisma@5.22.0 --no-save
 
 # Prisma schema + migrations (required for migrate deploy)
 COPY --from=builder /app/prisma ./prisma
 
-# App source needed by seed.ts (imports src/config + constants)
-COPY --from=builder /app/src ./src
-
-# Compiled server
+# Compiled API + compiled seed (uses SEED_* env at runtime)
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-seed ./dist-seed
 
 # Entrypoint: migrate → seed → start
 COPY docker-entrypoint.sh ./
