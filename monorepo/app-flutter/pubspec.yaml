@@ -30,6 +30,9 @@ dependencies:
   intl: ^0.20.2
   cached_network_image: ^4.0.3
   google_fonts: ^8.2.1
+  image_cropper: ^12.2.1
+  geolocator: ^14.1.2
+  geocoding: ^5.0.1
 
 dev_dependencies:
   flutter_test:

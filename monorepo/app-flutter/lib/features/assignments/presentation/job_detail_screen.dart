@@ -13,6 +13,8 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/utils/launcher.dart';
 import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
+import '../../bookings/presentation/booking_widgets.dart';
+import '../../catalog/presentation/catalog_providers.dart';
 import '../domain/job_entities.dart';
 import 'job_providers.dart';
 import 'tech_screens.dart';
@@ -41,6 +43,45 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   JobActions get _actions => ref.read(jobActionsProvider);
 
+  /// Icon for each field-workflow button.
+  static const Map<JobAction, IconData> _actionIcons = {
+    JobAction.respond: Icons.check_rounded,
+    JobAction.onTheWay: Icons.two_wheeler_rounded,
+    JobAction.arrived: Icons.home_work_rounded,
+    JobAction.start: Icons.handyman_rounded,
+    JobAction.complete: Icons.task_alt_rounded,
+  };
+
+  /// Status card: the same stepper the customer sees, plus what to tap next.
+  Widget _statusCard(BuildContext context, Job job) {
+    final action = job.nextAction;
+    final t = Theme.of(context).textTheme;
+    final hint = switch (action) {
+      JobAction.respond => 'Accept the job to start tracking.',
+      null => job.status == BookingStatus.completed ? 'Job completed — great work!' : 'No action needed right now.',
+      _ => 'Next, tap “${action.label}” below — the customer is updated instantly.',
+    };
+    return AppCard(
+      padding: const EdgeInsets.all(Space.lg),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.timeline_rounded, size: 20, color: AppColors.blue),
+          const SizedBox(width: Space.sm),
+          Expanded(child: Text('Job status', style: t.titleMedium)),
+          StatusBadge(job.status),
+        ]),
+        const SizedBox(height: Space.lg),
+        TrackingTimeline(status: job.status, events: const [], config: ref.watch(publicSettingsProvider).value?.trackerSteps ?? const []),
+        const SizedBox(height: Space.md),
+        Row(children: [
+          Icon(action == null ? Icons.check_circle_rounded : _actionIcons[action], size: 16, color: action == null ? AppColors.greenDark : AppColors.slate),
+          const SizedBox(width: 6),
+          Expanded(child: Text(hint, style: t.bodySmall)),
+        ]),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(jobProvider(widget.jobId));
@@ -63,7 +104,9 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       Text(job.title, style: t.headlineSmall),
       const SizedBox(height: Space.xs),
       Text('${Fmt.dateOnly(job.scheduledDate)}${job.scheduledTime != null ? ' · ${job.scheduledTime}' : ''}${job.productName != null ? ' · ${job.productName}' : ''}', style: t.bodyMedium),
-      const SizedBox(height: Space.xl),
+      const SizedBox(height: Space.lg),
+      _statusCard(context, job),
+      const SizedBox(height: Space.lg),
       AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(job.customerName, style: t.titleMedium),
@@ -150,11 +193,11 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
             ? Row(children: [
                 Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _reject(job), style: OutlinedButton.styleFrom(foregroundColor: AppColors.red), child: const Text('Reject'))),
                 const SizedBox(width: Space.md),
-                Expanded(flex: 2, child: PrimaryButton(label: 'Accept job', icon: Icons.check_rounded, loading: _busy, color: AppColors.greenDark, onPressed: () => _run(() => _actions.respond(job.id, true), success: 'Job accepted'))),
+                Expanded(flex: 2, child: PrimaryButton(label: 'Accept job', icon: _actionIcons[JobAction.respond], loading: _busy, color: AppColors.greenDark, onPressed: () => _run(() => _actions.respond(job.id, true), success: 'Job accepted'))),
               ])
             : action == JobAction.complete
                 ? PrimaryButton(label: 'Complete job', icon: Icons.task_alt_rounded, loading: _busy, color: AppColors.greenDark, onPressed: () => _complete(job))
-                : PrimaryButton(label: action.label, icon: Icons.arrow_forward_rounded, loading: _busy, onPressed: () => _run(() => _actions.setStatus(job.id, action.targetStatus!), success: 'Status updated')),
+                : PrimaryButton(label: action.label, icon: _actionIcons[action], loading: _busy, onPressed: () => _run(() => _actions.setStatus(job.id, action.targetStatus!), success: 'Status updated')),
       ),
     );
   }

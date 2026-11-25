@@ -11,6 +11,7 @@ import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
 import '../../catalog/domain/catalog_entities.dart';
 import '../../catalog/presentation/catalog_providers.dart';
+import '../data/location_repository.dart';
 import '../domain/account_entities.dart';
 import 'account_providers.dart';
 
@@ -40,6 +41,14 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
   late bool _default = widget.existing?.isDefault ?? false;
   bool _saving = false;
 
+  // Current-location autofill.
+  bool _locating = false;
+  LocationException? _locError;
+  double? _lat;
+  double? _lng;
+  /// Bumped after autofill so the State / City dropdowns rebuild with the new values.
+  int _fillVersion = 0;
+
   @override
   void dispose() {
     for (final c in [_label, _line1, _line2, _landmark, _pin]) {
@@ -61,6 +70,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
         'cityId': _cityId,
         'pincode': _pin.text.trim(),
         'isDefault': _default,
+        if (_lat != null && _lng != null) ...{'latitude': _lat, 'longitude': _lng},
       }, id: widget.existing?.id);
       ref.invalidate(addressesProvider);
       ref.invalidate(addressBranchesProvider);
@@ -71,6 +81,45 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Reads the GPS position, then fills address, PIN, state and city from it.
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _locating = true;
+      _locError = null;
+    });
+    try {
+      final loc = await ref.read(locationRepositoryProvider).current();
+      final catalog = ref.read(catalogRepositoryProvider);
+      final state = matchByName(await catalog.states(), (NamedRef s) => s.name, loc.state);
+      final city = state == null ? null : matchByName(await catalog.cities(state.id), (NamedRef c) => c.name, loc.city);
+      if (!mounted) return;
+      setState(() {
+        _lat = loc.latitude;
+        _lng = loc.longitude;
+        if (_line1.text.trim().isEmpty && loc.line1 != null) _line1.text = loc.line1!;
+        if (loc.line2 != null) _line2.text = loc.line2!;
+        if (loc.pincode != null) _pin.text = loc.pincode!;
+        if (state != null) {
+          _stateId = state.id;
+          _cityId = city?.id;
+        }
+        _fillVersion++;
+      });
+      showAppSnack(context, state == null || city == null ? Messages.locationOutsideArea : Messages.locationFilled);
+    } on LocationException catch (e) {
+      if (mounted) setState(() => _locError = e);
+    } catch (_) {
+      if (mounted) setState(() => _locError = const LocationException(Messages.locationFailed));
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _openLocationSettings() async {
+    final repo = ref.read(locationRepositoryProvider);
+    await repo.openSettings(serviceOff: !await repo.isServiceEnabled());
   }
 
   @override
@@ -89,6 +138,23 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
           children: ['Home', 'Office', 'Shop', 'Other'].map((l) => ChoiceChip(label: Text(l), selected: _label.text == l, onSelected: (_) => setState(() => _label.text = l))).toList(),
         ),
         const SizedBox(height: Space.lg),
+        OutlinedButton.icon(
+          onPressed: _locating ? null : _useCurrentLocation,
+          icon: _locating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location_rounded, size: 20),
+          label: Text(_locating ? LocationConfig.detectingLabel : LocationConfig.useCurrentLabel),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: AppColors.blue, side: const BorderSide(color: AppColors.blue)),
+        ),
+        if (_locError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: Row(children: [
+              const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.slate),
+              const SizedBox(width: Space.sm),
+              Expanded(child: Text(_locError!.message, style: Theme.of(context).textTheme.bodySmall)),
+              if (_locError!.openSettings) TextButton(onPressed: _openLocationSettings, child: const Text(LocationConfig.settingsAction)),
+            ]),
+          ),
+        const SizedBox(height: Space.lg),
         TextFormField(controller: _line1, maxLength: Limits.addressMax, decoration: const InputDecoration(labelText: 'House / flat, building, street *', counterText: ''), validator: Validators.length(Limits.addressMin, Limits.addressMax, label: 'Address')),
         const SizedBox(height: Space.md),
         TextFormField(controller: _line2, maxLength: Limits.addressMax, decoration: const InputDecoration(labelText: 'Area / locality', counterText: '')),
@@ -96,6 +162,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
         TextFormField(controller: _landmark, maxLength: 200, decoration: const InputDecoration(labelText: 'Landmark', counterText: '')),
         const SizedBox(height: Space.md),
         DropdownButtonFormField<int>(
+          key: ValueKey('state-$_fillVersion'),
           initialValue: _stateId,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'State *'),
@@ -109,7 +176,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
         LookupStatus(loading: statesAsync.isLoading, failed: statesAsync.hasError && !statesAsync.isLoading, onRetry: () => ref.invalidate(statesProvider)),
         const SizedBox(height: Space.md),
         DropdownButtonFormField<int>(
-          key: ValueKey(_stateId),
+          key: ValueKey('city-$_stateId-$_fillVersion'),
           initialValue: cities.any((c) => c.id == _cityId) ? _cityId : null,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'City *'),

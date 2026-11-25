@@ -4,6 +4,9 @@
 
 import { services } from '../dependencies/dependencies';
 import { actorOf, asyncHandler, idParam, metaOf, sendCreated, sendNoContent, sendOk, sendPage } from '../utils/http';
+import { ErrorMessages } from '../constants';
+import { ValidationError } from '../utils/errors';
+import type { UploadedFileInfo } from '../models';
 
 type Entity = 'state' | 'city' | 'branch' | 'serviceArea' | 'skill' | 'product';
 
@@ -94,4 +97,12 @@ export const setPricing = asyncHandler(async (req, res) => {
 // ─── Public settings ───
 export const publicSettings = asyncHandler(async (_req, res) => {
   sendOk(res, await services().settings.getPublic());
+});
+
+// ─── Catalogue photos ───
+/** Responds with the public path of a verified image uploaded by the `uploadFiles` middleware. */
+export const uploadCatalogImage = asyncHandler(async (_req, res) => {
+  const [file] = (res.locals.files as UploadedFileInfo[] | undefined) ?? [];
+  if (!file) throw new ValidationError(ErrorMessages.FILE_REQUIRED);
+  sendCreated(res, { path: file.path });
 });

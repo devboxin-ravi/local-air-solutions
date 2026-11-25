@@ -11,7 +11,7 @@ import { useCategories } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import { PRICING_TYPES } from '@/constants/ui';
-import { humanize, priceLabel } from '@/lib/utils';
+import { assetUrl, humanize, priceLabel } from '@/lib/utils';
 import type { Service } from '@/types';
 import { Badge, ConfirmDialog, PageHeader } from '@/components/common';
 import { DataTable, type Column } from '@/components/DataTable';
@@ -35,7 +35,7 @@ export default function ServicesListPage() {
       cell: (s) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue-50 to-brand-green-50 text-xs font-bold text-brand-blue ring-1 ring-brand-blue-100">
-            {s.imageUrl ? <img src={s.imageUrl} alt="" className="h-full w-full rounded-xl object-cover" /> : s.name.slice(0, 2).toUpperCase()}
+            {s.imageUrl ? <img src={assetUrl(s.imageUrl)} alt="" className="h-full w-full rounded-xl object-cover" /> : s.name.slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 truncate font-semibold text-brand-navy">

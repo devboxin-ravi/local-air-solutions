@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
+import '../../catalog/domain/catalog_entities.dart';
+import '../../catalog/presentation/catalog_providers.dart';
 import 'auth_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -20,11 +22,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _pages = [
-    (icon: Icons.ac_unit_rounded, title: 'Expert AC care at home', text: 'Installation, servicing, gas refilling and repairs by trained technicians.'),
-    (icon: Icons.event_available_rounded, title: 'Book in under a minute', text: 'Pick a service, choose a slot and track your technician live.'),
-    (icon: Icons.verified_user_rounded, title: 'Transparent & protected', text: 'Clear pricing, GST invoices, AMC plans and timely service reminders.'),
-  ];
+  /// Illustration per welcome screen; the wording comes from Admin → Settings → Customer App.
+  static const _icons = [Icons.ac_unit_rounded, Icons.event_available_rounded, Icons.verified_user_rounded];
 
   @override
   void dispose() {
@@ -40,7 +39,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final last = _page == _pages.length - 1;
+    final pages = ref.watch(publicSettingsProvider).value?.onboarding ?? OnboardingPageConfig.defaults;
+    final last = _page == pages.length - 1;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -52,10 +52,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Expanded(
             child: PageView.builder(
               controller: _controller,
-              itemCount: _pages.length,
+              itemCount: pages.length,
               onPageChanged: (i) => setState(() => _page = i),
               itemBuilder: (_, i) {
-                final p = _pages[i];
+                final p = pages[i];
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.xxxl),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -68,7 +68,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           width: 130,
                           height: 130,
                           decoration: const BoxDecoration(gradient: AppColors.brandGradient, shape: BoxShape.circle, boxShadow: AppShadows.raised),
-                          child: Icon(p.icon, size: 64, color: Colors.white),
+                          child: Icon(_icons[i % _icons.length], size: 64, color: Colors.white),
                         ),
                       ),
                     ),
@@ -84,7 +84,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
-              _pages.length,
+              pages.length,
               (i) => AnimatedContainer(
                 duration: Motion.medium,
                 margin: const EdgeInsets.symmetric(horizontal: 4),

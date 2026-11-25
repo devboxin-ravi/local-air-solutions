@@ -97,12 +97,77 @@ export const PRICING_TYPES = [
   { value: 'FREE', label: 'Free service' },
 ] as const;
 
+/** One-line explanations shown on the pricing-type cards in the service form. */
+export const PRICING_TYPE_HINTS: Record<string, string> = {
+  FIXED: 'Exact price shown and charged',
+  STARTING: 'Shown as “From ₹…”, final after inspection',
+  QUOTATION: 'No price shown — quoted on site',
+  FREE: 'No charge (e.g. inspection visit)',
+};
+
+/** Quick-pick job durations (minutes) in the service form. */
+export const DURATION_PRESETS = [30, 60, 90, 120, 180, 240] as const;
+
+/** Uppercase service-code length limit (mirrors backend). */
+export const SERVICE_CODE_MAX = 30;
+
 export const PAYMENT_METHODS = [
   { value: 'UPI_MANUAL', label: 'UPI (manual)' },
   { value: 'CASH', label: 'Cash' },
   { value: 'BANK_TRANSFER', label: 'Bank transfer' },
   { value: 'RAZORPAY', label: 'Razorpay' },
 ] as const;
+
+/** Customer-app content editor (mirrors backend AppContentLimits / PROMO_*). */
+export const APP_CONTENT = {
+  MAX_SLIDES: 5,
+  TAG_MAX: 24,
+  TITLE_MAX: 60,
+  SUBTITLE_MAX: 160,
+  BUTTON_MAX: 24,
+  ANNOUNCEMENT_MAX: 160,
+  TRUST_POINTS: 3,
+  TRUST_MAX: 28,
+  ONBOARDING_PAGES: 3,
+  ONBOARDING_TITLE_MAX: 40,
+  ONBOARDING_TEXT_MAX: 140,
+  ACTIONS: [
+    { value: 'SERVICES', label: 'Open all services' },
+    { value: 'BOOK', label: 'Start a service booking' },
+    { value: 'REPAIR', label: 'Start a repair booking' },
+    { value: 'AMC', label: 'Open AMC plans' },
+  ],
+  /** Banner colour presets; `from`/`to` mirror the app's gradient, `accent` its title colour. */
+  STYLES: [
+    { value: 'GREEN', label: 'Green', from: '#E4F0D6', to: '#F1F6EC', accent: '#5E8F27' },
+    { value: 'BLUE', label: 'Blue', from: '#DDEBFC', to: '#FFFFFF', accent: '#0048A8' },
+    { value: 'ORANGE', label: 'Orange', from: '#FFE9D6', to: '#FFFFFF', accent: '#EA580C' },
+  ],
+} as const;
+
+/** Customer-app booking tracker steps (mirrors backend TRACKER_STEP_STATUSES). */
+export const TRACKER = {
+  STEPS: [
+    { status: 'CONFIRMED', name: 'Booking confirmed' },
+    { status: 'ASSIGNED', name: 'Technician assigned' },
+    { status: 'ON_THE_WAY', name: 'Technician on the way' },
+    { status: 'ARRIVED', name: 'Technician arrived' },
+    { status: 'IN_PROGRESS', name: 'Work in progress' },
+    { status: 'COMPLETED', name: 'Job completed' },
+  ],
+  /** Always shown — the tracker starts and ends with these. */
+  REQUIRED: ['CONFIRMED', 'COMPLETED'],
+  LABEL_MAX: 14,
+  TITLE_MAX: 40,
+  HINT_MAX: 80,
+} as const;
+
+/** Photo uploads (service / category images). Mirrors the backend allow-list and size limit. */
+export const IMAGE_UPLOAD = {
+  ACCEPT: 'image/jpeg,image/png,image/webp',
+  MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
+  MAX_BYTES: 5 * 1024 * 1024,
+} as const;
 
 export const LIMITS = {
   NAME_MIN: 2,
@@ -179,5 +244,6 @@ export const SETTING_SECTIONS: Record<string, { title: string; description: stri
   whatsapp: { title: 'WhatsApp Integration', description: 'Manual wa.me sharing and WhatsApp Business Cloud API readiness.' },
   email: { title: 'Email Configuration', description: 'Which emails are sent through SMTP.' },
   workingHours: { title: 'Working Hours', description: 'Defaults used to generate appointment slots.' },
-  appHome: { title: 'Customer App Home', description: 'Promo banner and announcement shown on the customer app home screen.' },
+  appHome: { title: 'Customer App Content', description: 'Home banners, sections, “Need a service today” card and the welcome screens of the customer app.' },
+  bookingTracker: { title: 'Booking Tracker', description: 'Steps, names and messages customers see while tracking a booking in the app.' },
 };

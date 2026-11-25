@@ -6,7 +6,8 @@ import { Router } from 'express';
 import * as c from '../../controllers/masterDataController';
 import { authenticate, optionalAuthenticate, requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { perm } from '../../constants';
+import { uploadFiles } from '../../middleware/upload';
+import { perm, UploadRules } from '../../constants';
 import { idParams } from '../../validations/common';
 import { branchSchema, citySchema, masterListQuery, productSchema, serviceAreaSchema, skillSchema, stateSchema } from '../../validations/masterData';
 import { activeSchema, categorySchema, pricingSchema, reorderSchema, serviceListQuery, serviceSchema, serviceUpdateSchema } from '../../validations/catalog';
@@ -41,6 +42,15 @@ crud('/branches', 'branch', branchSchema);
 crud('/service-areas', 'serviceArea', serviceAreaSchema);
 crud('/skills', 'skill', skillSchema);
 crud('/products', 'product', productSchema);
+
+// ─── Catalogue photos (returns the stored path; the form then saves it as imageUrl) ───
+r.post(
+  '/catalog/images',
+  authenticate,
+  requirePermission(perm('services', 'edit')),
+  uploadFiles(UploadRules.CATALOG_FOLDER, UploadRules.CATALOG_FIELD, UploadRules.IMAGE_MIME_TYPES, 1),
+  c.uploadCatalogImage,
+);
 
 // ─── Categories ───
 r.post('/categories', authenticate, requirePermission(perm('services', 'create')), validate({ body: categorySchema }), c.createCategory);

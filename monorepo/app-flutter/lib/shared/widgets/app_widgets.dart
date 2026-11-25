@@ -64,6 +64,209 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
+/// Tab-screen app bar: large bold title with an optional one-line subtitle.
+/// Used by every bottom-navigation tab so they share one look.
+PreferredSizeWidget pageAppBar(BuildContext context, {required String title, String? subtitle, List<Widget>? actions, PreferredSizeWidget? bottom}) {
+  final t = Theme.of(context).textTheme;
+  return AppBar(
+    toolbarHeight: subtitle == null ? 64 : 76,
+    automaticallyImplyLeading: false,
+    title: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Text(title, style: t.headlineSmall?.copyWith(fontSize: 24, letterSpacing: -0.4)),
+      if (subtitle != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(subtitle, style: t.bodySmall?.copyWith(fontSize: 13))),
+    ]),
+    actions: [...?actions, const SizedBox(width: Space.sm)],
+    bottom: bottom,
+  );
+}
+
+/// Pill-style segmented tabs on a soft track (drives the nearest DefaultTabController).
+class SegmentedTabs extends StatelessWidget implements PreferredSizeWidget {
+  const SegmentedTabs({super.key, required this.labels});
+  final List<String> labels;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(60);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, Space.md),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: AppColors.track, borderRadius: BorderRadius.circular(Radii.pill)),
+          child: TabBar(tabs: [for (final l in labels) Tab(text: l, height: 36)]),
+        ),
+      );
+}
+
+/// Gradient identity card at the top of profile screens.
+class ProfileHeaderCard extends StatelessWidget {
+  const ProfileHeaderCard({super.key, required this.initials, required this.name, this.lines = const [], this.badge, this.onEdit, this.avatarUrl, this.onAvatarTap});
+  final String initials;
+  final String name;
+  final List<String> lines;
+  final String? badge;
+  final VoidCallback? onEdit;
+
+  /// Profile picture; initials show when null or while it loads.
+  final String? avatarUrl;
+
+  /// Tapping the picture (camera badge) to change it.
+  final VoidCallback? onAvatarTap;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(Radii.xl),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(gradient: AppColors.brandGradient),
+          child: Stack(children: [
+            const DecorBubbles(opacity: 0.08),
+            Padding(
+              padding: const EdgeInsets.all(Space.xl),
+              child: Row(children: [
+                _Avatar(initials: initials, url: avatarUrl, onTap: onAvatarTap),
+                const SizedBox(width: Space.lg),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                    for (final l in lines) Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13.5)),
+                    if (badge != null) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(Radii.pill), border: Border.all(color: Colors.white.withValues(alpha: 0.25))),
+                        child: Text(badge!, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                      ),
+                    ],
+                  ]),
+                ),
+                if (onEdit != null) GlassIconButton(icon: Icons.edit_outlined, onPressed: onEdit!, tooltip: 'Edit profile'),
+              ]),
+            ),
+          ]),
+        ),
+      );
+}
+
+/// Round profile picture with an initials fallback and an optional camera badge.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.initials, this.url, this.onTap});
+  final String initials;
+  final String? url;
+  final VoidCallback? onTap;
+
+  static const double _size = 70;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Center(child: Text(initials, style: const TextStyle(color: AppColors.blue, fontSize: 26, fontWeight: FontWeight.w800)));
+    final circle = Container(
+      width: _size,
+      height: _size,
+      clipBehavior: Clip.antiAlias,
+      // No ring: the photo fills the whole circle; white only sits behind the initials.
+      decoration: BoxDecoration(
+        color: url == null ? Colors.white : Colors.transparent,
+        shape: BoxShape.circle,
+        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 4))],
+      ),
+      child: url == null ? fallback : Image.network(url!, fit: BoxFit.cover, width: _size, height: _size, errorBuilder: (_, __, ___) => fallback, loadingBuilder: (_, child, p) => p == null ? child : fallback),
+    );
+    if (onTap == null) return circle;
+    return Semantics(
+      button: true,
+      label: 'Change profile picture',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Stack(clipBehavior: Clip.none, children: [
+          circle,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+              child: const Icon(Icons.photo_camera_rounded, size: 14, color: Colors.white),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// One row in a [MenuGroup].
+class MenuEntry {
+  const MenuEntry({required this.icon, required this.label, required this.onTap, this.subtitle, this.tint, this.destructive = false, this.trailing});
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  /// Icon colours (foreground, background); defaults to brand blue.
+  final (Color, Color)? tint;
+  final bool destructive;
+  final Widget? trailing;
+}
+
+/// Settings-style grouped list: optional caption, white card, tinted icon boxes, chevrons.
+class MenuGroup extends StatelessWidget {
+  const MenuGroup({super.key, required this.items, this.title});
+  final List<MenuEntry> items;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.only(left: Space.xs, bottom: Space.sm),
+            child: Text(title!.toUpperCase(), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.1, color: AppColors.slate)),
+          ),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(children: [
+            for (var i = 0; i < items.length; i++) ...[
+              _MenuRow(item: items[i], first: i == 0, last: i == items.length - 1),
+              if (i < items.length - 1) const Divider(indent: 68, endIndent: Space.lg),
+            ],
+          ]),
+        ),
+      ]);
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.item, required this.first, required this.last});
+  final MenuEntry item;
+  final bool first;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final (fg, bg) = item.destructive ? (AppColors.red, AppColors.redSoft) : (item.tint ?? (AppColors.blue, AppColors.blueSoft));
+    final radius = BorderRadius.vertical(top: Radius.circular(first ? Radii.lg : 0), bottom: Radius.circular(last ? Radii.lg : 0));
+    return InkWell(
+      onTap: item.onTap,
+      borderRadius: radius,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: 12),
+        child: Row(children: [
+          IconBox(item.icon, size: 38, color: fg, background: bg),
+          const SizedBox(width: Space.md + 2),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.label, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: item.destructive ? AppColors.red : AppColors.navy)),
+              if (item.subtitle != null) Text(item.subtitle!, style: Theme.of(context).textTheme.bodySmall),
+            ]),
+          ),
+          item.trailing ?? (item.destructive ? const SizedBox.shrink() : const Icon(Icons.chevron_right_rounded, color: AppColors.slateLight)),
+        ]),
+      ),
+    );
+  }
+}
+
 /// Surface card. White cards float on a soft layered shadow; tinted cards ([color]) sit flat.
 class AppCard extends StatelessWidget {
   const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(Space.lg), this.onTap, this.color, this.border = true, this.gradient});

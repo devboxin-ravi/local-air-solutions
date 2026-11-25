@@ -12,6 +12,7 @@ import '../../../core/utils/launcher.dart';
 import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_provider.dart';
+import '../../auth/presentation/avatar_picker.dart';
 import '../../catalog/presentation/catalog_providers.dart';
 import '../domain/account_entities.dart';
 import 'account_providers.dart';
@@ -25,45 +26,50 @@ class ProfileScreen extends ConsumerWidget {
     final profile = ref.watch(profileProvider);
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: pageAppBar(context, title: 'Profile'),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(profileProvider.future),
-        child: ListView(padding: const EdgeInsets.all(Space.page), children: [
+        onRefresh: () {
+          ref.invalidate(avatarProvider);
+          return ref.refresh(profileProvider.future);
+        },
+        child: ListView(padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, Space.page), children: [
           profile.when(
-            data: (p) => AppCard(
-              onTap: () => _editProfile(context, ref, p),
-              child: Row(children: [
-                CircleAvatar(radius: 28, backgroundColor: AppColors.blue, child: Text(p.fullName.isNotEmpty ? p.fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
-                const SizedBox(width: Space.lg),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(p.fullName, style: t.titleMedium),
-                    Text('${AppConstants.countryCode} ${p.mobile}', style: t.bodyMedium),
-                    Text(p.code, style: t.bodySmall),
-                  ]),
-                ),
-                const Icon(Icons.edit_outlined, color: AppColors.slate),
-              ]),
+            data: (p) => ProfileHeaderCard(
+              initials: p.fullName.isNotEmpty ? p.fullName[0].toUpperCase() : '?',
+              name: p.fullName,
+              lines: ['${AppConstants.countryCode} ${p.mobile}', if (p.email != null && p.email!.isNotEmpty) p.email!],
+              badge: p.code,
+              onEdit: () => _editProfile(context, ref, p),
+              avatarUrl: ref.watch(avatarProvider).value,
+              onAvatarTap: () => changeAvatar(context, ref),
             ),
             loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
             error: (e, _) => ErrorView(message: friendlyError(e), onRetry: () => ref.invalidate(profileProvider)),
           ),
           const SizedBox(height: Space.xl),
-          _Group(items: [
-            _Item(Icons.location_on_outlined, 'Saved addresses', () => context.push(AppRoutes.addresses)),
-            _Item(Icons.receipt_long_outlined, 'Invoices', () => context.push(AppRoutes.invoices)),
-            _Item(Icons.account_balance_wallet_outlined, 'Payments', () => context.push(AppRoutes.payments)),
-            _Item(Icons.alarm_rounded, 'Service reminders', () => context.push(AppRoutes.reminders)),
-            _Item(Icons.notifications_none_rounded, 'Notifications', () => context.push(AppRoutes.notifications)),
+          MenuGroup(title: 'Account', items: [
+            MenuEntry(icon: Icons.location_on_outlined, label: 'Saved addresses', subtitle: 'Where our technicians visit', tint: (AppColors.greenDark, AppColors.greenSoft), onTap: () => context.push(AppRoutes.addresses)),
+            MenuEntry(icon: Icons.notifications_none_rounded, label: 'Notifications', tint: (AppColors.violet, AppColors.violetSoft), onTap: () => context.push(AppRoutes.notifications)),
+            MenuEntry(icon: Icons.alarm_rounded, label: 'Service reminders', subtitle: 'When your AC is due for service', tint: (AppColors.amber, AppColors.amberSoft), onTap: () => context.push(AppRoutes.reminders)),
           ]),
-          const SizedBox(height: Space.lg),
-          _Group(items: [
-            _Item(Icons.support_agent_rounded, 'Help & support', () => context.push(AppRoutes.support)),
-            _Item(Icons.logout_rounded, 'Log out', () async {
-              if (await confirmDialog(context, title: 'Log out?', message: 'You’ll need to sign in again.', confirm: 'Log out', destructive: true)) {
-                await ref.read(authControllerProvider.notifier).logout();
-              }
-            }, color: AppColors.red),
+          const SizedBox(height: Space.xl),
+          MenuGroup(title: 'Billing', items: [
+            MenuEntry(icon: Icons.receipt_long_outlined, label: 'Invoices', onTap: () => context.push(AppRoutes.invoices)),
+            MenuEntry(icon: Icons.account_balance_wallet_outlined, label: 'Payments', tint: (AppColors.cyan, AppColors.cyanSoft), onTap: () => context.push(AppRoutes.payments)),
+          ]),
+          const SizedBox(height: Space.xl),
+          MenuGroup(title: 'Help', items: [
+            MenuEntry(icon: Icons.support_agent_rounded, label: 'Help & support', subtitle: 'Call, WhatsApp or email us', tint: (AppColors.rose, AppColors.roseSoft), onTap: () => context.push(AppRoutes.support)),
+            MenuEntry(
+              icon: Icons.logout_rounded,
+              label: 'Log out',
+              destructive: true,
+              onTap: () async {
+                if (await confirmDialog(context, title: 'Log out?', message: 'You’ll need to sign in again.', confirm: 'Log out', destructive: true)) {
+                  await ref.read(authControllerProvider.notifier).logout();
+                }
+              },
+            ),
           ]),
           const SizedBox(height: Space.xl),
           Center(child: Text('${AppConfig.appName} v${AppConfig.appVersion}', style: t.bodySmall)),
@@ -108,37 +114,6 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _Item {
-  const _Item(this.icon, this.label, this.onTap, {this.color});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-}
-
-class _Group extends StatelessWidget {
-  const _Group({required this.items});
-  final List<_Item> items;
-  @override
-  Widget build(BuildContext context) => AppCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              ListTile(
-                leading: Icon(items[i].icon, color: items[i].color ?? AppColors.blue),
-                title: Text(items[i].label, style: TextStyle(fontWeight: FontWeight.w600, color: items[i].color ?? AppColors.navy)),
-                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.slateLight),
-                onTap: items[i].onTap,
-                minTileHeight: 56,
-              ),
-              if (i < items.length - 1) const Divider(indent: 56),
-            ],
-          ],
-        ),
-      );
 }
 
 class AddressesScreen extends ConsumerWidget {

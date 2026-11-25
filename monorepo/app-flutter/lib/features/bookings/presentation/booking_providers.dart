@@ -9,16 +9,21 @@ import '../../account/presentation/account_providers.dart';
 import '../../catalog/domain/catalog_entities.dart';
 import '../data/booking_repository.dart';
 import '../domain/booking_entities.dart';
+import '../../auth/presentation/auth_provider.dart';
 
 final bookingRepositoryProvider = Provider<BookingRepository>((_) => BookingRepository());
 
 /// 'upcoming' or 'past'.
 final myBookingsProvider = FutureProvider.family<List<BookingSummary>, String>((ref, tab) async {
+  ref.watch(sessionUserIdProvider);
   final status = tab == 'upcoming' ? BookingStatus.upcoming.join(',') : [BookingStatus.completed, BookingStatus.cancelled, BookingStatus.rejected].join(',');
   return (await ref.read(bookingRepositoryProvider).myBookings(status: status)).items;
 });
 
-final bookingDetailProvider = FutureProvider.family<BookingDetail, int>((ref, id) => ref.read(bookingRepositoryProvider).detail(id));
+final bookingDetailProvider = FutureProvider.family<BookingDetail, int>((ref, id) {
+  ref.watch(sessionUserIdProvider);
+  return ref.read(bookingRepositoryProvider).detail(id);
+});
 
 class BookingFlowState {
   const BookingFlowState({required this.draft, this.step = 0, this.submitting = false, this.error, this.created});
@@ -38,7 +43,10 @@ class BookingFlowController extends Notifier<BookingFlowState> {
   static const int lastStep = 3;
 
   @override
-  BookingFlowState build() => BookingFlowState(draft: BookingDraft(type: 'SERVICE'));
+  BookingFlowState build() {
+    ref.watch(sessionUserIdProvider); // a half-filled booking never carries over to another account
+    return BookingFlowState(draft: BookingDraft(type: 'SERVICE'));
+  }
 
   void start({required String type, ServiceItem? service}) {
     final draft = BookingDraft(type: type);

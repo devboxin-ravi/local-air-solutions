@@ -2,6 +2,9 @@
  * API endpoint paths (relative to config.apiBaseUrl) and HTTP constants.
  */
 
+/** Identifies admin-panel sign-ins to the server (OTP verify). */
+export const AUTH_CLIENT = 'ADMIN_PANEL';
+
 export const API = {
   AUTH: {
     LOGIN: '/auth/admin/login',
@@ -12,6 +15,7 @@ export const API = {
     FORGOT: '/auth/forgot-password',
     RESET: '/auth/reset-password',
     CHANGE_PASSWORD: '/auth/change-password',
+    AVATAR: '/auth/me/avatar',
   },
   DASHBOARD: '/dashboard',
   SEARCH: '/search',
@@ -39,6 +43,7 @@ export const API = {
   SERVICE: (id: number) => `/services/${id}`,
   SERVICE_ACTIVE: (id: number) => `/services/${id}/active`,
   SERVICE_PRICING: (id: number) => `/services/${id}/pricing`,
+  CATALOG_IMAGES: '/catalog/images',
 
   CUSTOMERS: '/customers',
   CUSTOMER: (id: number) => `/customers/${id}`,

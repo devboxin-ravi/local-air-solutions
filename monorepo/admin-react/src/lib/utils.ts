@@ -85,5 +85,32 @@ export const downloadBlob = (blob: Blob, filename: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+/** Password rules shown live on the change-password form (mirror the backend policy). */
+export const passwordChecks = (pw: string) => [
+  { label: 'At least 8 characters', ok: pw.length >= 8 },
+  { label: 'Contains a letter', ok: /[A-Za-z]/.test(pw) },
+  { label: 'Contains a number', ok: /\d/.test(pw) },
+];
+
+/** 90 → "1 hr 30 min", 45 → "45 min". */
+export const formatDuration = (minutes: number): string => {
+  const m = Math.max(0, Math.round(Number(minutes) || 0));
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return [h ? `${h} hr` : '', r || !h ? `${r} min` : ''].filter(Boolean).join(' ');
+};
+
+/** "AC General Servicing" → "AC-GEN-SER" — a suggested unique service code (letters/digits, max 30). */
+export const codeFromName = (name: string, max = 30): string =>
+  name
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((w) => (w.length <= 3 ? w : w.slice(0, 3)))
+    .join('-')
+    .slice(0, max);
+
 export const priceLabel = (s: { pricingType: string; basePrice: number | string }): string =>
   s.pricingType === 'QUOTATION' ? 'On quotation' : s.pricingType === 'FREE' ? 'Free' : `${s.pricingType === 'STARTING' ? 'From ' : ''}${formatMoney(s.basePrice)}`;

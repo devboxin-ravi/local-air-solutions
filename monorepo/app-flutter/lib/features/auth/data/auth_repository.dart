@@ -1,7 +1,10 @@
 /// Auth data access: maps API responses to domain entities and persists tokens.
 library;
 
+import 'package:hive_flutter/hive_flutter.dart';
+
 import '../../../core/constants/api_constants.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/token_storage.dart';
 import '../domain/auth_entity.dart';
@@ -69,7 +72,17 @@ class AuthRepository {
       // Logging out locally must always succeed.
     } finally {
       await _tokens.clear();
+      await _clearUserCache();
     }
+  }
+
+  /// Drops cached per-user data (technician job lists / dashboard) so the next account
+  /// never sees it offline. Device-level data such as favourites is kept.
+  Future<void> _clearUserCache() async {
+    if (!Hive.isBoxOpen(AppConstants.hiveBoxCache)) return;
+    final box = Hive.box<String>(AppConstants.hiveBoxCache);
+    final keys = box.keys.where((k) => k is String && (k.startsWith(AppConstants.cacheTechJobsPrefix) || k == AppConstants.cacheTechDashboard)).toList();
+    await box.deleteAll(keys);
   }
 
   Future<String> forgotPassword(String identifier) => _api.post(ApiConstants.forgotPassword, body: {'identifier': identifier.trim()}, parse: (d) => (d as Map)['message'] as String);
@@ -81,4 +94,13 @@ class AuthRepository {
 
   Future<bool> onboardingDone() => _tokens.readFlag('las_onboarding_done');
   Future<void> setOnboardingDone() => _tokens.writeFlag('las_onboarding_done', true);
+
+  /// Current profile picture path (relative to the asset base), or null.
+  Future<String?> avatarPath() => _api.get(ApiConstants.me, parse: (d) => (d as Map)['avatarUrl'] as String?);
+
+  /// Uploads a new profile picture; returns its stored path.
+  Future<String?> uploadAvatar(String filePath) =>
+      _api.upload(ApiConstants.meAvatar, field: ApiConstants.avatarField, files: [filePath], parse: (d) => (d as Map)['avatarUrl'] as String?);
+
+  Future<void> removeAvatar() => _api.delete(ApiConstants.meAvatar);
 }

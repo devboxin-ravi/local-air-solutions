@@ -7,19 +7,19 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OtpPurpose } from '@prisma/client';
 import { config } from '../config';
-import { COMPANY_WIDE_ROLES, ErrorCodes, ErrorMessages, NumberPrefixes, RoleCodes, AuditActions } from '../constants';
+import { ADMIN_SESSION_FAMILY_PREFIX, AuthClients, COMPANY_WIDE_ROLES, ErrorCodes, ErrorMessages, NumberPrefixes, RoleCodes, AuditActions, type AuthClient } from '../constants';
 import { AuthRepository, UserWithAccess } from '../repositories/authRepository';
 import { UserRepository } from '../repositories/userRepository';
 import { CustomerRepository } from '../repositories/customerRepository';
 import { nextSequence, runInTransaction } from '../repositories/db';
 import type { AccessTokenPayload, AuthUser, RequestMeta, TokenPair } from '../models';
-import { AppError, ConflictError, UnauthorizedError, ValidationError } from '../utils/errors';
+import { AppError, ConflictError, ForbiddenError, UnauthorizedError, ValidationError } from '../utils/errors';
 import { StatusCodes } from '../constants/api';
 import { formatCode, generateOtp, randomToken, sha256 } from '../utils/helpers';
 import { logger } from '../utils/logger';
 import { EmailProvider } from './deliveryProviders';
 import { SettingsService } from './settingsService';
-import type { RegisterCustomerInput } from '../validations/auth';
+import type { RegisterCustomerInput, UpdateMeInput } from '../validations/auth';
 import type { CustomerService } from './customerService';
 
 const AUTH_CACHE_TTL_MS = 15_000;
@@ -94,14 +94,25 @@ export class AuthService {
     return { token, expiresAt };
   }
 
-  private async issueTokens(userId: number, userType: AccessTokenPayload['typ'], meta: RequestMeta, familyId?: string): Promise<TokenPair & { refreshId: number }> {
+  /**
+   * Issues an access + refresh pair. A new admin-panel session gets a family id marked with
+   * ADMIN_SESSION_FAMILY_PREFIX and a fixed lifetime; rotations pass `fixedExpiry` to keep it.
+   */
+  private async issueTokens(
+    userId: number,
+    userType: AccessTokenPayload['typ'],
+    meta: RequestMeta,
+    opts: { familyId?: string; client?: AuthClient; fixedExpiry?: Date } = {},
+  ): Promise<TokenPair & { refreshId: number }> {
     const access = this.signAccess({ id: userId, userType });
     const refresh = randomToken();
-    const refreshExpires = new Date(Date.now() + config.jwt.refreshExpiresDays * 86_400_000);
+    const adminPanel = opts.client === AuthClients.ADMIN_PANEL;
+    const days = adminPanel ? config.jwt.adminSessionDays : config.jwt.refreshExpiresDays;
+    const refreshExpires = opts.fixedExpiry ?? new Date(Date.now() + days * 86_400_000);
     const row = await this.authRepo.createRefreshToken({
       userId,
       tokenHash: sha256(refresh),
-      familyId: familyId ?? randomToken(24),
+      familyId: opts.familyId ?? (adminPanel ? ADMIN_SESSION_FAMILY_PREFIX : '') + randomToken(24),
       expiresAt: refreshExpires,
       userAgent: meta.userAgent?.slice(0, 500),
       ipAddress: meta.ip,
@@ -140,7 +151,7 @@ export class AuthService {
    * Password login. `audience` restricts which user types may sign in to a given app.
    * When OTP is enabled, returns `{ otpRequired: true }` and sends an OTP instead of tokens.
    */
-  async login(identifier: string, password: string, audience: Array<'ADMIN' | 'STAFF' | 'CUSTOMER'>, meta: RequestMeta) {
+  async login(identifier: string, password: string, audience: Array<'ADMIN' | 'STAFF' | 'CUSTOMER'>, meta: RequestMeta, client: AuthClient = AuthClients.APP) {
     const u = await this.authRepo.findByIdentifier(identifier.trim().toLowerCase());
     await this.assertCanLogin(u, password);
     const user = u as UserWithAccess;
@@ -150,22 +161,22 @@ export class AuthService {
       await this.sendOtp(user, 'LOGIN');
       return { otpRequired: true as const, userId: user.id };
     }
-    return this.completeLogin(user, meta);
+    return this.completeLogin(user, meta, client);
   }
 
-  private async completeLogin(u: UserWithAccess, meta: RequestMeta) {
+  private async completeLogin(u: UserWithAccess, meta: RequestMeta, client: AuthClient = AuthClients.APP) {
     await this.authRepo.recordSuccessfulLogin(u.id);
-    const tokens = await this.issueTokens(u.id, u.userType, meta);
+    const tokens = await this.issueTokens(u.id, u.userType, meta, { client });
     await this.settings.audit({ id: u.id } as AuthUser, AuditActions.LOGIN, 'user', u.id, null, null, meta);
     const { refreshId: _r, ...pair } = tokens;
     return { otpRequired: false as const, tokens: pair, user: this.toAuthUser(u) };
   }
 
-  async verifyLoginOtp(userId: number, code: string, meta: RequestMeta) {
+  async verifyLoginOtp(userId: number, code: string, meta: RequestMeta, client: AuthClient = AuthClients.APP) {
     await this.consumeOtp(userId, 'LOGIN', code);
     const u = await this.authRepo.findByIdWithAccess(userId);
     if (!u) throw new UnauthorizedError(ErrorMessages.OTP_INVALID, ErrorCodes.OTP_INVALID);
-    return this.completeLogin(u, meta);
+    return this.completeLogin(u, meta, client);
   }
 
   /** Rotation with reuse detection: presenting a revoked token revokes the whole family. */
@@ -180,7 +191,9 @@ export class AuthService {
     if (row.expiresAt < new Date()) throw new UnauthorizedError(ErrorMessages.TOKEN_EXPIRED, ErrorCodes.TOKEN_EXPIRED);
     const u = await this.authRepo.findByIdWithAccess(row.userId);
     if (!u || u.status !== 'ACTIVE') throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
-    const next = await this.issueTokens(u.id, u.userType, meta, row.familyId);
+    // Admin-panel sessions keep their original end date; app sessions slide forward.
+    const fixedExpiry = row.familyId.startsWith(ADMIN_SESSION_FAMILY_PREFIX) ? row.expiresAt : undefined;
+    const next = await this.issueTokens(u.id, u.userType, meta, { familyId: row.familyId, fixedExpiry });
     await this.authRepo.markRefreshTokenReplaced(row.id, next.refreshId);
     const { refreshId: _r, ...pair } = next;
     return pair;
@@ -205,7 +218,31 @@ export class AuthService {
   async me(actor: AuthUser) {
     const u = await this.authRepo.findByIdWithAccess(actor.id);
     if (!u) throw new UnauthorizedError();
-    return { ...this.toAuthUser(u), avatarUrl: u.avatarUrl, countryCode: u.countryCode, lastLoginAt: u.lastLoginAt };
+    return { ...this.toAuthUser(u), username: u.username, avatarUrl: u.avatarUrl, countryCode: u.countryCode, lastLoginAt: u.lastLoginAt };
+  }
+
+  /** Staff / admin update their own name, email, mobile and username (each must stay unique). */
+  async updateMe(actor: AuthUser, input: UpdateMeInput) {
+    const u = await this.authRepo.findByIdWithAccess(actor.id);
+    if (!u) throw new UnauthorizedError();
+    if (u.userType === 'CUSTOMER') throw new ForbiddenError();
+    if (input.mobile !== u.mobile && (await this.userRepo.findByMobile(input.mobile))) throw new ConflictError(ErrorMessages.MOBILE_IN_USE);
+    if (input.email && input.email !== u.email && (await this.userRepo.findByEmail(input.email))) throw new ConflictError(ErrorMessages.EMAIL_IN_USE);
+    if (input.username && input.username !== u.username && (await this.userRepo.findByUsername(input.username))) throw new ConflictError(ErrorMessages.USERNAME_IN_USE);
+    if (!input.email && !input.username && u.roles.some((r) => r.role.code !== RoleCodes.TECHNICIAN)) {
+      // Admin-panel sign-in uses username or email — keep at least one.
+      throw new ValidationError(ErrorMessages.ADMIN_LOGIN_ID_REQUIRED);
+    }
+    await this.userRepo.update(actor.id, { name: input.name, email: input.email, mobile: input.mobile, username: input.username });
+    this.invalidateCache(actor.id);
+    return this.me(actor);
+  }
+
+  /** Sets (or clears, with null) the signed-in user's profile picture. */
+  async setAvatar(actor: AuthUser, avatarUrl: string | null): Promise<{ avatarUrl: string | null }> {
+    const updated = await this.authRepo.updateAvatar(actor.id, avatarUrl);
+    this.invalidateCache(actor.id);
+    return { avatarUrl: updated.avatarUrl };
   }
 
   async changePassword(actor: AuthUser, current: string, next: string): Promise<void> {

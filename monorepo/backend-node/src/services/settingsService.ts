@@ -3,7 +3,7 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { DEFAULT_SETTINGS, SettingKey, SettingKeys } from '../constants';
+import { DEFAULT_SETTINGS, SettingKey, SettingKeys, TRACKER_REQUIRED_STEPS } from '../constants';
 import { EngagementRepository } from '../repositories/engagementRepository';
 import { Db } from '../repositories/db';
 import type { AuthUser, RequestMeta } from '../models';
@@ -75,12 +75,41 @@ export interface NotificationSettings {
 }
 
 /** Customer-app home screen content, edited from Admin → Settings → Customer App Home. */
+export interface PromoSlide {
+  enabled: boolean;
+  tag: string;
+  title: string;
+  subtitle: string;
+  buttonText: string;
+  action: string;
+  style: string;
+}
+/** Customer-app content managed from Admin → Settings → Customer App. */
 export interface AppHomeSettings {
-  bannerEnabled: boolean;
-  bannerTitle: string;
-  bannerSubtitle: string;
-  bannerButtonText: string;
   announcement: string;
+  slides: PromoSlide[];
+  trustPoints: string[];
+  todayCard: { enabled: boolean; title: string; subtitle: string; buttonText: string };
+  showCategories: boolean;
+  showPopular: boolean;
+  showTrustPoints: boolean;
+  onboarding: Array<{ title: string; text: string }>;
+  /** Pre-slides format (single banner); folded into slide 1 when no slides were saved yet. */
+  bannerEnabled?: boolean;
+  bannerTitle?: string;
+  bannerSubtitle?: string;
+  bannerButtonText?: string;
+}
+
+export interface TrackerStep {
+  status: string;
+  visible: boolean;
+  label: string;
+  title: string;
+  hint: string;
+}
+export interface BookingTrackerSettings {
+  steps: TrackerStep[];
 }
 
 export class SettingsService {
@@ -98,7 +127,31 @@ export class SettingsService {
   general = (db?: Db) => this.get<GeneralSettings>(SettingKeys.GENERAL, db);
   workingHours = (db?: Db) => this.get<WorkingHoursSettings>(SettingKeys.WORKING_HOURS, db);
   notification = (db?: Db) => this.get<NotificationSettings>(SettingKeys.NOTIFICATION, db);
-  appHome = (db?: Db) => this.get<AppHomeSettings>(SettingKeys.APP_HOME, db);
+  /** App content; an older single-banner save is carried into the first slide. */
+  async appHome(db?: Db): Promise<AppHomeSettings> {
+    const row = await this.repo.findSetting(SettingKeys.APP_HOME, db);
+    const stored = (row?.value as Partial<AppHomeSettings> | null) ?? {};
+    const merged = { ...(DEFAULT_SETTINGS[SettingKeys.APP_HOME] as unknown as AppHomeSettings), ...stored };
+    if (!stored.slides && stored.bannerTitle !== undefined) {
+      const [first, ...rest] = merged.slides;
+      merged.slides = [
+        { ...first, enabled: stored.bannerEnabled !== false, title: stored.bannerTitle || first.title, subtitle: stored.bannerSubtitle ?? first.subtitle, buttonText: stored.bannerButtonText || first.buttonText },
+        ...rest,
+      ];
+    }
+    return merged;
+  }
+  bookingTracker = (db?: Db) => this.get<BookingTrackerSettings>(SettingKeys.BOOKING_TRACKER, db);
+
+  /** Tracker steps in booking order; each stored step is merged over its default so none go missing. */
+  async trackerSteps(db?: Db): Promise<TrackerStep[]> {
+    const stored = (await this.bookingTracker(db)).steps ?? [];
+    const defaults = (DEFAULT_SETTINGS[SettingKeys.BOOKING_TRACKER] as unknown as BookingTrackerSettings).steps;
+    return defaults.map((d) => {
+      const s = stored.find((x) => x.status === d.status);
+      return { ...d, ...(s ?? {}), visible: TRACKER_REQUIRED_STEPS.includes(d.status) ? true : (s?.visible ?? d.visible) };
+    });
+  }
 
   async getAll(): Promise<Record<string, unknown>> {
     const rows = await this.repo.listSettings();
@@ -107,12 +160,13 @@ export class SettingsService {
       const row = rows.find((r) => r.key === key);
       result[key] = { ...(DEFAULT_SETTINGS[key] as object), ...((row?.value as object) ?? {}) };
     }
+    result[SettingKeys.APP_HOME] = await this.appHome();
     return { ...result, integrations: this.integrationStatus() };
   }
 
   /** Public subset safe for unauthenticated apps (branding, support contacts, payment options). */
   async getPublic() {
-    const [company, payment, general, appHome] = await Promise.all([this.company(), this.payment(), this.general(), this.appHome()]);
+    const [company, payment, general, appHome, trackerSteps] = await Promise.all([this.company(), this.payment(), this.general(), this.appHome(), this.trackerSteps()]);
     return {
       company: { name: company.name, tagline: company.tagline, logoUrl: company.logoUrl, phone: company.phone, email: company.email, supportPhone: company.supportPhone, supportWhatsapp: company.supportWhatsapp, address: company.address },
       payment: {
@@ -126,12 +180,16 @@ export class SettingsService {
       },
       general: { allowCustomerCancellationHours: general.allowCustomerCancellationHours },
       appHome: {
-        bannerEnabled: appHome.bannerEnabled,
-        bannerTitle: appHome.bannerTitle,
-        bannerSubtitle: appHome.bannerSubtitle,
-        bannerButtonText: appHome.bannerButtonText,
         announcement: appHome.announcement,
+        slides: appHome.slides.filter((s) => s.enabled),
+        trustPoints: appHome.trustPoints,
+        todayCard: appHome.todayCard,
+        showCategories: appHome.showCategories,
+        showPopular: appHome.showPopular,
+        showTrustPoints: appHome.showTrustPoints,
+        onboarding: appHome.onboarding,
       },
+      bookingTracker: { steps: trackerSteps },
     };
   }
 

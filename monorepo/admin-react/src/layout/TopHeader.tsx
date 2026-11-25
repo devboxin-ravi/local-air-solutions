@@ -1,5 +1,5 @@
 /**
- * Sticky single-row header: logo, module navigation (overflow collapses into "More"),
+ * Sticky single-row header: logo, module navigation (all modules, side-scroll when narrow),
  * notifications (settings live in the profile menu), branch selector and profile menu. Mobile: compact drawer. No sidebar.
  */
 
@@ -10,15 +10,14 @@ import { Bell, Building2, ChevronDown, KeyRound, LogOut, Menu, Settings, X } fro
 import { NAVIGATION, SETTINGS_MENU, type NavModule } from '@/constants/navigation';
 import { ROUTES } from '@/constants/routes';
 import { PAGE_CONTAINER } from '@/constants/ui';
-import { cn, formatRelative, initials } from '@/lib/utils';
+import { assetUrl, cn, formatRelative, initials } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useBranches } from '@/hooks/useApi';
 import { useNotifications, useSettingsItems } from '@/hooks/useHeader';
-import { usePriorityNav } from '@/hooks/usePriorityNav';
 import { BrandLogo } from '@/components/common';
 import { Avatar, Button, NativeSelect } from '@/components/ui/primitives';
-import { Dialog, DrawerContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays';
+import { Dialog, DrawerContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays';
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
@@ -35,7 +34,7 @@ const useVisibleNav = () => {
 };
 
 const NAV_ITEM =
-  'relative isolate flex h-10 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[14px] font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-ring';
+  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] xl:px-2.5 xl:text-[14px] 2xl:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-ring';
 const NAV_ACTIVE = 'text-brand-blue';
 const NAV_IDLE = 'text-slate-600 hover:bg-slate-100 hover:text-brand-navy';
 const NAV_OPEN = 'bg-slate-100 text-brand-navy';
@@ -104,70 +103,16 @@ const ModuleMenu = ({ module, active }: { module: NavModule; active: boolean }) 
   );
 };
 
-/** "More" menu holding the modules that don't fit in the current width. */
-const MoreMenu = ({ modules, active }: { modules: NavModule[]; active: boolean }) => {
-  const [open, setOpen] = React.useState(false);
-  const navigate = useNavigate();
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenuTrigger className={cn(NAV_ITEM, active ? NAV_ACTIVE : open ? NAV_OPEN : NAV_IDLE)}>
-        More
-        <ChevronDown className={cn('h-3.5 w-3.5 opacity-50 transition-transform duration-dropdown', open && 'rotate-180')} />
-        {active && <ActivePill />}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={10} className="w-56">
-        {modules.map((m) =>
-          m.children.length === 1 ? (
-            <DropdownMenuItem key={m.key} onSelect={() => navigate(m.children[0].to)}>
-              <m.icon /> {m.label}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuSub key={m.key}>
-              <DropdownMenuSubTrigger>
-                <m.icon /> {m.label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-60">
-                {m.children.map((c) => (
-                  <DropdownMenuItem key={c.to} onSelect={() => navigate(c.to)}>
-                    {c.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ),
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
-
-/** Single-row module navigation; overflowing modules collapse into "More". */
-const PriorityNav = ({ nav, className }: { nav: NavModule[]; className?: string }) => {
+/** All modules in one row (no "More" overflow); scrolls sideways on narrow screens. */
+const MainNav = ({ nav, className }: { nav: NavModule[]; className?: string }) => {
   const { pathname } = useLocation();
-  const { containerRef, measureRef, visibleCount } = usePriorityNav(nav.length);
-  const shown = nav.slice(0, visibleCount);
-  const hidden = nav.slice(visibleCount);
-  const isActive = (m: NavModule) => pathname.startsWith(m.basePath);
-
   return (
-    <div ref={containerRef} className={cn('relative min-w-0 overflow-x-clip', className)}>
-      <nav aria-label="Main" className={cn('flex items-center justify-center', NAV_GAP)}>
-        {shown.map((m) => (
-          <ModuleMenu key={m.key} module={m} active={isActive(m)} />
-        ))}
-        {hidden.length > 0 && <MoreMenu modules={hidden} active={hidden.some(isActive)} />}
-      </nav>
-      {/* Invisible measuring row: every item + the More trigger, same styles. */}
-      <div ref={measureRef} aria-hidden className={cn('pointer-events-none invisible absolute left-0 top-0 flex w-max', NAV_GAP)}>
+    <div className={cn('min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}>
+      <nav aria-label="Main" className={cn('flex w-max items-center justify-center', NAV_GAP)}>
         {nav.map((m) => (
-          <span key={m.key} className={NAV_ITEM}>
-            <NavItemBody module={m} chevron={m.children.length > 1} />
-          </span>
+          <ModuleMenu key={m.key} module={m} active={pathname.startsWith(m.basePath)} />
         ))}
-        <span className={NAV_ITEM}>
-          More <ChevronDown className="h-3.5 w-3.5" />
-        </span>
-      </div>
+      </nav>
     </div>
   );
 };
@@ -250,7 +195,7 @@ const ProfileMenu = () => {
         className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="rounded-full bg-gradient-to-br from-brand-green-400 to-brand-blue p-[2px]">
-          <Avatar fallback={initials(user.name)} className="h-[34px] w-[34px] ring-2 ring-white" />
+          <Avatar src={assetUrl(user.avatarUrl)} fallback={initials(user.name)} className="h-[34px] w-[34px] ring-2 ring-white" />
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
@@ -344,15 +289,15 @@ export const TopHeader = () => {
       )}
     >
       {/* One row: brand · modules · utilities */}
-      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[88px] lg:gap-6')}>
+      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[88px] lg:gap-4 2xl:gap-6')}>
         <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
           {mobileOpen ? <X /> : <Menu />}
         </Button>
         <Link to={ROUTES.DASHBOARD} className="flex shrink-0 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring" aria-label="Local Air Solutions — Dashboard">
-          <BrandLogo variant="header" className="h-12 lg:h-16" />
+          <BrandLogo variant="header" className="h-12 lg:h-14 2xl:h-16" />
         </Link>
 
-        <PriorityNav nav={nav} className="hidden flex-1 lg:block" />
+        <MainNav nav={nav} className="hidden flex-1 lg:flex lg:justify-center" />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2 lg:ml-0">
           <BranchSelector className="hidden sm:block" />

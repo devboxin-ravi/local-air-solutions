@@ -36,6 +36,10 @@ export class AuthRepository {
     });
   }
 
+  updateAvatar(userId: number, avatarUrl: string | null, db: Db = prisma) {
+    return db.user.update({ where: { id: userId }, data: { avatarUrl }, select: { avatarUrl: true } });
+  }
+
   updatePasswordHash(userId: number, passwordHash: string, db: Db = prisma) {
     return db.user.update({ where: { id: userId }, data: { passwordHash, failedLoginCount: 0, lockedUntil: null } });
   }

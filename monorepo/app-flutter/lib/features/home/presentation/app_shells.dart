@@ -6,25 +6,37 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/themes/app_theme.dart';
 
-/// Navigation bar lifted off the content with a soft upward shadow.
+/// Floating, rounded navigation bar that sits above the page with a soft shadow.
 class _ShellNavBar extends StatelessWidget {
   const _ShellNavBar({required this.shell, required this.destinations});
   final StatefulNavigationShell shell;
   final List<NavigationDestination> destinations;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          boxShadow: AppShadows.nav,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.xl)),
-          child: NavigationBar(
-            selectedIndex: shell.currentIndex,
-            onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
-            destinations: destinations,
+  Widget build(BuildContext context) => ColoredBox(
+        color: AppColors.background,
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.md),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              boxShadow: AppShadows.nav,
+              borderRadius: BorderRadius.circular(Radii.xxl),
+              border: Border.all(color: AppColors.borderSoft),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.xxl),
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: NavigationBar(
+                  selectedIndex: shell.currentIndex,
+                  onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+                  destinations: destinations,
+                ),
+              ),
+            ),
           ),
         ),
       );

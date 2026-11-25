@@ -14,6 +14,7 @@ import {
   CreditCard,
   FileSpreadsheet,
   FileText,
+  ListChecks,
   LayoutDashboard,
   Mail,
   MessageCircle,
@@ -220,6 +221,7 @@ export const SETTINGS_MENU: NavModule = {
       group: 'Communication',
     },
     section('appHome', Smartphone, 'Customer App'),
+    section('bookingTracker', ListChecks, 'Customer App'),
     {
       label: 'Audit Logs',
       description: 'Trail of logins and changes made by staff.',

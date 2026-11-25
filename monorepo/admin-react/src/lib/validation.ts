@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { LIMITS, MESSAGES, PATTERNS } from '@/constants/ui';
+import { APP_CONTENT, LIMITS, MESSAGES, PATTERNS, TRACKER } from '@/constants/ui';
 
 /**
  * Friendly default messages for every schema in the app (instead of Zod's technical wording).
@@ -42,6 +42,8 @@ z.setErrorMap((issue, ctx) => {
 
 const t = (min: number, max: number, label = 'This field') =>
   z.string().trim().min(min, min === 1 ? MESSAGES.REQUIRED : `${label} must be at least ${min} characters`).max(max, `Maximum ${max} characters`);
+/** Required trimmed text with a max length. */
+const req = (max: number) => z.string().trim().min(1, 'Required').max(max, `Maximum ${max} characters`);
 const opt = (max: number) => z.string().trim().max(max, `Maximum ${max} characters`).optional().or(z.literal(''));
 
 export const nameField = t(LIMITS.NAME_MIN, LIMITS.NAME_MAX, 'Name');
@@ -177,6 +179,21 @@ const positiveAmount = amountField.refine((v) => v > 0, 'Amount must be greater 
 
 // ─── Settings (one schema per section; unknown keys pass through untouched) ───
 export const settingsSchemas: Record<string, z.ZodTypeAny> = {
+  bookingTracker: z
+    .object({
+      steps: z
+        .array(
+          z.object({
+            status: z.string(),
+            visible: z.boolean(),
+            label: z.string().trim().min(1, 'Required').max(TRACKER.LABEL_MAX, `Maximum ${TRACKER.LABEL_MAX} characters`),
+            title: z.string().trim().min(1, 'Required').max(TRACKER.TITLE_MAX, `Maximum ${TRACKER.TITLE_MAX} characters`),
+            hint: z.string().trim().max(TRACKER.HINT_MAX, `Maximum ${TRACKER.HINT_MAX} characters`),
+          }),
+        )
+        .length(TRACKER.STEPS.length),
+    })
+    .passthrough(),
   company: z
     .object({
       name: t(2, 100, 'Company name'),
@@ -251,18 +268,28 @@ export const settingsSchemas: Record<string, z.ZodTypeAny> = {
     .refine((v) => v.endTime > v.startTime, { message: 'Day must end after it starts', path: ['endTime'] }),
   appHome: z
     .object({
-      bannerEnabled: z.boolean(),
-      bannerTitle: opt(60),
-      bannerButtonText: opt(24),
-      bannerSubtitle: opt(160),
-      announcement: opt(160),
+      announcement: opt(APP_CONTENT.ANNOUNCEMENT_MAX),
+      slides: z
+        .array(
+          z.object({
+            enabled: z.boolean(),
+            tag: opt(APP_CONTENT.TAG_MAX),
+            title: req(APP_CONTENT.TITLE_MAX),
+            subtitle: opt(APP_CONTENT.SUBTITLE_MAX),
+            buttonText: req(APP_CONTENT.BUTTON_MAX),
+            action: z.string(),
+            style: z.string(),
+          }),
+        )
+        .max(APP_CONTENT.MAX_SLIDES),
+      trustPoints: z.array(req(APP_CONTENT.TRUST_MAX)).length(APP_CONTENT.TRUST_POINTS),
+      todayCard: z.object({ enabled: z.boolean(), title: req(APP_CONTENT.TITLE_MAX), subtitle: opt(APP_CONTENT.SUBTITLE_MAX), buttonText: req(APP_CONTENT.BUTTON_MAX) }),
+      showCategories: z.boolean(),
+      showPopular: z.boolean(),
+      showTrustPoints: z.boolean(),
+      onboarding: z.array(z.object({ title: req(APP_CONTENT.ONBOARDING_TITLE_MAX), text: opt(APP_CONTENT.ONBOARDING_TEXT_MAX) })).length(APP_CONTENT.ONBOARDING_PAGES),
     })
-    .passthrough()
-    .superRefine((v, ctx) => {
-      if (!v.bannerEnabled) return;
-      if (!v.bannerTitle?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerTitle'], message: 'Required while the banner is shown' });
-      if (!v.bannerButtonText?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerButtonText'], message: 'Required while the banner is shown' });
-    }),
+    .passthrough(),
 };
 
 // ─── Master data (one schema per resource) ───
@@ -356,6 +383,11 @@ export const refundSchema = (max: number) =>
   z.object({ amount: positiveAmount.refine((v) => v <= max, `Cannot exceed the paid amount (₹${max})`), reason: t(3, LIMITS.NOTES_MAX, 'Reason') });
 
 // ─── Account ───
+export const profileSchema = z
+  .object({ name: nameField, email: optionalEmail, mobile: mobileField, username: usernameField.optional().or(z.literal('')) })
+  .refine((v) => !!v.email || !!v.username, { message: 'Keep an email or a username to sign in', path: ['email'] });
+export type ProfileForm = z.infer<typeof profileSchema>;
+
 export const changePasswordSchema = z
   .object({ current: z.string().min(1, 'Enter your current password'), next: passwordField, confirm: z.string().min(1, 'Re-enter the new password') })
   .refine((v) => v.next === v.confirm, { message: 'Passwords do not match', path: ['confirm'] })

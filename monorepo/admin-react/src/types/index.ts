@@ -34,6 +34,7 @@ export interface AuthUser {
   branchId: number | null;
   isSuperAdmin: boolean;
   isCompanyWide: boolean;
+  username?: string | null;
   avatarUrl?: string | null;
   lastLoginAt?: string | null;
 }

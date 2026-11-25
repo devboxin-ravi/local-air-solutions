@@ -72,6 +72,7 @@ export const ErrorMessages = {
   MOBILE_IN_USE: 'This mobile number is already registered to a login account.',
   EMAIL_IN_USE: 'This email is already registered.',
   USERNAME_IN_USE: 'This username is already taken.',
+  ADMIN_LOGIN_ID_REQUIRED: 'Keep an email or a username — you need one to sign in to the admin panel.',
   PASSWORD_MISMATCH: 'Current password is incorrect.',
   SYSTEM_ROLE_LOCKED: 'System roles cannot be deleted.',
   NO_CUSTOMER_PROFILE: 'Customer profile not found for this account.',

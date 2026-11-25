@@ -264,26 +264,60 @@ class AmcScreen extends ConsumerWidget {
     final value = ref.watch(amcListProvider);
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('AMC plans')),
+      appBar: pageAppBar(context, title: 'AMC plans', subtitle: 'Year-round care for your ACs'),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(amcListProvider.future),
         child: AsyncBody<List<AmcContract>>(
           value: value,
           onRetry: () => ref.invalidate(amcListProvider),
           data: (list) => ListView(padding: const EdgeInsets.all(Space.page), children: [
-            Container(
-              padding: const EdgeInsets.all(Space.xl),
-              decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(Radii.xl)),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Annual Maintenance Contract', style: t.titleMedium?.copyWith(color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text('Scheduled visits, priority support and worry-free cooling all year.', style: t.bodyMedium?.copyWith(color: Colors.white70)),
-                  ]),
-                ),
-                const Icon(Icons.verified_user_rounded, color: AppColors.green, size: 52),
-              ]),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.xl),
+              child: DecoratedBox(
+                decoration: const BoxDecoration(gradient: AppColors.brandGradient),
+                child: Stack(children: [
+                  const DecorBubbles(opacity: 0.08),
+                  Padding(
+                    padding: const EdgeInsets.all(Space.xl),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Annual Maintenance Contract', style: t.titleMedium?.copyWith(color: Colors.white, fontSize: 17)),
+                            const SizedBox(height: 4),
+                            Text('Worry-free cooling all year round.', style: t.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.8))),
+                          ]),
+                        ),
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(Radii.lg), border: Border.all(color: Colors.white.withValues(alpha: 0.25))),
+                          child: const Icon(Icons.verified_user_rounded, color: AppColors.green, size: 30),
+                        ),
+                      ]),
+                      const SizedBox(height: Space.lg),
+                      for (final (icon, text) in const [
+                        (Icons.event_repeat_rounded, 'Scheduled service visits'),
+                        (Icons.bolt_rounded, 'Priority support & faster visits'),
+                        (Icons.savings_outlined, 'Lower running & repair costs'),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(top: Space.sm),
+                          child: Row(children: [
+                            Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.22), shape: BoxShape.circle),
+                              child: Icon(icon, size: 15, color: const Color(0xFFB9E37E)),
+                            ),
+                            const SizedBox(width: Space.sm + 2),
+                            Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5))),
+                          ]),
+                        ),
+                    ]),
+                  ),
+                ]),
+              ),
             ),
             const SizedBox(height: Space.xl),
             if (list.isEmpty)

@@ -16,8 +16,10 @@ import { LIMITS, SETTING_SECTIONS, WEEKDAYS } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 import { ErrorState, Field, LoadingBlock, PageHeader, SectionCard } from '@/components/common';
 import { Button, Input, Label, NativeSelect, Switch, Textarea } from '@/components/ui/primitives';
+import { TrackerStepsEditor, type TrackerStepValue } from '@/components/TrackerStepsEditor';
+import { AppContentEditor, type AppContentValue } from '@/components/AppContentEditor';
 
-type FieldType = 'text' | 'number' | 'bool' | 'textarea' | 'time' | 'days' | { options: Array<{ value: string; label: string }> };
+type FieldType = 'text' | 'number' | 'bool' | 'textarea' | 'time' | 'days' | 'trackerSteps' | 'appContent' | { options: Array<{ value: string; label: string }> };
 interface SettingField {
   key: string;
   label: string;
@@ -95,13 +97,8 @@ const FIELDS: Record<string, SettingField[]> = {
     { key: 'slotDurationMinutes', label: 'Slot length (minutes)', type: 'number', required: true, hint: '30 to 480' },
     { key: 'maxJobsPerSlot', label: 'Max jobs per slot', type: 'number', required: true, hint: '1 to 100' },
   ],
-  appHome: [
-    { key: 'bannerEnabled', label: 'Show promo banner', type: 'bool', hint: 'The banner at the top of the customer app home screen' },
-    { key: 'bannerTitle', label: 'Banner title', type: 'text', hint: 'e.g. Summer-ready AC', maxLength: 60 },
-    { key: 'bannerButtonText', label: 'Banner button text', type: 'text', hint: 'Opens the services list', maxLength: 24 },
-    { key: 'bannerSubtitle', label: 'Banner description', type: 'textarea', maxLength: 160 },
-    { key: 'announcement', label: 'Announcement strip', type: 'textarea', hint: 'Optional one-line notice under the banner (e.g. holiday timings). Leave empty to hide.', maxLength: 160 },
-  ],
+  appHome: [{ key: '_appContent', label: 'App content', type: 'appContent' }],
+  bookingTracker: [{ key: 'steps', label: 'Tracker steps', type: 'trackerSteps' }],
 };
 
 const INTEGRATION_FOR: Record<string, Array<{ key: string; label: string }>> = {
@@ -155,6 +152,36 @@ export default function SettingsPage() {
           <div className="grid gap-5 sm:grid-cols-2">
             {fields.map((f) => {
               const v = values[f.key];
+              if (f.type === 'appContent')
+                return !Array.isArray(values.slides) ? (
+                  <LoadingBlock key={f.key} rows={4} />
+                ) : (
+                  <div key={f.key} className="sm:col-span-2">
+                    <AppContentEditor
+                      value={values as unknown as AppContentValue}
+                      disabled={!editable}
+                      errors={errors}
+                      onChange={(next, editedKey) => {
+                        setValues({ ...(next as unknown as Record<string, unknown>) });
+                        clear(editedKey);
+                      }}
+                    />
+                  </div>
+                );
+              if (f.type === 'trackerSteps')
+                return (
+                  <div key={f.key} className="sm:col-span-2">
+                    <TrackerStepsEditor
+                      value={(v as TrackerStepValue[] | undefined) ?? []}
+                      disabled={!editable}
+                      errors={errors}
+                      onChange={(steps, editedKey) => {
+                        set(f.key, steps);
+                        clear(editedKey);
+                      }}
+                    />
+                  </div>
+                );
               if (f.type === 'bool')
                 return (
                   <Field key={f.key} error={errors[f.key]} className="sm:col-span-2">

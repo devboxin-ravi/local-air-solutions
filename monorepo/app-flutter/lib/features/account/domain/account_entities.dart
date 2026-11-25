@@ -51,3 +51,31 @@ class HomeSummary {
   final int amcCount;
   final double outstanding;
 }
+
+/// Address details resolved from the device's current GPS position.
+class DetectedLocation {
+  const DetectedLocation({required this.latitude, required this.longitude, this.line1, this.line2, this.city, this.state, this.pincode});
+
+  final double latitude;
+  final double longitude;
+  final String? line1;
+  final String? line2;
+  final String? city;
+  final String? state;
+  final String? pincode;
+}
+
+/// Finds the item whose name matches [query] (case/space-insensitive; exact first, then contains).
+T? matchByName<T>(Iterable<T> items, String Function(T) nameOf, String? query) {
+  String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  if (query == null || norm(query).isEmpty) return null;
+  final q = norm(query);
+  for (final i in items) {
+    if (norm(nameOf(i)) == q) return i;
+  }
+  for (final i in items) {
+    final n = norm(nameOf(i));
+    if (n.isNotEmpty && (n.contains(q) || q.contains(n))) return i;
+  }
+  return null;
+}

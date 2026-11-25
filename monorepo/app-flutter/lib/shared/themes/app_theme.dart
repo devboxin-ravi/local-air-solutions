@@ -17,9 +17,11 @@ abstract class AppColors {
   static const Color slate = Color(0xFF5B6B82);
   static const Color slateLight = Color(0xFF94A3B8);
   static const Color border = Color(0xFFE2E8F0);
-  static const Color borderSoft = Color(0xFFEDF1F7);
-  static const Color background = Color(0xFFF3F6FB);
-  static const Color inputFill = Color(0xFFF1F5FA);
+  static const Color borderSoft = Color(0xFFE9EEF5);
+  static const Color background = Color(0xFFF5F7FB);
+  static const Color inputFill = Colors.white;
+  /// Track behind segmented tabs and other inset controls.
+  static const Color track = Color(0xFFEBEFF6);
   static const Color sky = Color(0xFF38BDF8);
   static const Color skySoft = Color(0xFFE0F2FE);
   static const Color rose = Color(0xFFE11D48);
@@ -62,8 +64,8 @@ abstract class Space {
 abstract class Radii {
   static const double sm = 8;
   static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 20;
+  static const double lg = 18;
+  static const double xl = 22;
   static const double xxl = 28;
   static const double button = 14;
   static const double pill = 999;
@@ -86,11 +88,11 @@ abstract class AppShadows {
   static const List<BoxShadow> raised = [BoxShadow(color: Color(0x1A0F1F3D), blurRadius: 24, offset: Offset(0, 10))];
   /// Soft, layered elevation for white cards on the tinted background.
   static const List<BoxShadow> soft = [
-    BoxShadow(color: Color(0x0D0F1F3D), blurRadius: 18, offset: Offset(0, 6)),
-    BoxShadow(color: Color(0x080F1F3D), blurRadius: 3, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0A0F1F3D), blurRadius: 24, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x060F1F3D), blurRadius: 2, offset: Offset(0, 1)),
   ];
   /// Upward shadow for the bottom navigation bar.
-  static const List<BoxShadow> nav = [BoxShadow(color: Color(0x140F1F3D), blurRadius: 20, offset: Offset(0, -4))];
+  static const List<BoxShadow> nav = [BoxShadow(color: Color(0x1A0F1F3D), blurRadius: 28, offset: Offset(0, 10))];
   /// Coloured glow under gradient buttons and hero tiles.
   static List<BoxShadow> glow(Color color) => [BoxShadow(color: color.withValues(alpha: 0.32), blurRadius: 18, offset: const Offset(0, 8))];
 }
@@ -152,17 +154,18 @@ abstract class AppTheme {
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(seedColor: AppColors.blue, primary: AppColors.blue, secondary: AppColors.green, surface: AppColors.surface, error: AppColors.red);
     final base = ThemeData(useMaterial3: true, colorScheme: scheme, scaffoldBackgroundColor: AppColors.background);
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.button), borderSide: const BorderSide(color: AppColors.borderSoft));
+    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.button), borderSide: const BorderSide(color: AppColors.border));
     return base.copyWith(
       textTheme: _text(base.textTheme),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 0.5,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         foregroundColor: AppColors.navy,
-        titleTextStyle: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w800, color: AppColors.navy),
+        titleSpacing: Space.page,
+        titleTextStyle: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.navy, letterSpacing: -0.3),
       ),
       cardTheme: CardThemeData(color: AppColors.surface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg), side: const BorderSide(color: AppColors.borderSoft))),
       inputDecorationTheme: InputDecorationTheme(
@@ -198,20 +201,36 @@ abstract class AppTheme {
         ),
       ),
       textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: AppColors.blue, textStyle: GoogleFonts.inter(fontWeight: FontWeight.w700))),
+      tabBarTheme: TabBarThemeData(
+        indicator: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(Radii.pill), boxShadow: AppShadows.card),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: AppColors.navy,
+        unselectedLabelColor: AppColors.slate,
+        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
+      ),
       chipTheme: base.chipTheme.copyWith(
-        backgroundColor: AppColors.surface,
-        selectedColor: AppColors.blueSoft,
-        side: const BorderSide(color: AppColors.border),
+        color: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? AppColors.blue : AppColors.surface),
+        side: WidgetStateBorderSide.resolveWith((s) => BorderSide(color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.border)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.pill)),
-        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.navy),
+        showCheckmark: false,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        labelStyle: WidgetStateTextStyle.resolveWith((s) => GoogleFonts.inter(
+              fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
+              fontSize: 13,
+              color: s.contains(WidgetState.selected) ? Colors.white : AppColors.navy,
+            )),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.transparent,
         indicatorColor: AppColors.blueSoft,
         indicatorShape: const StadiumBorder(),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        height: 70,
+        height: 66,
         labelTextStyle: WidgetStateProperty.resolveWith((s) => GoogleFonts.inter(fontSize: 12, fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500, color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.slate)),
         iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.slate)),
       ),

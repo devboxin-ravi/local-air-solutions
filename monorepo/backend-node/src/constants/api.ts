@@ -34,7 +34,19 @@ export const UploadRules = {
   IMAGE_MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp'] as string[],
   MEDIA_MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'application/pdf'] as string[],
   MAX_FILES_PER_REQUEST: 6,
+  /** Folder (under UPLOAD_DIR) for profile pictures. */
+  AVATAR_FOLDER: 'avatars',
+  AVATAR_FIELD: 'file',
+  /** Folder (under UPLOAD_DIR) for service / category photos managed from the admin panel. */
+  CATALOG_FOLDER: 'catalog',
+  CATALOG_FIELD: 'file',
 } as const;
+
+/** Which client a sign-in came from; admin-panel sessions have a fixed lifetime. */
+export const AuthClients = { ADMIN_PANEL: 'ADMIN_PANEL', APP: 'APP' } as const;
+export type AuthClient = (typeof AuthClients)[keyof typeof AuthClients];
+/** Refresh-token family id prefix that marks an admin-panel session. */
+export const ADMIN_SESSION_FAMILY_PREFIX = 'adm_';
 
 export const HeaderNames = {
   IDEMPOTENCY_KEY: 'idempotency-key',

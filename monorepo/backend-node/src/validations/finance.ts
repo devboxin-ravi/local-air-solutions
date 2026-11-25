@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 import { Limits, Patterns, ValidationMessages } from '../constants';
-import { PaymentPolicies, SettingKeys, type SettingKey } from '../constants/settings';
+import { AppContentLimits as AL, PaymentPolicies, PROMO_ACTIONS, PROMO_STYLES, SettingKeys, TRACKER_REQUIRED_STEPS, TRACKER_STEP_STATUSES, TrackerLimits, type SettingKey } from '../constants/settings';
 import { boolish, dateOnly, email, gstRate, hhmm, id, listQuery, mobile, money, notes, optionalTrimmed, trimmed } from './common';
 
 // ─── Invoices ───
@@ -240,13 +240,55 @@ export const settingValueSchemas: Record<SettingKey, z.ZodTypeAny> = {
   notification: z.object({ inApp: flag, push: flag, email: flag, whatsapp: flag }),
   whatsapp: z.object({ manualSharingEnabled: flag, cloudApiEnabled: flag, businessNumber: blankOr(mobile) }),
   email: z.object({ sendBookingUpdates: flag, sendInvoices: flag, sendReminders: flag }),
-  appHome: z
-    .object({ bannerEnabled: flag, bannerTitle: text(60), bannerSubtitle: text(160), bannerButtonText: text(24), announcement: text(160) })
-    .superRefine((v, ctx) => {
-      if (v.bannerEnabled !== true) return;
-      if (v.bannerTitle === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerTitle'], message: 'Required while the banner is shown' });
-      if (v.bannerButtonText === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['bannerButtonText'], message: 'Required while the banner is shown' });
-    }),
+  appHome: z.object({
+    announcement: text(AL.ANNOUNCEMENT_MAX),
+    slides: z
+      .array(
+        z.object({
+          enabled: z.boolean(),
+          tag: z.string().trim().max(AL.TAG_MAX),
+          title: z.string().trim().min(1, 'Required').max(AL.TITLE_MAX),
+          subtitle: z.string().trim().max(AL.SUBTITLE_MAX),
+          buttonText: z.string().trim().min(1, 'Required').max(AL.BUTTON_MAX),
+          action: z.enum(PROMO_ACTIONS),
+          style: z.enum(PROMO_STYLES),
+        }),
+      )
+      .max(AL.MAX_SLIDES)
+      .optional(),
+    trustPoints: z.array(z.string().trim().min(1, 'Required').max(AL.TRUST_MAX)).length(AL.TRUST_POINTS).optional(),
+    todayCard: z
+      .object({
+        enabled: z.boolean(),
+        title: z.string().trim().min(1, 'Required').max(AL.TITLE_MAX),
+        subtitle: z.string().trim().max(AL.SUBTITLE_MAX),
+        buttonText: z.string().trim().min(1, 'Required').max(AL.BUTTON_MAX),
+      })
+      .optional(),
+    showCategories: flag,
+    showPopular: flag,
+    showTrustPoints: flag,
+    onboarding: z
+      .array(z.object({ title: z.string().trim().min(1, 'Required').max(AL.ONBOARDING_TITLE_MAX), text: z.string().trim().max(AL.ONBOARDING_TEXT_MAX) }))
+      .length(AL.ONBOARDING_PAGES)
+      .optional(),
+  }),
+  bookingTracker: z.object({
+    steps: z
+      .array(
+        z.object({
+          status: z.enum(TRACKER_STEP_STATUSES),
+          visible: z.boolean(),
+          label: z.string().trim().min(1, 'Required').max(TrackerLimits.LABEL_MAX),
+          title: z.string().trim().min(1, 'Required').max(TrackerLimits.TITLE_MAX),
+          hint: z.string().trim().max(TrackerLimits.HINT_MAX),
+        }),
+      )
+      .length(TRACKER_STEP_STATUSES.length)
+      .refine((steps) => TRACKER_STEP_STATUSES.every((s, i) => steps[i]?.status === s), 'Steps must be in booking order')
+      .transform((steps) => steps.map((s) => (TRACKER_REQUIRED_STEPS.includes(s.status) ? { ...s, visible: true } : s)))
+      .optional(),
+  }),
   workingHours: z
     .object({
       workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),

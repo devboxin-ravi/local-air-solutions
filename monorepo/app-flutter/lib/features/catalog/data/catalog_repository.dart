@@ -58,6 +58,7 @@ class CatalogRepository {
         final company = (d as Map)['company'] as Map;
         final pay = d['payment'] as Map;
         final home = (d['appHome'] as Map?) ?? const {};
+        final tracker = ((d['bookingTracker'] as Map?)?['steps'] as List?) ?? const [];
         String s(Object? v) => (v as String?) ?? '';
         String or(Object? v, String fallback) => s(v).trim().isEmpty ? fallback : s(v).trim();
         return PublicSettings(
@@ -71,11 +72,35 @@ class CatalogRepository {
           upiPayeeName: s(pay['upiPayeeName']),
           cashEnabled: pay['cashEnabled'] == true,
           razorpayEnabled: pay['razorpayEnabled'] == true,
-          bannerEnabled: home['bannerEnabled'] != false,
-          bannerTitle: or(home['bannerTitle'], HomeDefaults.bannerTitle),
-          bannerSubtitle: or(home['bannerSubtitle'], HomeDefaults.bannerSubtitle),
-          bannerButtonText: or(home['bannerButtonText'], HomeDefaults.bannerButtonText),
           announcement: s(home['announcement']).trim(),
+          // Older servers send no slides → keep the built-in banners.
+          slides: home['slides'] is List
+              ? (home['slides'] as List)
+                  .whereType<Map>()
+                  .map((e) => PromoSlideConfig(tag: s(e['tag']).trim(), title: s(e['title']).trim(), subtitle: s(e['subtitle']).trim(), buttonText: or(e['buttonText'], HomeDefaults.bannerButtonText), action: s(e['action']), style: s(e['style'])))
+                  .where((e) => e.title.isNotEmpty)
+                  .toList()
+              : PromoSlideConfig.defaults,
+          trustPoints: home['trustPoints'] is List ? (home['trustPoints'] as List).map((e) => s(e).trim()).where((e) => e.isNotEmpty).toList() : HomeDefaults.trustPoints,
+          todayCard: home['todayCard'] is Map
+              ? TodayCardConfig(
+                  enabled: (home['todayCard'] as Map)['enabled'] != false,
+                  title: or((home['todayCard'] as Map)['title'], TodayCardConfig.defaults.title),
+                  subtitle: s((home['todayCard'] as Map)['subtitle']).trim(),
+                  buttonText: or((home['todayCard'] as Map)['buttonText'], TodayCardConfig.defaults.buttonText),
+                )
+              : TodayCardConfig.defaults,
+          showCategories: home['showCategories'] != false,
+          showPopular: home['showPopular'] != false,
+          showTrustPoints: home['showTrustPoints'] != false,
+          onboarding: home['onboarding'] is List && (home['onboarding'] as List).isNotEmpty
+              ? (home['onboarding'] as List).whereType<Map>().map((e) => OnboardingPageConfig(title: s(e['title']).trim(), text: s(e['text']).trim())).toList()
+              : OnboardingPageConfig.defaults,
+          trackerSteps: tracker
+              .whereType<Map>()
+              .where((e) => s(e['status']).isNotEmpty)
+              .map((e) => TrackerStepConfig(status: s(e['status']), visible: e['visible'] != false, label: s(e['label']).trim(), title: s(e['title']).trim(), hint: s(e['hint']).trim()))
+              .toList(),
         );
       });
 }
