@@ -31,7 +31,7 @@ export default function AuditLogsPage() {
 
   return (
     <>
-      <PageHeader title="Audit Logs" description="Tamper-evident trail of logins and changes. Click a row for details." breadcrumbs={[{ label: 'Settings', to: ROUTES.SETTINGS('company') }, { label: 'Audit Logs' }]} />
+      <PageHeader title="Audit Logs" description="Tamper-evident trail of logins and changes. Click a row for details." breadcrumbs={[{ label: 'Settings', to: ROUTES.SETTINGS_HOME }, { label: 'Audit Logs' }]} />
       <DataTable
         columns={columns}
         rows={data?.items}

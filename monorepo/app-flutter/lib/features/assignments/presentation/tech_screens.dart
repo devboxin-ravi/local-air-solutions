@@ -13,6 +13,7 @@ import '../../../core/utils/launcher.dart';
 import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
 import '../../auth/presentation/auth_provider.dart';
+import '../../auth/presentation/avatar_picker.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../domain/job_entities.dart';
 import 'job_providers.dart';
@@ -25,6 +26,7 @@ class JobCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final next = job.nextAction;
     return AppCard(
       onTap: onTap,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -47,6 +49,25 @@ class JobCard extends StatelessWidget {
           const SizedBox(width: 4),
           Expanded(child: Text(job.area ?? job.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
           Text(job.number, style: t.bodySmall),
+        ]),
+        const Divider(height: Space.xl),
+        Row(children: [
+          Expanded(
+            child: next == null
+                ? Text(job.status == BookingStatus.completed ? 'Completed' : 'No action needed', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w600))
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(Radii.pill)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.arrow_forward_rounded, size: 15, color: AppColors.greenDark),
+                      const SizedBox(width: 4),
+                      Flexible(child: Text('Next: ${next.label}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w700, fontSize: 12.5))),
+                    ]),
+                  ),
+          ),
+          IconButton.filledTonal(onPressed: () => Launcher.call(job.customerPhone), icon: const Icon(Icons.call_rounded, size: 20), tooltip: 'Call customer'),
+          const SizedBox(width: 4),
+          IconButton.filledTonal(onPressed: () => openJobDirections(job), icon: const Icon(Icons.navigation_rounded, size: 20), tooltip: 'Navigate'),
         ]),
       ]),
     );
@@ -156,12 +177,12 @@ class TechJobsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (history) {
-      return Scaffold(appBar: AppBar(title: const Text('Job history')), body: const _JobList(scope: 'history'));
+      return Scaffold(appBar: pageAppBar(context, title: 'Job history', subtitle: 'Completed and closed jobs'), body: const _JobList(scope: 'history'));
     }
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(title: const Text('My jobs'), bottom: const TabBar(tabs: [Tab(text: 'Active'), Tab(text: 'Upcoming')], labelColor: AppColors.blue, indicatorColor: AppColors.blue, labelStyle: TextStyle(fontWeight: FontWeight.w700))),
+        appBar: pageAppBar(context, title: 'My jobs', subtitle: 'Your assigned service visits', bottom: const SegmentedTabs(labels: ['Active', 'Upcoming'])),
         body: const TabBarView(children: [_JobList(scope: 'active'), _JobList(scope: 'upcoming')]),
       ),
     );
@@ -205,41 +226,34 @@ class TechProfileScreen extends ConsumerWidget {
     final user = ref.watch(authControllerProvider).user;
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: ListView(padding: const EdgeInsets.all(Space.page), children: [
-        AppCard(
-          child: Row(children: [
-            CircleAvatar(radius: 30, backgroundColor: AppColors.blue, child: Text(user?.name.substring(0, 1).toUpperCase() ?? '?', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800))),
-            const SizedBox(width: Space.lg),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(user?.name ?? '', style: t.titleMedium),
-                Text('${AppConstants.countryCode} ${user?.mobile ?? ''}', style: t.bodyMedium),
-                const SizedBox(height: 4),
-                const StatusBadge('TECHNICIAN'),
-              ]),
-            ),
-          ]),
+      appBar: pageAppBar(context, title: 'Profile'),
+      body: ListView(padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, Space.page), children: [
+        ProfileHeaderCard(
+          initials: (user?.name.isNotEmpty ?? false) ? user!.name.substring(0, 1).toUpperCase() : '?',
+          name: user?.name ?? '',
+          lines: ['${AppConstants.countryCode} ${user?.mobile ?? ''}'],
+          badge: 'Technician',
+          avatarUrl: ref.watch(avatarProvider).value,
+          onAvatarTap: () => changeAvatar(context, ref),
         ),
         const SizedBox(height: Space.xl),
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(children: [
-            ListTile(leading: const Icon(Icons.history_rounded, color: AppColors.blue), title: const Text('Job history'), trailing: const Icon(Icons.chevron_right), onTap: () => context.go(AppRoutes.techHistory)),
-            const Divider(indent: 56),
-            ListTile(leading: const Icon(Icons.notifications_none_rounded, color: AppColors.blue), title: const Text('Notifications'), trailing: const Icon(Icons.chevron_right), onTap: () => context.push(AppRoutes.techNotifications)),
-            const Divider(indent: 56),
-            ListTile(
-              leading: const Icon(Icons.logout_rounded, color: AppColors.red),
-              title: const Text('Log out', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600)),
-              onTap: () async {
-                if (await confirmDialog(context, title: 'Log out?', message: 'Unsynced actions will be lost.', confirm: 'Log out', destructive: true)) {
-                  await ref.read(authControllerProvider.notifier).logout();
-                }
-              },
-            ),
-          ]),
-        ),
+        MenuGroup(title: 'Work', items: [
+          MenuEntry(icon: Icons.history_rounded, label: 'Job history', subtitle: 'Completed and closed jobs', onTap: () => context.go(AppRoutes.techHistory)),
+          MenuEntry(icon: Icons.notifications_none_rounded, label: 'Notifications', tint: (AppColors.violet, AppColors.violetSoft), onTap: () => context.push(AppRoutes.techNotifications)),
+        ]),
+        const SizedBox(height: Space.xl),
+        MenuGroup(items: [
+          MenuEntry(
+            icon: Icons.logout_rounded,
+            label: 'Log out',
+            destructive: true,
+            onTap: () async {
+              if (await confirmDialog(context, title: 'Log out?', message: 'Unsynced actions will be lost.', confirm: 'Log out', destructive: true)) {
+                await ref.read(authControllerProvider.notifier).logout();
+              }
+            },
+          ),
+        ]),
         const SizedBox(height: Space.xl),
         Center(child: Text('${AppConfig.appName} · Technician v${AppConfig.appVersion}', style: t.bodySmall)),
       ]),

@@ -28,6 +28,15 @@ abstract class Fmt {
     return d == null ? '—' : _date.format(DateTime(d.year, d.month, d.day));
   }
 
+  /// Pieces of a date-only value for calendar-style tiles: "23", "NOV", "Mon".
+  static String dayOfMonth(dynamic v) => _datePart(v, DateFormat('dd'));
+  static String monthAbbr(dynamic v) => _datePart(v, DateFormat('MMM')).toUpperCase();
+  static String weekdayAbbr(dynamic v) => _datePart(v, DateFormat('EEE'));
+  static String _datePart(dynamic v, DateFormat f) {
+    final d = DateTime.tryParse('$v');
+    return d == null ? '—' : f.format(DateTime(d.year, d.month, d.day));
+  }
+
   static String dateOnlyShort(dynamic v) {
     final d = DateTime.tryParse('$v');
     return d == null ? '—' : _dateShort.format(DateTime(d.year, d.month, d.day));

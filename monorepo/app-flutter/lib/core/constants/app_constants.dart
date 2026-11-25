@@ -17,6 +17,7 @@ abstract class AppConstants {
   static const String storageOnboardingDone = 'las_onboarding_done';
   static const String hiveBoxCache = 'las_cache';
   static const String cacheTechJobsPrefix = 'tech_jobs_';
+  static const String cacheFavoriteServices = 'favorite_services';
   static const String cacheTechDashboard = 'tech_dashboard';
 
   // Roles / user types
@@ -26,6 +27,8 @@ abstract class AppConstants {
   // Assets
   static const String logoAsset = 'assets/images/logo.png';
   static const String logoMarkAsset = 'assets/images/logo-mark.png';
+  /// Featured promo banner artwork (split AC with cool air, leaves and plant).
+  static const String bannerFeaturedAsset = 'assets/images/banner_featured_ac.png';
 
   // Locale & currency
   static const String locale = 'en_IN';
@@ -92,6 +95,9 @@ abstract class Limits {
   static const int maxPhotos = 6;
   static const int imageQuality = 70;
   static const double imageMaxWidth = 1600;
+  /// Profile pictures are small: square-ish, resized on the phone before upload.
+  static const double avatarMaxWidth = 640;
+  static const int avatarQuality = 80;
   static const int pageSize = 20;
 }
 
@@ -119,9 +125,10 @@ abstract class BookingStatus {
 
 /// Fallback home-screen content; the live values come from Admin → Settings → Customer App Home.
 abstract class HomeDefaults {
-  static const String bannerTitle = 'Summer-ready AC';
-  static const String bannerSubtitle = 'Deep cleaning & servicing for better cooling and lower bills';
-  static const String bannerButtonText = 'Book now';
+  static const String bannerButtonText = 'Book Now';
+
+  /// Short reassurance points shown under the home banner (from the app's onboarding promises).
+  static const List<String> trustPoints = ['Trained technicians', 'Clear pricing', 'GST invoices'];
 }
 
 abstract class Messages {
@@ -138,4 +145,33 @@ abstract class Messages {
   static const String listLoadFailed = 'Couldn’t load the list.';
   static const String tryAgain = 'Try again';
   static const String noCitiesForState = 'We don’t serve this state yet';
+  static const String locationServiceOff = 'Turn on location (GPS) to use your current location.';
+  static const String locationDenied = 'Location permission is needed to fill your address.';
+  static const String locationDeniedForever = 'Location permission is blocked. Allow it in app settings.';
+  static const String locationFailed = 'Couldn’t get your location. Please try again or type the address.';
+  static const String locationFilled = 'Address filled from your location — please check the house / flat number.';
+  static const String locationOutsideArea = 'We couldn’t match your state / city — please select it.';
+}
+
+/// Current-location lookup for the address form.
+abstract class LocationConfig {
+  static const Duration fixTimeout = Duration(seconds: 20);
+  static const String geocodeLanguage = 'en';
+  static const String geocodeCountry = 'IN';
+  static const String useCurrentLabel = 'Use my current location';
+  static const String detectingLabel = 'Detecting location…';
+  static const String settingsAction = 'Settings';
+}
+
+/// Bundled service photos (Pexels License, see assets/IMAGE_CREDITS.md). A photo uploaded
+/// for a service in the admin panel always takes priority over these defaults.
+abstract class ServiceImages {
+  static const String splitAc = 'assets/images/service_split_ac.jpg';
+  static const String windowAc = 'assets/images/service_window_ac.jpg';
+  static const String outdoorUnit = 'assets/images/service_outdoor_unit.jpg';
+  static const String acRepair = 'assets/images/service_ac_repair.jpg';
+  static const String washerGeyser = 'assets/images/service_washer_geyser.jpg';
+  static const String fridge = 'assets/images/service_fridge.jpg';
+  static const String electrical = 'assets/images/service_electrical.jpg';
+  static const String commercial = 'assets/images/service_commercial.jpg';
 }

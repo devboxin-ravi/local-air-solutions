@@ -2,15 +2,33 @@
  * Dashboard, reports, reminders, notifications, settings, templates and audit logic for pages.
  */
 
+import { useMemo } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { notificationService, reminderService, reportService, settingsService } from '@/services/engagementService';
-import { downloadBlob } from '@/lib/utils';
-import type { QueryParams } from '@/types';
+import { downloadBlob, monthKeysBetween } from '@/lib/utils';
+import type { DashboardData, QueryParams } from '@/types';
 import { errorMessage, useAction } from './useApi';
 
 export const useDashboard = (params: QueryParams) =>
   useQuery({ queryKey: ['dashboard', params], queryFn: () => reportService.dashboard(params), placeholderData: keepPreviousData });
+
+/**
+ * Monthly chart series padded with zero months across the selected range, so a quiet month
+ * shows as zero instead of disappearing (and one busy month doesn't look like the whole trend).
+ */
+export const useDashboardCharts = (data: DashboardData | undefined, range: { from: string; to: string }) =>
+  useMemo(() => {
+    const months = monthKeysBetween(range.from, range.to);
+    const revenue = new Map((data?.charts.revenue ?? []).map((r) => [r.month, r]));
+    const trend = new Map((data?.charts.bookingTrend ?? []).map((r) => [r.period, r]));
+    const hasRevenue = revenue.size > 0;
+    const hasTrend = trend.size > 0;
+    return {
+      revenue: hasRevenue ? months.map((month) => revenue.get(month) ?? { month, revenue: 0, collected: 0 }) : [],
+      bookingTrend: hasTrend ? months.map((period) => trend.get(period) ?? { period, total: 0, completed: 0, cancelled: 0 }) : [],
+    };
+  }, [data, range.from, range.to]);
 
 export const useReport = (key: string, params: QueryParams) =>
   useQuery({ queryKey: ['report', key, params], queryFn: () => reportService.report(key, params), placeholderData: keepPreviousData });

@@ -150,7 +150,7 @@ export default function AmcDetailPage() {
           <DialogHeader title={`Book visit ${visit?.visitNumber}`} description="Creates a zero-value booking linked to this AMC." />
           <DialogBody className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Date" required><Input type="date" value={visitDate} min={toYmd(new Date())} onChange={(e) => { setVisitDate(e.target.value); setSlotId(null); }} /></Field>
+              <Field label="Date" required error={visitDate && visitDate < toYmd(new Date()) ? 'Date cannot be in the past' : undefined}><Input type="date" value={visitDate} min={toYmd(new Date())} onChange={(e) => { setVisitDate(e.target.value); setSlotId(null); }} /></Field>
               <Field label="Technician (optional)">
                 <NativeSelect value={staffId} onChange={(e) => setStaffId(e.target.value)}>
                   <option value="">Assign later</option>
@@ -162,7 +162,7 @@ export default function AmcDetailPage() {
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVisit(null)}>Cancel</Button>
-            <Button disabled={!visitDate} loading={actions.bookVisit.isPending} onClick={() => visit && actions.bookVisit.mutate({ id: visit.id, scheduledDate: visitDate, slotId, staffId: staffId ? Number(staffId) : null }, { onSuccess: () => setVisit(null) })}>Book visit</Button>
+            <Button disabled={!visitDate || visitDate < toYmd(new Date())} loading={actions.bookVisit.isPending} onClick={() => visit && actions.bookVisit.mutate({ id: visit.id, scheduledDate: visitDate, slotId, staffId: staffId ? Number(staffId) : null }, { onSuccess: () => setVisit(null) })}>Book visit</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

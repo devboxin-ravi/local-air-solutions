@@ -9,7 +9,7 @@ import { useBranches } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import { LIMITS } from '@/constants/ui';
-import { ErrorState, Field, LoadingBlock, PageHeader, SectionCard } from '@/components/common';
+import { ErrorState, Field, FormCard, FormSection, LoadingBlock, PageHeader } from '@/components/common';
 import { AddressFields } from '@/components/AddressFields';
 import { Button, Input, NativeSelect, Textarea } from '@/components/ui/primitives';
 
@@ -34,8 +34,12 @@ export default function CustomerFormPage() {
         breadcrumbs={[{ label: 'Customers', to: ROUTES.CUSTOMERS }, { label: id ? 'Edit' : 'Add Customer' }]}
         actions={
           <>
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-            <Button type="submit" loading={f.form.formState.isSubmitting}><Save /> {f.duplicateWarning ? 'Create anyway' : 'Save customer'}</Button>
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={f.form.formState.isSubmitting}>
+              <Save /> {f.duplicateWarning ? 'Create anyway' : 'Save customer'}
+            </Button>
           </>
         }
       />
@@ -46,44 +50,89 @@ export default function CustomerFormPage() {
             <p className="font-semibold">Possible duplicate</p>
             <p>{f.duplicateWarning} Shared family or business numbers are allowed — click “Create anyway” to continue.</p>
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={f.clearDuplicate}>Dismiss</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={f.clearDuplicate}>
+            Dismiss
+          </Button>
         </div>
       )}
-      {f.formError && <p role="alert" className="mb-5 rounded-lg bg-red-50 p-3 text-[13px] text-red-700">{f.formError}</p>}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="Personal information">
+      {f.formError && (
+        <p role="alert" className="mb-5 rounded-lg bg-red-50 p-3 text-[13px] text-red-700">
+          {f.formError}
+        </p>
+      )}
+      <FormCard
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={f.form.formState.isSubmitting}>
+              <Save /> {f.duplicateWarning ? 'Create anyway' : 'Save customer'}
+            </Button>
+          </>
+        }
+      >
+        <FormSection step={1} title="Personal information" description="Contact details, branch and service preferences.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Full name" required error={e.fullName?.message} className="sm:col-span-2"><Input {...reg('fullName')} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.fullName} /></Field>
+            <Field label="Full name" required error={e.fullName?.message} className="sm:col-span-2">
+              <Input {...reg('fullName')} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.fullName} />
+            </Field>
             <Field label="Mobile number" required error={e.mobile?.message} hint="10 digits, +91 is stored separately">
               <div className="flex">
                 <span className="flex items-center rounded-l-lg border border-r-0 bg-slate-50 px-3 text-sm text-slate-500">+91</span>
                 <Input {...reg('mobile')} inputMode="numeric" maxLength={10} className="rounded-l-none" aria-invalid={!!e.mobile} />
               </div>
             </Field>
-            <Field label="Alternate contact" error={e.alternateMobile?.message}><Input {...reg('alternateMobile')} inputMode="numeric" maxLength={10} /></Field>
-            <Field label="Email" error={e.email?.message} className="sm:col-span-2"><Input type="email" {...reg('email')} maxLength={LIMITS.EMAIL_MAX} /></Field>
+            <Field label="Alternate contact" error={e.alternateMobile?.message}>
+              <Input {...reg('alternateMobile')} inputMode="numeric" maxLength={10} />
+            </Field>
+            <Field label="Email" error={e.email?.message} className="sm:col-span-2">
+              <Input type="email" {...reg('email')} maxLength={LIMITS.EMAIL_MAX} />
+            </Field>
             <Field label="Customer type">
-              <NativeSelect {...reg('customerType')}><option value="INDIVIDUAL">Individual</option><option value="BUSINESS">Business</option></NativeSelect>
+              <NativeSelect {...reg('customerType')}>
+                <option value="INDIVIDUAL">Individual</option>
+                <option value="BUSINESS">Business</option>
+              </NativeSelect>
             </Field>
             <Field label="Account status">
-              <NativeSelect {...reg('status')}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="SUSPENDED">Suspended</option></NativeSelect>
+              <NativeSelect {...reg('status')}>
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+                <option value="SUSPENDED">Suspended</option>
+              </NativeSelect>
             </Field>
             <Field label="Branch" hint={user?.isCompanyWide ? undefined : 'Your branch is applied automatically'}>
               <NativeSelect {...reg('branchId')} disabled={!user?.isCompanyWide}>
                 <option value="">Auto (from address)</option>
-                {branches?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {branches?.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
               </NativeSelect>
             </Field>
-            <Field label="Reminder interval (months)" hint="Overrides the service default" error={e.reminderIntervalMonths?.message}><Input type="number" min={1} max={36} {...reg('reminderIntervalMonths')} /></Field>
-            <Field label="Notes" className="sm:col-span-2" counter={{ value: (f.form.watch('notes') ?? '').length, max: LIMITS.NOTES_MAX }}><Textarea {...reg('notes')} maxLength={LIMITS.NOTES_MAX} /></Field>
+            <Field label="Reminder interval (months)" hint="Overrides the service default" error={e.reminderIntervalMonths?.message}>
+              <Input type="number" min={1} max={36} {...reg('reminderIntervalMonths')} />
+            </Field>
+            <Field
+              label="Notes"
+              className="sm:col-span-2"
+              counter={{
+                value: (f.form.watch('notes') ?? '').length,
+                max: LIMITS.NOTES_MAX,
+              }}
+            >
+              <Textarea {...reg('notes')} maxLength={LIMITS.NOTES_MAX} />
+            </Field>
           </div>
-        </SectionCard>
+        </FormSection>
         {!id && (
-          <SectionCard title="Primary address" description="More addresses can be added from the customer profile.">
+          <FormSection step={2} title="Primary address" description="Where services happen. More addresses can be added from the customer profile.">
             <AddressFields register={reg} errors={e.address as never} prefix="address." states={f.states} cities={f.cities} />
-          </SectionCard>
+          </FormSection>
         )}
-      </div>
+      </FormCard>
     </form>
   );
 }

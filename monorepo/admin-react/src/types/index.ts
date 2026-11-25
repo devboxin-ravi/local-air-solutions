@@ -34,6 +34,7 @@ export interface AuthUser {
   branchId: number | null;
   isSuperAdmin: boolean;
   isCompanyWide: boolean;
+  username?: string | null;
   avatarUrl?: string | null;
   lastLoginAt?: string | null;
 }
@@ -196,7 +197,7 @@ export interface Staff {
   isAvailable: boolean;
   isTechnician: boolean;
   activeJobs?: number;
-  user: { id: number; name: string; email: string | null; mobile: string; countryCode: string; status: string; lastLoginAt: string | null; roles: Array<{ role: { id: number; code: string; name: string } }> };
+  user: { id: number; name: string; email: string | null; username: string | null; mobile: string; countryCode: string; status: string; lastLoginAt: string | null; roles: Array<{ role: { id: number; code: string; name: string } }> };
   branch: Ref;
   skills: Array<{ skill: Ref }>;
   serviceAreas: Array<{ serviceArea: Ref }>;

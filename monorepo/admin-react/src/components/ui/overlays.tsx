@@ -1,5 +1,5 @@
 /**
- * Overlay primitives: Dialog, Drawer (sheet), DropdownMenu, Tooltip, Popover, Tabs. UI only.
+ * Overlay primitives: Dialog, Drawer (sheet), DropdownMenu (with submenus), Tooltip, Popover, Tabs. UI only.
  */
 
 import * as React from 'react';
@@ -8,7 +8,7 @@ import * as DropdownPrimitive from '@radix-ui/react-dropdown-menu';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
-import { X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Dialog ───
@@ -112,6 +112,37 @@ export const DropdownMenuLabel = ({ className, ...props }: React.HTMLAttributes<
   <div className={cn('px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground', className)} {...props} />
 );
 export const DropdownMenuSeparator = () => <DropdownPrimitive.Separator className="-mx-1.5 my-1.5 h-px bg-border" />;
+export const DropdownMenuSub = DropdownPrimitive.Sub;
+export const DropdownMenuSubTrigger = React.forwardRef<React.ElementRef<typeof DropdownPrimitive.SubTrigger>, React.ComponentPropsWithoutRef<typeof DropdownPrimitive.SubTrigger>>(
+  ({ className, children, ...props }, ref) => (
+    <DropdownPrimitive.SubTrigger
+      ref={ref}
+      className={cn(
+        'relative flex cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium outline-none transition-colors focus-visible:ring-0 focus-visible:ring-offset-0 data-[highlighted]:bg-brand-blue-50 data-[state=open]:bg-brand-blue-50 data-[highlighted]:text-brand-blue-700 data-[state=open]:text-brand-blue-700 [&_svg]:size-4 [&_svg]:text-muted-foreground',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <ChevronRight className="ml-auto" />
+    </DropdownPrimitive.SubTrigger>
+  ),
+);
+DropdownMenuSubTrigger.displayName = 'DropdownMenuSubTrigger';
+export const DropdownMenuSubContent = React.forwardRef<React.ElementRef<typeof DropdownPrimitive.SubContent>, React.ComponentPropsWithoutRef<typeof DropdownPrimitive.SubContent>>(
+  ({ className, sideOffset = 6, ...props }, ref) => (
+    <DropdownPrimitive.Portal>
+      <DropdownPrimitive.SubContent
+        ref={ref}
+        sideOffset={sideOffset}
+        collisionPadding={8}
+        className={cn('scrollbar-thin z-50 max-h-[min(70vh,var(--radix-dropdown-menu-content-available-height))] min-w-[13rem] overflow-y-auto rounded-xl border bg-white p-1.5 shadow-elevated data-[state=open]:animate-fade-in', className)}
+        {...props}
+      />
+    </DropdownPrimitive.Portal>
+  ),
+);
+DropdownMenuSubContent.displayName = 'DropdownMenuSubContent';
 
 // ─── Tooltip ───
 export const TooltipProvider = TooltipPrimitive.Provider;

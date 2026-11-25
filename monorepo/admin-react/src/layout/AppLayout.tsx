@@ -9,6 +9,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { TopHeader } from './TopHeader';
 import { LoadingBlock } from '@/components/common';
 import { config } from '@/config';
+import { PAGE_CONTAINER } from '@/constants/ui';
+import { cn } from '@/lib/utils';
 
 export const AppLayout = () => {
   const location = useLocation();
@@ -30,7 +32,7 @@ export const AppLayout = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 lg:py-8"
+            className={cn(PAGE_CONTAINER, 'py-6 lg:py-8')}
           >
             <Suspense fallback={<LoadingBlock rows={6} />}>
               <Outlet />
@@ -39,7 +41,7 @@ export const AppLayout = () => {
         </AnimatePresence>
       </main>
       <footer className="border-t bg-white">
-        <div className="mx-auto flex max-w-[1680px] flex-col items-center justify-between gap-1 px-6 py-4 text-xs text-muted-foreground sm:flex-row">
+        <div className={cn(PAGE_CONTAINER, 'flex flex-col items-center justify-between gap-1 py-4 text-xs text-muted-foreground sm:flex-row')}>
           <span>© {new Date().getFullYear()} Local Air Solutions · Cool Comfort Care</span>
           <span>Admin v{config.appVersion}</span>
         </div>

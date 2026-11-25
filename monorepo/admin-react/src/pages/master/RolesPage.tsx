@@ -7,6 +7,8 @@ import { Lock, Plus, Save, Trash2 } from 'lucide-react';
 import { useRoleActions, usePermissions } from '@/hooks/usePeople';
 import { useRoles } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { roleSchema } from '@/lib/validation';
 import { ROUTES } from '@/constants/routes';
 import { cn, humanize } from '@/lib/utils';
 import type { Role } from '@/types';
@@ -27,6 +29,22 @@ export default function RolesPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [newRole, setNewRole] = useState({ code: '', name: '' });
   const [toDelete, setToDelete] = useState<Role | null>(null);
+  const { errors, validate, clear, fromServer, reset } = useFormErrors();
+  const createRole = () => {
+    const parsed = validate(roleSchema, newRole);
+    if (!parsed) return;
+    actions.create.mutate(
+      { ...parsed, permissionCodes: [] },
+      {
+        onSuccess: (r) => {
+          setNewOpen(false);
+          setRoleId(r.id);
+          setNewRole({ code: '', name: '' });
+        },
+        onError: (e) => fromServer(e),
+      },
+    );
+  };
   const editable = can('roles.manage') && role?.code !== 'SUPER_ADMIN';
 
   useEffect(() => setGranted(new Set(role?.permissions.map((p) => p.permission.code) ?? [])), [role]);
@@ -108,16 +126,20 @@ export default function RolesPage() {
           </Card>
         )}
       </div>
-      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+      <Dialog open={newOpen} onOpenChange={(o) => { setNewOpen(o); if (!o) reset(); }}>
         <DialogContent size="sm">
           <DialogHeader title="New role" description="Start empty, then tick permissions." />
           <DialogBody className="space-y-4">
-            <Field label="Role name" required><Input value={newRole.name} onChange={(e) => setNewRole({ ...newRole, name: e.target.value })} maxLength={100} /></Field>
-            <Field label="Code" required hint="UPPER_SNAKE_CASE, e.g. ACCOUNTANT"><Input value={newRole.code} onChange={(e) => setNewRole({ ...newRole, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') })} maxLength={50} /></Field>
+            <Field label="Role name" required error={errors.name} htmlFor="role-name">
+              <Input id="role-name" value={newRole.name} autoFocus onChange={(e) => { setNewRole({ ...newRole, name: e.target.value }); clear('name'); }} maxLength={100} />
+            </Field>
+            <Field label="Code" required error={errors.code} htmlFor="role-code" hint="UPPER_SNAKE_CASE, e.g. ACCOUNTANT">
+              <Input id="role-code" value={newRole.code} onChange={(e) => { setNewRole({ ...newRole, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') }); clear('code'); }} maxLength={50} />
+            </Field>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>
-            <Button disabled={newRole.name.trim().length < 2 || newRole.code.length < 2} loading={actions.create.isPending} onClick={() => actions.create.mutate({ ...newRole, name: newRole.name.trim(), permissionCodes: [] }, { onSuccess: (r) => { setNewOpen(false); setRoleId(r.id); setNewRole({ code: '', name: '' }); } })}>Create role</Button>
+            <Button loading={actions.create.isPending} onClick={createRole}>Create role</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -18,6 +18,7 @@ export interface StaffInput {
   name: string;
   mobile: string;
   email?: string | null;
+  username?: string | null;
   password?: string;
   roleCodes: string[];
   designation?: string | null;
@@ -51,7 +52,7 @@ export class StaffService {
       ...(q.isTechnician !== undefined ? { isTechnician: q.isTechnician } : {}),
       ...(q.skillId ? { skills: { some: { skillId: q.skillId } } } : {}),
       ...(q.search
-        ? { OR: [{ staffCode: { contains: q.search } }, { user: { name: { contains: q.search } } }, { user: { mobile: { contains: q.search } } }] }
+        ? { OR: [{ staffCode: { contains: q.search } }, { user: { name: { contains: q.search } } }, { user: { mobile: { contains: q.search } } }, { user: { username: { contains: q.search.toLowerCase() } } }] }
         : {}),
     };
     const { items, total } = await this.repo.list(where, p.skip, p.take);
@@ -80,6 +81,7 @@ export class StaffService {
     this.assertRoleGrant(actor, input.roleCodes);
     if (await this.users.findByMobile(input.mobile)) throw new ConflictError(ErrorMessages.MOBILE_IN_USE);
     if (input.email && (await this.users.findByEmail(input.email))) throw new ConflictError(ErrorMessages.EMAIL_IN_USE);
+    if (input.username && (await this.users.findByUsername(input.username))) throw new ConflictError(ErrorMessages.USERNAME_IN_USE);
     const roles = await this.users.findRolesByCodes(input.roleCodes);
     if (roles.length !== input.roleCodes.length) throw new ValidationError('Unknown role selected');
     // If no password provided, set an unusable random one; staff then uses "Forgot password".
@@ -88,7 +90,7 @@ export class StaffService {
 
     const staff = await runInTransaction(async (tx) => {
       const user = await this.users.create(
-        { name: input.name, mobile: input.mobile, email: input.email ?? null, passwordHash, userType: isAdmin ? 'ADMIN' : 'STAFF', branchId: input.branchId },
+        { name: input.name, mobile: input.mobile, email: input.email ?? null, username: input.username ?? null, passwordHash, userType: isAdmin ? 'ADMIN' : 'STAFF', branchId: input.branchId },
         tx,
       );
       await this.users.setRoles(user.id, roles.map((r) => r.id), tx);
@@ -121,6 +123,7 @@ export class StaffService {
     if (input.roleCodes) this.assertRoleGrant(actor, input.roleCodes);
     if (input.mobile && input.mobile !== before.user.mobile && (await this.users.findByMobile(input.mobile))) throw new ConflictError(ErrorMessages.MOBILE_IN_USE);
     if (input.email && input.email !== before.user.email && (await this.users.findByEmail(input.email))) throw new ConflictError(ErrorMessages.EMAIL_IN_USE);
+    if (input.username && input.username !== before.user.username && (await this.users.findByUsername(input.username))) throw new ConflictError(ErrorMessages.USERNAME_IN_USE);
     const roles = input.roleCodes ? await this.users.findRolesByCodes(input.roleCodes) : null;
     const passwordHash = input.password ? await this.auth.hashPassword(input.password) : undefined;
 
@@ -131,6 +134,7 @@ export class StaffService {
           name: input.name,
           mobile: input.mobile,
           email: input.email,
+          username: input.username,
           status: input.status,
           branchId: input.branchId,
           passwordHash,

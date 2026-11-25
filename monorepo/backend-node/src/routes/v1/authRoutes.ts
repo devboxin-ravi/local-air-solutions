@@ -7,6 +7,8 @@ import * as c from '../../controllers/authController';
 import { authenticate, optionalAuthenticate } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { authLimiter } from '../../middleware/security';
+import { uploadFiles } from '../../middleware/upload';
+import { UploadRules } from '../../constants';
 import {
   changePasswordSchema,
   deviceTokenSchema,
@@ -17,6 +19,7 @@ import {
   refreshSchema,
   registerCustomerSchema,
   resetPasswordSchema,
+  updateMeSchema,
 } from '../../validations/auth';
 
 const r = Router();
@@ -32,6 +35,9 @@ r.post('/reset-password', authLimiter, validate({ body: resetPasswordSchema }), 
 r.post('/logout', validate({ body: logoutSchema }), optionalAuthenticate, c.logout);
 r.post('/logout-all', authenticate, c.logoutAll);
 r.get('/me', authenticate, c.me);
+r.patch('/me', authenticate, validate({ body: updateMeSchema }), c.updateMe);
+r.post('/me/avatar', authenticate, uploadFiles(UploadRules.AVATAR_FOLDER, UploadRules.AVATAR_FIELD, UploadRules.IMAGE_MIME_TYPES, 1), c.uploadAvatar);
+r.delete('/me/avatar', authenticate, c.removeAvatar);
 r.get('/sessions', authenticate, c.sessions);
 r.post('/change-password', authenticate, validate({ body: changePasswordSchema }), c.changePassword);
 r.post('/devices', authenticate, validate({ body: deviceTokenSchema }), c.registerDevice);

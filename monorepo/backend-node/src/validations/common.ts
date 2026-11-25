@@ -29,6 +29,12 @@ export const optionalEmail = z
   .optional()
   .nullable()
   .transform((v) => (v ? v : null));
+export const username = z.string().trim().toLowerCase().regex(Patterns.USERNAME, ValidationMessages.USERNAME);
+export const optionalUsername = z
+  .union([z.literal(''), username])
+  .optional()
+  .nullable()
+  .transform((v) => (v ? v : null));
 export const password = z
   .string()
   .min(Limits.PASSWORD_MIN)

@@ -11,6 +11,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import type { Customer } from '@/types';
 import { EmptyState, Field, PageHeader } from '@/components/common';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { ledgerAdjustmentSchema } from '@/lib/validation';
 import { CustomerPicker } from '@/components/Pickers';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
@@ -28,6 +30,22 @@ export default function LedgerPage() {
   const pay = usePaymentActions();
   const [open, setOpen] = useState(false);
   const [adj, setAdj] = useState({ entryType: 'ADJUSTMENT', direction: 'CREDIT', amount: '', description: '' });
+  const { errors, validate, clear, fromServer, reset } = useFormErrors();
+  const postEntry = () => {
+    if (!customer) return;
+    const parsed = validate(ledgerAdjustmentSchema, adj);
+    if (!parsed) return;
+    pay.adjust.mutate(
+      { customerId: customer.id, entryType: adj.entryType, direction: adj.direction, amount: parsed.amount, description: parsed.description },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setAdj({ ...adj, amount: '', description: '' });
+        },
+        onError: (e) => fromServer(e),
+      },
+    );
+  };
 
   const pick = (c: Customer) => {
     setSelected(c);
@@ -49,7 +67,7 @@ export default function LedgerPage() {
       </Card>
       {customer ? <LedgerTab customerId={customer.id} /> : <Card><EmptyState icon={BookOpen} title="Select a customer" description="Search by name, mobile or customer ID to view their ledger." /></Card>}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent>
           <DialogHeader title="Post ledger entry" description={customer ? `${customer.fullName} · ${customer.customerCode}` : undefined} />
           <DialogBody className="grid gap-4 sm:grid-cols-2">
@@ -65,16 +83,16 @@ export default function LedgerPage() {
                 <option value="CREDIT">Credit</option>
               </NativeSelect>
             </Field>
-            <Field label="Amount (₹)" required><Input type="number" min="0.01" step="0.01" value={adj.amount} onChange={(e) => setAdj({ ...adj, amount: e.target.value })} /></Field>
-            <Field label="Description" required className="sm:col-span-2"><Input value={adj.description} maxLength={500} onChange={(e) => setAdj({ ...adj, description: e.target.value })} /></Field>
+            <Field label="Amount (₹)" required error={errors.amount} htmlFor="ledger-amount">
+              <Input id="ledger-amount" type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="0.00" value={adj.amount} onChange={(e) => { setAdj({ ...adj, amount: e.target.value }); clear('amount'); }} />
+            </Field>
+            <Field label="Description" required error={errors.description} htmlFor="ledger-description" className="sm:col-span-2">
+              <Input id="ledger-description" value={adj.description} maxLength={500} onChange={(e) => { setAdj({ ...adj, description: e.target.value }); clear('description'); }} />
+            </Field>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              disabled={!customer || !(Number(adj.amount) > 0) || adj.description.trim().length < 3}
-              loading={pay.adjust.isPending}
-              onClick={() => customer && pay.adjust.mutate({ customerId: customer.id, entryType: adj.entryType, direction: adj.direction, amount: Number(adj.amount), description: adj.description.trim() }, { onSuccess: () => { setOpen(false); setAdj({ ...adj, amount: '', description: '' }); } })}
-            >
+            <Button disabled={!customer} loading={pay.adjust.isPending} onClick={postEntry}>
               Post entry
             </Button>
           </DialogFooter>

@@ -22,6 +22,7 @@ export function useServiceActions() {
     update: useAction((v: { id: number; body: unknown }) => catalogService.updateService(v.id, v.body), { success: 'Service updated', invalidate: SERVICE_KEYS, silentError: true }),
     setActive: useAction((v: { id: number; isActive: boolean }) => catalogService.setActive(v.id, v.isActive), { success: (s) => `${s.name} ${s.isActive ? 'activated' : 'deactivated'}`, invalidate: SERVICE_KEYS }),
     remove: useAction((id: number) => catalogService.deleteService(id), { success: 'Service deleted', invalidate: SERVICE_KEYS }),
+    uploadImage: useAction((file: File) => catalogService.uploadImage(file), { success: 'Image uploaded' }),
     setPrice: useAction((v: { id: number; branchId: number | null; price: number }) => catalogService.setPrice(v.id, v.branchId, v.price), { success: 'Price updated', invalidate: SERVICE_KEYS }),
     createCategory: useAction((body: unknown) => catalogService.createCategory(body), { success: 'Category created', invalidate: SERVICE_KEYS }),
     updateCategory: useAction((v: { id: number; body: unknown }) => catalogService.updateCategory(v.id, v.body), { success: 'Category updated', invalidate: SERVICE_KEYS }),

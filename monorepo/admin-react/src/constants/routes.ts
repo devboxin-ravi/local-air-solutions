@@ -65,6 +65,7 @@ export const ROUTES = {
   STAFF: '/master/staff',
   ROLES: '/master/roles',
 
+  SETTINGS_HOME: '/settings',
   SETTINGS: (key: string) => `/settings/${key}`,
   AUDIT_LOGS: '/settings/audit-logs',
   TEMPLATES: '/settings/templates',

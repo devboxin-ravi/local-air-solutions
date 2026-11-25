@@ -176,17 +176,42 @@ class _DetailsStepState extends ConsumerState<_DetailsStep> {
             final qty = draft.lines[s.id]?.qty ?? 0;
             return Padding(
               padding: const EdgeInsets.only(bottom: Space.sm),
-              child: AppCard(
-                padding: const EdgeInsets.all(Space.md),
-                color: qty > 0 ? AppColors.blueSoft : null,
-                child: Row(children: [
-                  ServiceThumb(service: s, size: 48),
-                  const SizedBox(width: Space.md),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(s.name, style: t.titleSmall), Text(priceText(s), style: const TextStyle(color: AppColors.blue, fontWeight: FontWeight.w700))])),
-                  qty == 0
-                      ? OutlinedButton(onPressed: () => ctrl.setQty(s, 1), style: OutlinedButton.styleFrom(minimumSize: const Size(70, 40)), child: const Text('Add'))
-                      : _QtyStepper(qty: qty, onChanged: (q) => ctrl.setQty(s, q)),
-                ]),
+              child: AnimatedContainer(
+                duration: Motion.medium,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(Radii.lg), border: Border.all(color: qty > 0 ? AppColors.blue : Colors.transparent, width: 1.5)),
+                child: AppCard(
+                  padding: const EdgeInsets.all(Space.sm + 2),
+                  child: Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(Radii.md),
+                      child: ServicePhotoView(service: s, width: 64, height: 64, fallback: ServiceThumb(service: s, size: 64)),
+                    ),
+                    const SizedBox(width: Space.md),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const SizedBox(height: 3),
+                        Text(priceText(s), style: const TextStyle(color: AppColors.navy, fontWeight: FontWeight.w800, fontSize: 14)),
+                        Text('${s.durationMinutes} min', style: t.bodySmall),
+                      ]),
+                    ),
+                    qty == 0
+                        ? FilledButton.tonalIcon(
+                            onPressed: () => ctrl.setQty(s, 1),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 40),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              backgroundColor: AppColors.blueSoft,
+                              foregroundColor: AppColors.blue,
+                              shape: const StadiumBorder(),
+                              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          )
+                        : _QtyStepper(qty: qty, onChanged: (q) => ctrl.setQty(s, q)),
+                  ]),
+                ),
               ),
             );
           }).toList(),

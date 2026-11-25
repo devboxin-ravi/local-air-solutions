@@ -5,11 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/job_repository.dart';
 import '../domain/job_entities.dart';
+import '../../auth/presentation/auth_provider.dart';
 
 final jobRepositoryProvider = Provider<JobRepository>((_) => JobRepository());
-final techDashboardProvider = FutureProvider<TechDashboard>((ref) => ref.read(jobRepositoryProvider).dashboard());
-final techJobsProvider = FutureProvider.family<({List<Job> jobs, bool fromCache}), String>((ref, scope) => ref.read(jobRepositoryProvider).jobs(scope));
-final jobProvider = FutureProvider.family<Job, int>((ref, id) => ref.read(jobRepositoryProvider).job(id));
+final techDashboardProvider = FutureProvider<TechDashboard>((ref) {
+  ref.watch(sessionUserIdProvider);
+  return ref.read(jobRepositoryProvider).dashboard();
+});
+final techJobsProvider = FutureProvider.family<({List<Job> jobs, bool fromCache}), String>((ref, scope) {
+  ref.watch(sessionUserIdProvider);
+  return ref.read(jobRepositoryProvider).jobs(scope);
+});
+final jobProvider = FutureProvider.family<Job, int>((ref, id) {
+  ref.watch(sessionUserIdProvider);
+  return ref.read(jobRepositoryProvider).job(id);
+});
 
 /// Runs a job action, then refreshes every job view.
 class JobActions {

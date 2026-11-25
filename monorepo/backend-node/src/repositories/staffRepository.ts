@@ -11,6 +11,7 @@ export const staffInclude = {
       id: true,
       name: true,
       email: true,
+      username: true,
       mobile: true,
       countryCode: true,
       status: true,

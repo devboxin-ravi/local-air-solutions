@@ -7,6 +7,8 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { useAuth, bootstrapSession } from '@/hooks/useAuth';
 import { AppLayout } from '@/layout/AppLayout';
+import { SettingsLayout } from '@/layout/SettingsLayout';
+import { useSettingsItems } from '@/hooks/useHeader';
 import { LoadingBlock } from '@/components/common';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -71,6 +73,12 @@ const GuestOnly = () => {
   const { status } = useAuth();
   if (status === 'loading') return <LoadingBlock rows={4} className="mx-auto max-w-md pt-24" />;
   return status === 'authenticated' ? <Navigate to={ROUTES.DASHBOARD} replace /> : <Outlet />;
+};
+
+/** /settings opens the first settings section the user may access. */
+const SettingsIndex = () => {
+  const items = useSettingsItems();
+  return <Navigate to={items[0]?.to ?? ROUTES.DASHBOARD} replace />;
 };
 
 const P = (permission: string, element: JSX.Element) => <Route element={<RequirePermission permission={permission} />}>{element}</Route>;
@@ -160,9 +168,12 @@ export const AppRoutes = () => {
           {P('staff.view', <Route path={ROUTES.STAFF} element={<StaffPage />} />)}
           {P('roles.view', <Route path={ROUTES.ROLES} element={<RolesPage />} />)}
 
-          {P('auditLogs.view', <Route path={ROUTES.AUDIT_LOGS} element={<AuditLogsPage />} />)}
-          {P('notifications.view', <Route path={ROUTES.TEMPLATES} element={<TemplatesPage />} />)}
-          {P('settings.view', <Route path="/settings/:key" element={<SettingsPage />} />)}
+          <Route element={<SettingsLayout />}>
+            <Route path={ROUTES.SETTINGS_HOME} element={<SettingsIndex />} />
+            {P('auditLogs.view', <Route path={ROUTES.AUDIT_LOGS} element={<AuditLogsPage />} />)}
+            {P('notifications.view', <Route path={ROUTES.TEMPLATES} element={<TemplatesPage />} />)}
+            {P('settings.view', <Route path="/settings/:key" element={<SettingsPage />} />)}
+          </Route>
 
           <Route path={ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
           <Route path={ROUTES.PROFILE} element={<ProfilePage />} />

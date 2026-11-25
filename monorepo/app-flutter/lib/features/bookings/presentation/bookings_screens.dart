@@ -13,6 +13,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/utils/launcher.dart';
 import '../../../shared/themes/app_theme.dart';
 import '../../../shared/widgets/app_widgets.dart';
+import '../../catalog/presentation/catalog_providers.dart';
 import '../../catalog/presentation/services_screen.dart';
 import '../domain/booking_entities.dart';
 import 'booking_providers.dart';
@@ -25,10 +26,7 @@ class BookingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => DefaultTabController(
         length: 2,
         child: Scaffold(
-          appBar: AppBar(
-            title: const Text('My bookings'),
-            bottom: const TabBar(tabs: [Tab(text: 'Upcoming'), Tab(text: 'Past')], labelStyle: TextStyle(fontWeight: FontWeight.w700), indicatorColor: AppColors.blue, labelColor: AppColors.blue),
-          ),
+          appBar: pageAppBar(context, title: 'My bookings', subtitle: 'Track and manage your service visits', bottom: const SegmentedTabs(labels: ['Upcoming', 'Past'])),
           body: const TabBarView(children: [_BookingList(tab: 'upcoming'), _BookingList(tab: 'past')]),
         ),
       );
@@ -58,7 +56,7 @@ class _BookingList extends ConsumerWidget {
                 ),
               ])
             : ListView.separated(
-                padding: const EdgeInsets.all(Space.page),
+                padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, Space.page),
                 itemCount: list.length,
                 separatorBuilder: (_, __) => const SizedBox(height: Space.md),
                 itemBuilder: (_, i) => BookingCard(booking: list[i], onTap: () => context.push(AppRoutes.bookingPath(list[i].id))),
@@ -78,6 +76,7 @@ class BookingDetailScreen extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Track booking')),
+      backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(bookingDetailProvider(bookingId).future),
         child: AsyncBody<BookingDetail>(
@@ -87,59 +86,63 @@ class BookingDetailScreen extends ConsumerWidget {
             final s = b.summary;
             final unpaidInvoice = b.invoices.where((i) => i.balance > 0 && i.status != 'CANCELLED').firstOrNull;
             final canPayPrepaid = s.status == BookingStatus.pendingPayment && s.estimatedTotal > 0;
-            return ListView(padding: const EdgeInsets.all(Space.page), children: [
-              Container(
-                padding: const EdgeInsets.all(Space.xl),
-                decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(Radii.xl), boxShadow: AppShadows.raised),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Expanded(child: Text(s.number, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.pill)), child: Text(Fmt.humanize(s.status), style: const TextStyle(color: AppColors.blue, fontWeight: FontWeight.w800, fontSize: 12))),
-                  ]),
-                  const SizedBox(height: Space.sm),
-                  Text(s.title, style: t.titleLarge?.copyWith(color: Colors.white)),
-                  const SizedBox(height: Space.md),
-                  Row(children: [
-                    const Icon(Icons.event_rounded, color: Colors.white70, size: 18),
-                    const SizedBox(width: 6),
-                    Text('${Fmt.dateOnly(s.scheduledDate)}${s.scheduledTime != null ? '  ·  ${s.scheduledTime}' : ''}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  ]),
+            final canAddPhotos = BookingStatus.customerCancellable.contains(s.status);
+            final showTechnician = b.technicianName != null || BookingStatus.trackingSteps.take(2).contains(s.status);
+            const money = TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.navy);
+            return ListView(padding: const EdgeInsets.fromLTRB(Space.page, Space.xs, Space.page, Space.xl), children: [
+              BookingHeroCard(booking: s),
+              const SizedBox(height: Space.md),
+              AppCard(
+                padding: const EdgeInsets.all(Space.lg),
+                child: Column(children: [
+                  TrackingTimeline(status: s.status, events: b.timeline, config: ref.watch(publicSettingsProvider).value?.trackerSteps ?? const []),
+                  if (showTechnician) ...[
+                    const Divider(height: Space.xl),
+                    TechnicianCard(name: b.technicianName, phone: b.technicianPhone, onCall: b.technicianPhone == null ? null : () => Launcher.call(b.technicianPhone!)),
+                  ],
                 ]),
               ),
-              const SizedBox(height: Space.lg),
-              if (b.technicianName != null)
-                AppCard(
-                  child: Row(children: [
-                    const IconBox(Icons.engineering_rounded, color: AppColors.greenDark, background: AppColors.greenSoft),
-                    const SizedBox(width: Space.md),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Your technician', style: t.bodySmall), Text(b.technicianName!, style: t.titleSmall)])),
-                    if (b.technicianPhone != null) IconButton.filledTonal(onPressed: () => Launcher.call(b.technicianPhone!), icon: const Icon(Icons.call_rounded), tooltip: 'Call technician'),
-                  ]),
-                ),
-              if (b.technicianName != null) const SizedBox(height: Space.lg),
-              AppCard(child: TrackingTimeline(status: s.status, events: b.timeline)),
-              const SizedBox(height: Space.lg),
+              const SizedBox(height: Space.md),
               AppCard(
+                padding: const EdgeInsets.all(Space.lg),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Details', style: t.titleMedium),
-                  const SizedBox(height: Space.sm),
-                  ...b.items.map((i) => InfoRow(label: '${i.serviceName} × ${i.quantity}', value: i.lineTotal > 0 ? Fmt.money(i.lineTotal) : 'On inspection')),
+                  ...b.items.map((i) => Padding(
+                        padding: const EdgeInsets.only(bottom: Space.xs),
+                        child: Row(children: [
+                          Expanded(child: Text('${i.serviceName} × ${i.quantity}', maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodyMedium?.copyWith(fontSize: 13.5))),
+                          Text(i.lineTotal > 0 ? Fmt.money(i.lineTotal) : 'On inspection', style: money),
+                        ]),
+                      )),
                   if (b.items.isEmpty) Text(s.title, style: t.bodyMedium),
-                  const Divider(height: Space.xl),
-                  InfoRow(label: 'Estimated', value: s.estimatedTotal > 0 ? Fmt.money(s.estimatedTotal) : 'On inspection', bold: true),
-                  InfoRow(label: 'Payment', value: Fmt.humanize(s.paymentStatus)),
                   const SizedBox(height: Space.sm),
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.location_on_outlined, size: 18, color: AppColors.green), const SizedBox(width: 6), Expanded(child: Text(b.address, style: t.bodyMedium))]),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm + 2),
+                    decoration: BoxDecoration(gradient: AppColors.freshGradient, borderRadius: BorderRadius.circular(Radii.md)),
+                    child: Row(children: [
+                      Text('Estimated', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: Space.sm),
+                      StatusBadge(s.paymentStatus),
+                      const Spacer(),
+                      Text(s.estimatedTotal > 0 ? Fmt.money(s.estimatedTotal) : 'On inspection', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.blue)),
+                    ]),
+                  ),
+                  const SizedBox(height: Space.md),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.location_on_rounded, size: 18, color: AppColors.green),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(b.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: t.bodySmall?.copyWith(fontSize: 12.5, color: AppColors.slate, height: 1.35))),
+                  ]),
                 ]),
               ),
               if (b.invoices.isNotEmpty) ...[
-                const SizedBox(height: Space.lg),
+                const SizedBox(height: Space.md),
                 ...b.invoices.map((i) => Padding(
                       padding: const EdgeInsets.only(bottom: Space.sm),
                       child: AppCard(
+                        padding: const EdgeInsets.symmetric(horizontal: Space.lg, vertical: Space.md),
                         onTap: () => context.push(AppRoutes.invoicePath(i.id)),
                         child: Row(children: [
-                          const IconBox(Icons.receipt_long_rounded),
+                          const IconBox(Icons.receipt_long_rounded, size: 34),
                           const SizedBox(width: Space.md),
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(i.number, style: t.titleSmall), Text('Total ${Fmt.money(i.total)} · Due ${Fmt.money(i.balance)}', style: t.bodySmall)])),
                           StatusBadge(i.status),
@@ -148,33 +151,38 @@ class BookingDetailScreen extends ConsumerWidget {
                     )),
               ],
               if (b.photos.isNotEmpty) ...[
-                const SizedBox(height: Space.lg),
-                Text('Photos', style: t.titleMedium),
-                const SizedBox(height: Space.sm),
+                const SizedBox(height: Space.md),
                 SizedBox(
-                  height: 96,
+                  height: 64,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: b.photos.length,
                     separatorBuilder: (_, __) => const SizedBox(width: Space.sm),
-                    itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(Radii.md), child: Image.network(AppConfig.assetUrl(b.photos[i].path), width: 96, height: 96, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 96, color: AppColors.border))),
+                    itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(Radii.md), child: Image.network(AppConfig.assetUrl(b.photos[i].path), width: 64, height: 64, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 64, color: AppColors.border))),
                   ),
                 ),
               ],
-              const SizedBox(height: Space.xl),
-              if (canPayPrepaid || unpaidInvoice != null)
+              if (canPayPrepaid || unpaidInvoice != null) ...[
+                const SizedBox(height: Space.md),
                 PrimaryButton(
                   label: 'Pay ${Fmt.money(unpaidInvoice?.balance ?? s.estimatedTotal)}',
                   icon: Icons.account_balance_wallet_rounded,
                   color: AppColors.green,
                   onPressed: () => context.push(AppRoutes.payment, extra: (bookingId: s.id, invoiceId: unpaidInvoice?.id, amount: unpaidInvoice?.balance ?? s.estimatedTotal, label: unpaidInvoice?.number ?? s.number)),
                 ),
-              if (BookingStatus.customerCancellable.contains(s.status)) ...[
-                const SizedBox(height: Space.sm),
-                OutlinedButton.icon(onPressed: () => _addPhotos(context, ref, s.id), icon: const Icon(Icons.add_a_photo_outlined), label: const Text('Add photos of the problem')),
-                const SizedBox(height: Space.sm),
-                TextButton(onPressed: () => _cancel(context, ref, s.id), style: TextButton.styleFrom(foregroundColor: AppColors.red), child: const Text('Cancel booking')),
               ],
+              const SizedBox(height: Space.md),
+              Row(children: [
+                if (canAddPhotos) ...[
+                  Expanded(child: BookingActionTile(icon: Icons.add_a_photo_rounded, label: 'Photos', onTap: () => _addPhotos(context, ref, s.id))),
+                  const SizedBox(width: Space.sm),
+                ],
+                Expanded(child: BookingActionTile(icon: Icons.support_agent_rounded, label: 'Help', color: AppColors.greenDark, background: AppColors.greenSoft, onTap: () => context.push(AppRoutes.support))),
+                if (BookingStatus.customerCancellable.contains(s.status)) ...[
+                  const SizedBox(width: Space.sm),
+                  Expanded(child: BookingActionTile(icon: Icons.close_rounded, label: 'Cancel', color: AppColors.red, background: AppColors.redSoft, onTap: () => _cancel(context, ref, s.id))),
+                ],
+              ]),
             ]);
           },
         ),

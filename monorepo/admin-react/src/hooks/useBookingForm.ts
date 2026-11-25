@@ -81,6 +81,7 @@ export function useBookingForm(initialCustomerId?: number) {
     if (bookingType === 'SERVICE' && !lines.length) e.items = 'Add at least one service';
     if (bookingType === 'REPAIR' && problemDescription.trim().length < 5) e.problemDescription = 'Describe the problem (min 5 characters)';
     if (!scheduledDate) e.scheduledDate = 'Choose a date';
+    else if (scheduledDate < toYmd(new Date())) e.scheduledDate = 'Date cannot be in the past';
     setErrors(e);
     setFormError(null);
     if (Object.keys(e).length) return;

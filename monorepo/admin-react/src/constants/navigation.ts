@@ -5,25 +5,52 @@
 
 import {
   BarChart3,
+  Bell,
+  BellRing,
   Building2,
   CalendarCheck2,
   ClipboardList,
+  Clock,
+  CreditCard,
   FileSpreadsheet,
+  FileText,
+  ListChecks,
   LayoutDashboard,
+  Mail,
+  MessageCircle,
+  Percent,
+  ScrollText,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
+  Smartphone,
   Users,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from './routes';
+import { SETTING_SECTIONS } from './ui';
 
 export interface NavChild {
   label: string;
   to: string;
   permission?: string;
   description?: string;
+  /** Used by card-style hubs (e.g. the Settings page). */
+  icon?: LucideIcon;
+  group?: string;
 }
+
+/** Section headings on the Settings page, in display order. */
+export const SETTINGS_GROUPS = ['Business', 'Billing & Payments', 'Communication', 'Customer App', 'Security'] as const;
+
+const section = (key: string, icon: LucideIcon, group: (typeof SETTINGS_GROUPS)[number]): NavChild => ({
+  label: SETTING_SECTIONS[key].title,
+  description: SETTING_SECTIONS[key].description,
+  to: ROUTES.SETTINGS(key),
+  icon,
+  group,
+});
 
 export interface NavModule {
   key: string;
@@ -166,25 +193,42 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Roles & Permissions', to: ROUTES.ROLES, permission: 'roles.view' },
     ],
   },
-  {
-    key: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    permission: 'settings.view',
-    basePath: '/settings',
-    children: [
-      { label: 'Company Profile', to: ROUTES.SETTINGS('company') },
-      { label: 'General Settings', to: ROUTES.SETTINGS('general') },
-      { label: 'GST Settings', to: ROUTES.SETTINGS('gst') },
-      { label: 'Payment Settings', to: ROUTES.SETTINGS('payment') },
-      { label: 'Reminder Settings', to: ROUTES.SETTINGS('reminder') },
-      { label: 'Notification Settings', to: ROUTES.SETTINGS('notification') },
-      { label: 'WhatsApp Integration', to: ROUTES.SETTINGS('whatsapp') },
-      { label: 'Email Configuration', to: ROUTES.SETTINGS('email') },
-      { label: 'Working Hours', to: ROUTES.SETTINGS('workingHours') },
-      { label: 'Customer App Home', to: ROUTES.SETTINGS('appHome') },
-      { label: 'Notification Templates', to: ROUTES.TEMPLATES, permission: 'notifications.view' },
-      { label: 'Audit Logs', to: ROUTES.AUDIT_LOGS, permission: 'auditLogs.view' },
-    ],
-  },
 ];
+
+/** Settings live in the profile menu (top-right), not the module bar. */
+export const SETTINGS_MENU: NavModule = {
+  key: 'settings',
+  label: 'Settings',
+  icon: Settings,
+  permission: 'settings.view',
+  basePath: '/settings',
+  children: [
+    section('company', Building2, 'Business'),
+    section('general', SlidersHorizontal, 'Business'),
+    section('workingHours', Clock, 'Business'),
+    section('gst', Percent, 'Billing & Payments'),
+    section('payment', CreditCard, 'Billing & Payments'),
+    section('notification', Bell, 'Communication'),
+    section('reminder', BellRing, 'Communication'),
+    section('whatsapp', MessageCircle, 'Communication'),
+    section('email', Mail, 'Communication'),
+    {
+      label: 'Notification Templates',
+      description: 'Wording of messages sent for each booking and payment event.',
+      to: ROUTES.TEMPLATES,
+      permission: 'notifications.view',
+      icon: FileText,
+      group: 'Communication',
+    },
+    section('appHome', Smartphone, 'Customer App'),
+    section('bookingTracker', ListChecks, 'Customer App'),
+    {
+      label: 'Audit Logs',
+      description: 'Trail of logins and changes made by staff.',
+      to: ROUTES.AUDIT_LOGS,
+      permission: 'auditLogs.view',
+      icon: ScrollText,
+      group: 'Security',
+    },
+  ],
+};

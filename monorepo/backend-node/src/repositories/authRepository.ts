@@ -16,7 +16,7 @@ export type UserWithAccess = Prisma.UserGetPayload<{ include: typeof userAuthInc
 export class AuthRepository {
   findByIdentifier(identifier: string, db: Db = prisma): Promise<UserWithAccess | null> {
     return db.user.findFirst({
-      where: { deletedAt: null, OR: [{ email: identifier }, { mobile: identifier }] },
+      where: { deletedAt: null, OR: [{ email: identifier }, { mobile: identifier }, { username: identifier }] },
       include: userAuthInclude,
     });
   }
@@ -34,6 +34,10 @@ export class AuthRepository {
       where: { id: userId },
       data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
     });
+  }
+
+  updateAvatar(userId: number, avatarUrl: string | null, db: Db = prisma) {
+    return db.user.update({ where: { id: userId }, data: { avatarUrl }, select: { avatarUrl: true } });
   }
 
   updatePasswordHash(userId: number, passwordHash: string, db: Db = prisma) {

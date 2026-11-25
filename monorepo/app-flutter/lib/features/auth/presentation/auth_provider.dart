@@ -5,6 +5,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
+
 import '../../../core/network/api_client.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_entity.dart';
@@ -62,3 +64,14 @@ class AuthController extends Notifier<AuthState> {
 }
 
 final onboardingDoneProvider = FutureProvider<bool>((ref) => ref.read(authRepositoryProvider).onboardingDone());
+
+/// Id of the signed-in user (null when signed out). Every per-user provider watches this, so
+/// logging out or switching accounts refetches its data instead of showing the previous user's.
+final sessionUserIdProvider = Provider<int?>((ref) => ref.watch(authControllerProvider.select((s) => s.user?.id)));
+
+/// Signed-in user's profile picture URL (null when none is set).
+final avatarProvider = FutureProvider<String?>((ref) async {
+  if (ref.watch(sessionUserIdProvider) == null) return null;
+  final path = await ref.read(authRepositoryProvider).avatarPath();
+  return path == null || path.isEmpty ? null : AppConfig.assetUrl(path);
+});

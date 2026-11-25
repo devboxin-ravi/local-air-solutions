@@ -177,6 +177,8 @@ model User {
   id               Int           @id @default(autoincrement())
   name             String        @db.VarChar(100)
   email            String?       @unique @db.VarChar(254)
+  /// Optional staff login name (lowercase, unique); mobile/email also sign in.
+  username         String?       @unique @db.VarChar(30)
   countryCode      String        @default("+91") @map("country_code") @db.VarChar(5)
   mobile           String        @unique @db.VarChar(15)
   passwordHash     String?       @map("password_hash") @db.VarChar(255)

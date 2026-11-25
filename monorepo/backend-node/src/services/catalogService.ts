@@ -111,7 +111,7 @@ export class CatalogService {
       AND: [
         ...(f.search ? [{ OR: [{ name: { contains: f.search } }, { code: { contains: f.search } }, { description: { contains: f.search } }] }] : []),
         // A service with no branch links is available in all branches.
-        ...(f.branchId && publicView ? [{ OR: [{ branches: { none: {} } }, { branches: { some: { branchId: f.branchId } } }] }] : []),
+        ...(f.branchId ? [{ OR: [{ branches: { none: {} } }, { branches: { some: { branchId: f.branchId } } }] }] : []),
       ],
     };
     const sortField = f.sortBy && SERVICE_SORT_FIELDS.includes(f.sortBy) ? f.sortBy : 'sortOrder';

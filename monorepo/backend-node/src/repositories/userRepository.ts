@@ -18,6 +18,10 @@ export class UserRepository {
     return db.user.findUnique({ where: { email } });
   }
 
+  findByUsername(username: string, db: Db = prisma) {
+    return db.user.findUnique({ where: { username } });
+  }
+
   create(data: Prisma.UserUncheckedCreateInput, db: Db = prisma) {
     return db.user.create({ data });
   }

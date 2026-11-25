@@ -137,7 +137,7 @@ export const RescheduleDialog = ({
       <DialogContent size="lg">
         <DialogHeader title="Reschedule booking" description="The current slot is released and the technician assignment is cleared." />
         <DialogBody className="space-y-4">
-          <Field label="New date" required className="max-w-xs">
+          <Field label="New date" required className="max-w-xs" error={date && date < toYmd(new Date()) ? 'Date cannot be in the past' : !date ? 'Choose a date' : undefined}>
             <Input type="date" value={date} min={toYmd(new Date())} onChange={(e) => onDateChange(e.target.value)} />
           </Field>
           <Field label="Slot">
@@ -151,7 +151,7 @@ export const RescheduleDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button loading={submitting} disabled={!date} onClick={() => onSubmit({ scheduledDate: date, slotId, note: note.trim() })}>
+          <Button loading={submitting} disabled={!date || date < toYmd(new Date())} onClick={() => onSubmit({ scheduledDate: date, slotId, note: note.trim() })}>
             Reschedule
           </Button>
         </DialogFooter>

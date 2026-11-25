@@ -6,6 +6,9 @@ import { useMemo, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { useTemplates, useUpdateTemplate } from '@/hooks/useEngagement';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormErrors } from '@/hooks/useFormErrors';
+import { templateSchema } from '@/lib/validation';
+import { LIMITS } from '@/constants/ui';
 import { ROUTES } from '@/constants/routes';
 import { humanize } from '@/lib/utils';
 import type { Template } from '@/types';
@@ -22,6 +25,12 @@ export default function TemplatesPage() {
   const [channel, setChannel] = useState('IN_APP');
   const [editing, setEditing] = useState<Template | null>(null);
   const [draft, setDraft] = useState({ subject: '', body: '', isActive: true });
+  const { errors, validate, clear, fromServer, reset } = useFormErrors();
+  const saveTemplate = () => {
+    const parsed = validate(templateSchema, draft);
+    if (!parsed || !editing) return;
+    update.mutate({ id: editing.id, body: { subject: parsed.subject || null, body: parsed.body, isActive: parsed.isActive } }, { onSuccess: () => setEditing(null), onError: (e) => fromServer(e) });
+  };
   const rows = useMemo(() => (data ?? []).filter((t) => t.channel === channel), [data, channel]);
 
   if (isLoading) return <LoadingBlock rows={6} />;
@@ -29,7 +38,7 @@ export default function TemplatesPage() {
 
   return (
     <>
-      <PageHeader title="Notification Templates" description="Wording of messages sent for each event. Use placeholders like {{bookingNumber}}, {{date}}, {{amount}}." breadcrumbs={[{ label: 'Settings', to: ROUTES.SETTINGS('company') }, { label: 'Templates' }]} />
+      <PageHeader title="Notification Templates" description="Wording of messages sent for each event. Use placeholders like {{bookingNumber}}, {{date}}, {{amount}}." breadcrumbs={[{ label: 'Settings', to: ROUTES.SETTINGS_HOME }, { label: 'Templates' }]} />
       <Tabs value={channel} onValueChange={setChannel} className="mb-4">
         <TabsList>{CHANNELS.map((c) => <TabsTrigger key={c} value={c}>{humanize(c)}</TabsTrigger>)}</TabsList>
       </Tabs>
@@ -46,17 +55,21 @@ export default function TemplatesPage() {
           </Card>
         ))}
       </div>
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) { setEditing(null); reset(); } }}>
         <DialogContent>
           <DialogHeader title={editing ? `${humanize(editing.eventType)} · ${humanize(editing.channel)}` : ''} />
           <DialogBody className="space-y-4">
-            <Field label="Title / subject"><Input value={draft.subject} maxLength={200} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} /></Field>
-            <Field label="Message" required counter={{ value: draft.body.length, max: 5000 }}><Textarea value={draft.body} maxLength={5000} onChange={(e) => setDraft({ ...draft, body: e.target.value })} className="min-h-[140px]" /></Field>
-            <div className="flex items-center justify-between rounded-lg border px-3.5 py-3"><Label>Active</Label><Switch checked={draft.isActive} onCheckedChange={(v) => setDraft({ ...draft, isActive: v })} /></div>
+            <Field label="Title / subject" error={errors.subject} htmlFor="template-subject">
+              <Input id="template-subject" value={draft.subject} maxLength={LIMITS.TEMPLATE_SUBJECT_MAX} onChange={(e) => { setDraft({ ...draft, subject: e.target.value }); clear('subject'); }} />
+            </Field>
+            <Field label="Message" required error={errors.body} htmlFor="template-body" hint="Placeholders: {{bookingNumber}}, {{date}}, {{amount}}" counter={{ value: draft.body.length, max: LIMITS.TEMPLATE_BODY_MAX }}>
+              <Textarea id="template-body" value={draft.body} maxLength={LIMITS.TEMPLATE_BODY_MAX} onChange={(e) => { setDraft({ ...draft, body: e.target.value }); clear('body'); }} className="min-h-[140px]" />
+            </Field>
+            <div className="flex items-center justify-between rounded-xl border bg-slate-50/50 px-4 py-3"><Label>Active</Label><Switch checked={draft.isActive} onCheckedChange={(v) => setDraft({ ...draft, isActive: v })} /></div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button disabled={!draft.body.trim()} loading={update.isPending} onClick={() => editing && update.mutate({ id: editing.id, body: { subject: draft.subject.trim() || null, body: draft.body.trim(), isActive: draft.isActive } }, { onSuccess: () => setEditing(null) })}>Save template</Button>
+            <Button loading={update.isPending} onClick={saveTemplate}>Save template</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

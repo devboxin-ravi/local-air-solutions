@@ -36,6 +36,8 @@ const EnvSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 chars'),
   JWT_ACCESS_EXPIRES_MINUTES: z.coerce.number().int().positive().default(15),
   JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().int().positive().default(30),
+  /** Admin-panel sign-ins end this many days after login (not extended by token refresh). */
+  JWT_ADMIN_SESSION_DAYS: z.coerce.number().int().positive().default(7),
   JWT_ISSUER: z.string().default('local-air-solutions'),
 
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
@@ -98,7 +100,7 @@ export interface AppConfig {
   logLevel: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
   publicBaseUrl: string;
   databaseUrl: string;
-  jwt: { accessSecret: string; accessExpiresMinutes: number; refreshExpiresDays: number; issuer: string };
+  jwt: { accessSecret: string; accessExpiresMinutes: number; refreshExpiresDays: number; adminSessionDays: number; issuer: string };
   security: {
     bcryptRounds: number;
     loginMaxAttempts: number;
@@ -132,6 +134,7 @@ export const config: AppConfig = {
     accessSecret: env.JWT_ACCESS_SECRET,
     accessExpiresMinutes: env.JWT_ACCESS_EXPIRES_MINUTES,
     refreshExpiresDays: env.JWT_REFRESH_EXPIRES_DAYS,
+    adminSessionDays: env.JWT_ADMIN_SESSION_DAYS,
     issuer: env.JWT_ISSUER,
   },
   security: {

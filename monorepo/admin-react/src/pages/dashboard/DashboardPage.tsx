@@ -11,15 +11,16 @@ import {
   ArrowRight,
   ArrowUpRight,
   Building2,
+  Clock,
   CalendarClock,
   CalendarDays,
   CalendarPlus,
   ChartPie,
   CheckCircle2,
   ClipboardList,
-  CreditCard,
   FilePlus2,
   HardHat,
+  History,
   IndianRupee,
   Layers,
   Plus,
@@ -27,7 +28,6 @@ import {
   ShieldAlert,
   Snowflake,
   Trophy,
-  UserCheck,
   UserPlus,
   Users,
   Wallet,
@@ -37,13 +37,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useBranchScope } from '@/hooks/useBranchScope';
-import { useDashboard } from '@/hooks/useEngagement';
+import { useDashboard, useDashboardCharts } from '@/hooks/useEngagement';
 import { ROUTES } from '@/constants/routes';
-import { cn, formatDate, formatMoney, formatNumber, formatRelative, initials, toYmd } from '@/lib/utils';
+import { DATE_FORMATS } from '@/constants/ui';
+import { cn, formatDate, formatMoney, formatNumber, formatRelative, formatWith, initials, toYmd } from '@/lib/utils';
 import { ErrorState, SectionCard, StatCard, StatusBadge } from '@/components/common';
 import { BookingTrendChart, DonutChart, HorizontalBars, RevenueChart } from '@/components/Charts';
 import { Button, Card } from '@/components/ui/primitives';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
 import { DateRange } from '@/components/Filters';
+import type { DashboardData } from '@/types';
 
 const DAY_MS = 86_400_000;
 const DEFAULT_RANGE_DAYS = 180;
@@ -57,6 +60,16 @@ const RANGE_PRESETS = [
 ];
 
 const rangeForDays = (days: number) => ({ from: toYmd(new Date(Date.now() - days * DAY_MS)), to: toYmd(new Date()) });
+
+/** Donut cards: centre the chart vertically so tall neighbours don't leave a gap below it. */
+const DONUT_BODY = 'flex flex-1 items-center [&>*]:w-full';
+
+type ActivityTab = 'bookings' | 'payments' | 'assignments';
+const ACTIVITY_TABS: Array<{ value: ActivityTab; label: string }> = [
+  { value: 'bookings', label: 'Bookings' },
+  { value: 'payments', label: 'Payments' },
+  { value: 'assignments', label: 'Assignments' },
+];
 
 type AttentionTone = 'amber' | 'blue' | 'red';
 const ATTENTION_TONES: Record<AttentionTone, { bar: string; icon: string; ping: string; text: string }> = {
@@ -84,6 +97,8 @@ export default function DashboardPage() {
   const [range, setRange] = useState(() => rangeForDays(DEFAULT_RANGE_DAYS));
   const params = useMemo(() => ({ ...range, branchId }), [range, branchId]);
   const { data, isLoading, error, refetch } = useDashboard(params);
+  const charts = useDashboardCharts(data, range);
+  const [activityTab, setActivityTab] = useState<ActivityTab>('bookings');
   const k = data?.kpis;
 
   const quickActions = [
@@ -125,6 +140,17 @@ export default function DashboardPage() {
         { n: data.pendingActions.expiringAmc, label: 'AMC contracts expiring', cta: 'Review AMC', to: ROUTES.AMC_EXPIRING, icon: ShieldAlert, tone: 'red' as const },
       ].filter((a) => a.n > 0)
     : [];
+
+  const activityViewAll: Record<ActivityTab, string | undefined> = {
+    bookings: ROUTES.BOOKINGS,
+    payments: can('payments.view') ? ROUTES.PAYMENTS : undefined,
+    assignments: ROUTES.ASSIGNMENTS,
+  };
+  const activityCounts: Record<ActivityTab, number> = {
+    bookings: data?.lists.recentBookings.length ?? 0,
+    payments: data?.lists.recentPayments.length ?? 0,
+    assignments: data?.lists.recentAssignments.length ?? 0,
+  };
 
   return (
     <div className="space-y-7">
@@ -301,18 +327,18 @@ export default function DashboardPage() {
           {/* Charts */}
           <div className="grid gap-6 xl:grid-cols-3">
             <SectionCard title="Monthly Revenue" description="Invoiced vs collected" icon={Activity} className="xl:col-span-2">
-              {isLoading ? <div className="skeleton h-[280px]" /> : <RevenueChart data={data?.charts.revenue ?? []} />}
+              {isLoading ? <div className="skeleton h-[280px]" /> : <RevenueChart data={charts.revenue} />}
             </SectionCard>
-            <SectionCard title="Booking Status" description="Distribution for the selected period" icon={ChartPie}>
+            <SectionCard title="Booking Status" description="Distribution for the selected period" icon={ChartPie} className="flex flex-col" bodyClassName={DONUT_BODY}>
               {isLoading ? <div className="skeleton h-[200px]" /> : <DonutChart data={(data?.charts.statusDistribution ?? []) as never} nameKey="status" valueKey="count" humanizeNames />}
             </SectionCard>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-3">
             <SectionCard title="Booking Trends" description="Created bookings by month" icon={CalendarDays} className="xl:col-span-2">
-              {isLoading ? <div className="skeleton h-[280px]" /> : <BookingTrendChart data={data?.charts.bookingTrend ?? []} />}
+              {isLoading ? <div className="skeleton h-[280px]" /> : <BookingTrendChart data={charts.bookingTrend} />}
             </SectionCard>
-            <SectionCard title="Service Categories" description="Bookings by category" icon={Layers}>
+            <SectionCard title="Service Categories" description="Bookings by category" icon={Layers} className="flex flex-col" bodyClassName={DONUT_BODY}>
               {isLoading ? <div className="skeleton h-[200px]" /> : <DonutChart data={(data?.charts.categoryDistribution ?? []) as never} nameKey="category" valueKey="bookings" />}
             </SectionCard>
           </div>
@@ -329,66 +355,77 @@ export default function DashboardPage() {
           </div>
 
           {/* Activity */}
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-5">
             <SectionCard
               title="Upcoming Appointments"
+              description="Next scheduled visits"
               icon={CalendarClock}
               actions={<ViewAllButton label="Calendar" onClick={() => navigate(ROUTES.BOOKING_CALENDAR)} />}
-              bodyClassName="p-0"
+              className="flex flex-col xl:col-span-2"
+              bodyClassName="flex-1 p-0"
             >
-              <ActivityList
-                empty="No upcoming appointments"
-                rows={(data?.lists.upcoming ?? []).map((b) => ({
-                  key: b.id,
-                  to: ROUTES.BOOKING_DETAIL(b.id),
-                  title: `${b.customer.fullName}`,
-                  sub: `${b.items[0]?.serviceName ?? 'Repair request'} · ${b.bookingNumber}`,
-                  right: `${formatDate(b.scheduledDate)}${b.scheduledTime ? ` · ${b.scheduledTime}` : ''}`,
-                  extra: b.assignments[0]?.staff.user.name ?? 'Unassigned',
-                  status: b.status,
-                }))}
-              />
+              <UpcomingList loading={isLoading} bookings={data?.lists.upcoming ?? []} />
             </SectionCard>
-            <SectionCard title="Recent Bookings" icon={ClipboardList} actions={<ViewAllButton onClick={() => navigate(ROUTES.BOOKINGS)} />} bodyClassName="p-0">
-              <ActivityList
-                empty="No bookings yet"
-                rows={(data?.lists.recentBookings ?? []).map((b) => ({
-                  key: b.id,
-                  to: ROUTES.BOOKING_DETAIL(b.id),
-                  title: b.customer.fullName,
-                  sub: `${b.items[0]?.serviceName ?? 'Repair request'} · ${b.bookingNumber}`,
-                  right: formatMoney(b.estimatedTotal),
-                  extra: formatDate(b.scheduledDate),
-                  status: b.status,
-                }))}
-              />
-            </SectionCard>
-            <SectionCard title="Recent Payments" icon={CreditCard} actions={can('payments.view') ? <ViewAllButton onClick={() => navigate(ROUTES.PAYMENTS)} /> : undefined} bodyClassName="p-0">
-              <ActivityList
-                empty="No payments yet"
-                rows={(data?.lists.recentPayments ?? []).map((p) => ({
-                  key: p.id,
-                  title: p.customer.fullName,
-                  sub: `${p.paymentNumber} · ${p.method.replace('_', ' ')}`,
-                  right: formatMoney(p.amount),
-                  extra: formatRelative(p.createdAt),
-                  status: p.status,
-                }))}
-              />
-            </SectionCard>
-            <SectionCard title="Recent Assignments" icon={UserCheck} actions={<ViewAllButton onClick={() => navigate(ROUTES.ASSIGNMENTS)} />} bodyClassName="p-0">
-              <ActivityList
-                empty="No assignments yet"
-                rows={(data?.lists.recentAssignments ?? []).map((a) => ({
-                  key: a.id,
-                  to: ROUTES.BOOKING_DETAIL(a.booking.id),
-                  title: a.staff.user.name,
-                  sub: a.booking.bookingNumber,
-                  right: formatRelative(a.assignedAt),
-                  status: a.status,
-                }))}
-              />
-            </SectionCard>
+
+            <Tabs value={activityTab} onValueChange={(v) => setActivityTab(v as ActivityTab)} className="xl:col-span-3">
+              <SectionCard
+                title="Recent Activity"
+                description="Latest bookings, payments and assignments"
+                icon={History}
+                actions={activityViewAll[activityTab] ? <ViewAllButton onClick={() => navigate(activityViewAll[activityTab] as string)} /> : undefined}
+                className="h-full"
+                bodyClassName="p-0"
+              >
+                <TabsList className="px-3">
+                  {ACTIVITY_TABS.map((t) => (
+                    <TabsTrigger key={t.value} value={t.value} className="gap-2">
+                      {t.label}
+                      <span className="num rounded-full bg-slate-100 px-1.5 py-px text-[11px] font-bold text-slate-500">{activityCounts[t.value]}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                <TabsContent value="bookings" className="pt-0">
+                  <ActivityList
+                    empty="No bookings yet"
+                    rows={(data?.lists.recentBookings ?? []).map((b) => ({
+                      key: b.id,
+                      to: ROUTES.BOOKING_DETAIL(b.id),
+                      title: b.customer.fullName,
+                      sub: `${b.items[0]?.serviceName ?? 'Repair request'} · ${b.bookingNumber}`,
+                      right: formatMoney(b.estimatedTotal),
+                      extra: formatDate(b.scheduledDate),
+                      status: b.status,
+                    }))}
+                  />
+                </TabsContent>
+                <TabsContent value="payments" className="pt-0">
+                  <ActivityList
+                    empty="No payments yet"
+                    rows={(data?.lists.recentPayments ?? []).map((p) => ({
+                      key: p.id,
+                      title: p.customer.fullName,
+                      sub: `${p.paymentNumber} · ${p.method.replace('_', ' ')}`,
+                      right: formatMoney(p.amount),
+                      extra: formatRelative(p.createdAt),
+                      status: p.status,
+                    }))}
+                  />
+                </TabsContent>
+                <TabsContent value="assignments" className="pt-0">
+                  <ActivityList
+                    empty="No assignments yet"
+                    rows={(data?.lists.recentAssignments ?? []).map((a) => ({
+                      key: a.id,
+                      to: ROUTES.BOOKING_DETAIL(a.booking.id),
+                      title: a.staff.user.name,
+                      sub: a.booking.bookingNumber,
+                      right: formatRelative(a.assignedAt),
+                      status: a.status,
+                    }))}
+                  />
+                </TabsContent>
+              </SectionCard>
+            </Tabs>
           </div>
         </>
       )}
@@ -427,6 +464,58 @@ const ActivityList = ({ rows, empty }: { rows: Array<{ key: number; to?: string;
                 <StatusBadge status={r.status} />
               </div>
             </div>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+type UpcomingBooking = DashboardData['lists']['upcoming'][number];
+
+/** Upcoming visits as a date-tile timeline (reads well with one row or many). */
+const UpcomingList = ({ bookings, loading }: { bookings: UpcomingBooking[]; loading: boolean }) => {
+  const navigate = useNavigate();
+  if (loading) return <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <div key={i} className="skeleton h-14" />)}</div>;
+  if (!bookings.length) {
+    return (
+      <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-2 px-5 py-10 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-blue-50 text-brand-blue ring-1 ring-brand-blue-100">
+          <CalendarClock className="h-5 w-5" />
+        </span>
+        <p className="text-[13.5px] font-semibold text-brand-navy">No upcoming appointments</p>
+        <p className="text-[12.5px] text-muted-foreground">Scheduled visits will appear here.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="space-y-1 p-3">
+      {bookings.map((b) => (
+        <li key={b.id}>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.BOOKING_DETAIL(b.id))}
+            className="group flex w-full items-center gap-3.5 rounded-xl p-2.5 text-left transition-colors hover:bg-brand-blue-50/50"
+          >
+            <span className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-to-b from-brand-blue-50 to-white ring-1 ring-brand-blue-100">
+              <span className="text-[10.5px] font-bold uppercase tracking-wide text-brand-blue">{formatWith(b.scheduledDate, DATE_FORMATS.MONTH_ABBR)}</span>
+              <span className="num font-display text-[20px] font-extrabold leading-none text-brand-navy">{formatWith(b.scheduledDate, DATE_FORMATS.DAY_OF_MONTH)}</span>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] font-semibold text-brand-navy group-hover:text-brand-blue">{b.customer.fullName}</span>
+              <span className="block truncate text-[12.5px] text-muted-foreground">
+                {b.items[0]?.serviceName ?? 'Repair request'} · {b.bookingNumber}
+              </span>
+              <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {b.scheduledTime ?? 'Any time'} · {formatWith(b.scheduledDate, DATE_FORMATS.WEEKDAY_SHORT)}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <HardHat className="h-3 w-3" /> {b.assignments[0]?.staff.user.name ?? 'Unassigned'}
+                </span>
+              </span>
+            </span>
+            <StatusBadge status={b.status} />
           </button>
         </li>
       ))}

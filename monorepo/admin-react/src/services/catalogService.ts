@@ -45,4 +45,10 @@ export const catalogService = {
   deleteService: (id: number) => http.del(API.SERVICE(id)),
   pricing: (id: number) => http.get<PriceRow[]>(API.SERVICE_PRICING(id)),
   setPrice: (id: number, branchId: number | null, price: number) => http.post(API.SERVICE_PRICING(id), { branchId, price }),
+  /** Uploads a service/category photo; returns its public path (e.g. /uploads/catalog/x.jpg). */
+  uploadImage: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.upload<{ path: string }>(API.CATALOG_IMAGES, form);
+  },
 };
