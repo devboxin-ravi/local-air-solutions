@@ -8,7 +8,7 @@ import { useTemplates, useUpdateTemplate } from '@/hooks/useEngagement';
 import { useAuth } from '@/hooks/useAuth';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { templateSchema } from '@/lib/validation';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS } from '@/constants/ui';
 import { ROUTES } from '@/constants/routes';
 import { humanize } from '@/lib/utils';
 import type { Template } from '@/types';
@@ -60,10 +60,10 @@ export default function TemplatesPage() {
           <DialogHeader title={editing ? `${humanize(editing.eventType)} · ${humanize(editing.channel)}` : ''} />
           <DialogBody className="space-y-4">
             <Field label="Title / subject" error={errors.subject} htmlFor="template-subject">
-              <Input id="template-subject" value={draft.subject} maxLength={LIMITS.TEMPLATE_SUBJECT_MAX} onChange={(e) => { setDraft({ ...draft, subject: e.target.value }); clear('subject'); }} />
+              <Input id="template-subject" placeholder={PLACEHOLDERS.TEMPLATE_SUBJECT} value={draft.subject} maxLength={LIMITS.TEMPLATE_SUBJECT_MAX} onChange={(e) => { setDraft({ ...draft, subject: e.target.value }); clear('subject'); }} />
             </Field>
             <Field label="Message" required error={errors.body} htmlFor="template-body" hint="Placeholders: {{bookingNumber}}, {{date}}, {{amount}}" counter={{ value: draft.body.length, max: LIMITS.TEMPLATE_BODY_MAX }}>
-              <Textarea id="template-body" value={draft.body} maxLength={LIMITS.TEMPLATE_BODY_MAX} onChange={(e) => { setDraft({ ...draft, body: e.target.value }); clear('body'); }} className="min-h-[140px]" />
+              <Textarea id="template-body" placeholder={PLACEHOLDERS.TEMPLATE_BODY} value={draft.body} maxLength={LIMITS.TEMPLATE_BODY_MAX} onChange={(e) => { setDraft({ ...draft, body: e.target.value }); clear('body'); }} className="min-h-[140px]" />
             </Field>
             <div className="flex items-center justify-between rounded-xl border bg-slate-50/50 px-4 py-3"><Label>Active</Label><Switch checked={draft.isActive} onCheckedChange={(v) => setDraft({ ...draft, isActive: v })} /></div>
           </DialogBody>

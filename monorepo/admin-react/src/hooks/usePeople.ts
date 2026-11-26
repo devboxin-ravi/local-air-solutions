@@ -51,6 +51,7 @@ export function useStaffActions() {
   return {
     create: useAction((body: unknown) => staffService.create(body), { success: 'Staff member created', invalidate, silentError: true }),
     update: useAction((v: { id: number; body: unknown }) => staffService.update(v.id, v.body), { success: 'Staff member updated', invalidate, silentError: true }),
+    remove: useAction((id: number) => staffService.remove(id), { success: 'Staff member deleted', invalidate }),
   };
 }
 

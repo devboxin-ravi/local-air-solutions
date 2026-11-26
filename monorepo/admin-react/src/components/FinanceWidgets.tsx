@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { cn, formatMoney, toYmd } from '@/lib/utils';
-import { PAYMENT_METHODS } from '@/constants/ui';
+import { PAYMENT_METHODS, PLACEHOLDERS } from '@/constants/ui';
 import { paymentSchema, type PaymentForm } from '@/lib/validation';
 import type { InvoiceTotals } from '@/types';
 import { Field } from './common';
@@ -62,16 +62,16 @@ export const RecordPaymentDialog = ({
               </NativeSelect>
             </Field>
             <Field label="Amount (₹)" required error={e.amount?.message} hint={maxAmount !== undefined ? `Balance: ${formatMoney(maxAmount)}` : undefined}>
-              <Input type="number" step="0.01" min="0" inputMode="decimal" {...form.register('amount')} aria-invalid={!!e.amount} />
+              <Input type="number" step="0.01" min="0" inputMode="decimal" {...form.register('amount')} placeholder={PLACEHOLDERS.AMOUNT} aria-invalid={!!e.amount} />
             </Field>
             <Field label={method === 'CASH' ? 'Receipt no. (optional)' : 'Transaction / UTR reference'} required={method !== 'CASH'} error={e.referenceNumber?.message}>
-              <Input {...form.register('referenceNumber')} maxLength={100} aria-invalid={!!e.referenceNumber} />
+              <Input {...form.register('referenceNumber')} placeholder={method === 'CASH' ? PLACEHOLDERS.RECEIPT_NO : PLACEHOLDERS.PAYMENT_REFERENCE} maxLength={100} aria-invalid={!!e.referenceNumber} />
             </Field>
             <Field label="Received on">
               <Input type="date" max={toYmd(new Date())} {...form.register('receivedAt')} />
             </Field>
             <Field label="Note" className="sm:col-span-2" error={e.note?.message}>
-              <Textarea {...form.register('note')} maxLength={1000} className="min-h-[64px]" />
+              <Textarea {...form.register('note')} placeholder={PLACEHOLDERS.NOTE} maxLength={1000} className="min-h-[64px]" />
             </Field>
           </DialogBody>
           <DialogFooter>
@@ -143,10 +143,10 @@ export const InvoiceOptions = ({ value, onChange }: { value: InvoiceOptionsValue
     </div>
     <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
       <Field label="Discount (₹)">
-        <Input type="number" min="0" step="0.01" value={value.discount} disabled={value.isFreeService} onChange={(e) => onChange({ ...value, discount: Math.max(0, Number(e.target.value) || 0) })} />
+        <Input type="number" min="0" step="0.01" value={value.discount} placeholder={PLACEHOLDERS.AMOUNT} disabled={value.isFreeService} onChange={(e) => onChange({ ...value, discount: Math.max(0, Number(e.target.value) || 0) })} />
       </Field>
       <Field label="Invoice notes" counter={{ value: value.notes.length, max: 1000 }}>
-        <Input value={value.notes} maxLength={1000} onChange={(e) => onChange({ ...value, notes: e.target.value })} />
+        <Input value={value.notes} placeholder={PLACEHOLDERS.INVOICE_NOTES} maxLength={1000} onChange={(e) => onChange({ ...value, notes: e.target.value })} />
       </Field>
     </div>
   </div>

@@ -61,6 +61,23 @@ export class AuthService {
     };
   }
 
+  /**
+   * Why this account may not sign in or keep a session, or null when it may. Checks the login
+   * itself and — for customers — the customer record, whose status admins set from the panel.
+   */
+  private accessBlock(u: UserWithAccess): { message: string; code: ErrorCodes } | null {
+    const status = u.customer && u.status === 'ACTIVE' ? (u.customer.deletedAt ? 'INACTIVE' : u.customer.status) : u.status;
+    if (status === 'ACTIVE') return null;
+    return status === 'SUSPENDED'
+      ? { message: ErrorMessages.ACCOUNT_SUSPENDED, code: ErrorCodes.ACCOUNT_SUSPENDED }
+      : { message: ErrorMessages.ACCOUNT_INACTIVE, code: ErrorCodes.ACCOUNT_INACTIVE };
+  }
+
+  private assertAccessAllowed(u: UserWithAccess) {
+    const block = this.accessBlock(u);
+    if (block) throw new AppError(block.message, StatusCodes.FORBIDDEN, block.code);
+  }
+
   /** Verifies an access token and loads the principal (short in-memory cache). */
   async authenticate(token: string): Promise<AuthUser> {
     let payload: AccessTokenPayload;
@@ -74,7 +91,10 @@ export class AuthService {
     const cached = this.cache.get(id);
     if (cached && Date.now() - cached.at < AUTH_CACHE_TTL_MS) return cached.user;
     const u = await this.authRepo.findByIdWithAccess(id);
-    if (!u || u.status !== 'ACTIVE') throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    if (!u) throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    // Suspended / deactivated while signed in: every request is refused (within the cache TTL).
+    const block = this.accessBlock(u);
+    if (block) throw new UnauthorizedError(block.message, block.code);
     const user = this.toAuthUser(u);
     this.cache.set(id, { user, at: Date.now() });
     return user;
@@ -144,7 +164,7 @@ export class AuthService {
       if (lock) throw new AppError(ErrorMessages.ACCOUNT_LOCKED(config.security.loginLockMinutes), StatusCodes.LOCKED, ErrorCodes.ACCOUNT_LOCKED);
       throw new UnauthorizedError(ErrorMessages.INVALID_CREDENTIALS, ErrorCodes.INVALID_CREDENTIALS);
     }
-    if (u.status !== 'ACTIVE') throw new AppError(ErrorMessages.ACCOUNT_INACTIVE, StatusCodes.FORBIDDEN, ErrorCodes.ACCOUNT_INACTIVE);
+    this.assertAccessAllowed(u);
   }
 
   /**
@@ -165,6 +185,7 @@ export class AuthService {
   }
 
   private async completeLogin(u: UserWithAccess, meta: RequestMeta, client: AuthClient = AuthClients.APP) {
+    this.assertAccessAllowed(u);
     await this.authRepo.recordSuccessfulLogin(u.id);
     const tokens = await this.issueTokens(u.id, u.userType, meta, { client });
     await this.settings.audit({ id: u.id } as AuthUser, AuditActions.LOGIN, 'user', u.id, null, null, meta);
@@ -190,7 +211,12 @@ export class AuthService {
     }
     if (row.expiresAt < new Date()) throw new UnauthorizedError(ErrorMessages.TOKEN_EXPIRED, ErrorCodes.TOKEN_EXPIRED);
     const u = await this.authRepo.findByIdWithAccess(row.userId);
-    if (!u || u.status !== 'ACTIVE') throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    if (!u) throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    const block = this.accessBlock(u);
+    if (block) {
+      await this.authRepo.revokeFamily(row.familyId);
+      throw new UnauthorizedError(block.message, block.code);
+    }
     // Admin-panel sessions keep their original end date; app sessions slide forward.
     const fixedExpiry = row.familyId.startsWith(ADMIN_SESSION_FAMILY_PREFIX) ? row.expiresAt : undefined;
     const next = await this.issueTokens(u.id, u.userType, meta, { familyId: row.familyId, fixedExpiry });
@@ -209,6 +235,12 @@ export class AuthService {
 
   async logoutAll(actor: AuthUser): Promise<void> {
     await this.authRepo.revokeAllForUser(actor.id);
+  }
+
+  /** Revokes every session of another user (e.g. a deleted staff account) and drops the auth cache. */
+  async revokeUserSessions(userId: number): Promise<void> {
+    await this.authRepo.revokeAllForUser(userId);
+    this.invalidateCache(userId);
   }
 
   sessions(actor: AuthUser) {

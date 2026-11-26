@@ -3,7 +3,7 @@
  */
 
 import { API } from '@/constants/api';
-import type { AppNotification, AuditLog, DashboardData, QueryParams, Reminder, ReportResult, SearchResults, ShareLink, Template } from '@/types';
+import type { AppNotification, AuditLog, DashboardData, IntegrationName, IntegrationStatus, QueryParams, RazorpayKeyInput, RazorpayKeyStatus, Reminder, ReportResult, SearchResults, ShareLink, Template } from '@/types';
 import { http } from './apiClient';
 
 export const reportService = {
@@ -31,5 +31,13 @@ export const settingsService = {
   templates: () => http.get<Template[]>(API.TEMPLATES),
   updateTemplate: (id: number, body: unknown) => http.patch<Template>(API.TEMPLATE(id), body),
   audit: (params?: QueryParams) => http.page<AuditLog>(API.AUDIT_LOGS, params),
+  razorpayKeys: () => http.get<RazorpayKeyStatus>(API.RAZORPAY_KEYS),
+  saveRazorpayKeys: (body: RazorpayKeyInput) => http.put<RazorpayKeyStatus>(API.RAZORPAY_KEYS, body),
+  clearRazorpayKeys: () => http.del(API.RAZORPAY_KEYS),
+  testRazorpayKeys: (body: Partial<RazorpayKeyInput>) => http.post<{ ok: boolean; mode: 'test' | 'live' }>(API.RAZORPAY_KEYS_TEST, body),
+  integration: (name: IntegrationName) => http.get<IntegrationStatus>(API.INTEGRATION(name)),
+  saveIntegration: (name: IntegrationName, body: Record<string, unknown>) => http.put<IntegrationStatus>(API.INTEGRATION(name), body),
+  clearIntegration: (name: IntegrationName) => http.del(API.INTEGRATION(name)),
+  testIntegration: (name: IntegrationName, body: Record<string, unknown>) => http.post<{ ok: boolean }>(API.INTEGRATION_TEST(name), body),
   whatsappLink: (type: 'booking' | 'assignment' | 'invoice' | 'paymentReminder' | 'serviceReminder', id: number) => http.get<ShareLink>(API.SHARE_WHATSAPP, { type, id }),
 };

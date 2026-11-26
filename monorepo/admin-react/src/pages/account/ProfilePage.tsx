@@ -9,7 +9,7 @@ import { useAvatar, useChangePassword, useUpdateProfile } from '@/hooks/useAccou
 import { errorMessage } from '@/hooks/useApi';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { changePasswordSchema, profileSchema } from '@/lib/validation';
-import { IMAGE_UPLOAD, LIMITS } from '@/constants/ui';
+import { IMAGE_UPLOAD, LIMITS, PLACEHOLDERS } from '@/constants/ui';
 import { assetUrl, cn, formatDateTime, humanize, initials, passwordChecks } from '@/lib/utils';
 import { Field, PageHeader } from '@/components/common';
 import { Avatar, Button, Card, Input } from '@/components/ui/primitives';
@@ -154,16 +154,16 @@ export default function ProfilePage() {
             <p className="mt-0.5 text-sm text-muted-foreground">Your name and the details you sign in with. Sign in using your email or username.</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Full name" required error={pe.name} htmlFor="me-name">
-                <IconInput id="me-name" icon={User} value={profile.name} maxLength={LIMITS.NAME_MAX} invalid={!!pe.name} onChange={(v) => setField('name', v)} />
+                <IconInput id="me-name" icon={User} placeholder={PLACEHOLDERS.FULL_NAME} value={profile.name} maxLength={LIMITS.NAME_MAX} invalid={!!pe.name} onChange={(v) => setField('name', v)} />
               </Field>
               <Field label="Mobile" required error={pe.mobile} htmlFor="me-mobile">
-                <IconInput id="me-mobile" icon={Phone} value={profile.mobile} inputMode="numeric" maxLength={10} invalid={!!pe.mobile} onChange={(v) => setField('mobile', v.replace(/\D/g, ''))} />
+                <IconInput id="me-mobile" icon={Phone} placeholder={PLACEHOLDERS.MOBILE} value={profile.mobile} inputMode="numeric" maxLength={10} invalid={!!pe.mobile} onChange={(v) => setField('mobile', v.replace(/\D/g, ''))} />
               </Field>
               <Field label="Email" error={pe.email} htmlFor="me-email">
-                <IconInput id="me-email" icon={Mail} type="email" value={profile.email} maxLength={LIMITS.EMAIL_MAX} invalid={!!pe.email} onChange={(v) => setField('email', v)} />
+                <IconInput id="me-email" icon={Mail} placeholder={PLACEHOLDERS.EMAIL} type="email" value={profile.email} maxLength={LIMITS.EMAIL_MAX} invalid={!!pe.email} onChange={(v) => setField('email', v)} />
               </Field>
               <Field label="Username" error={pe.username} hint="Optional — e.g. ravi.k" htmlFor="me-username">
-                <IconInput id="me-username" icon={AtSign} value={profile.username} maxLength={LIMITS.USERNAME_MAX} invalid={!!pe.username} onChange={(v) => setField('username', v.toLowerCase())} />
+                <IconInput id="me-username" icon={AtSign} placeholder={PLACEHOLDERS.USERNAME} value={profile.username} maxLength={LIMITS.USERNAME_MAX} invalid={!!pe.username} onChange={(v) => setField('username', v.toLowerCase())} />
               </Field>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -209,14 +209,14 @@ export default function ProfilePage() {
             {/* Lets the browser's password manager pair with this form instead of the profile fields above. */}
             <input type="text" name="username" autoComplete="username" value={user.username || user.email || user.mobile} readOnly hidden />
             <Field label="Current password" required error={errors.current} htmlFor="pw-current">
-              <PasswordInput id="pw-current" autoComplete="current-password" show={show} onToggle={() => setShow((s) => !s)} value={current} onChange={(v) => { setCurrent(v); clear('current'); }} />
+              <PasswordInput id="pw-current" placeholder={PLACEHOLDERS.CURRENT_PASSWORD} autoComplete="current-password" show={show} onToggle={() => setShow((s) => !s)} value={current} onChange={(v) => { setCurrent(v); clear('current'); }} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="New password" required error={errors.next} htmlFor="pw-next">
-                <PasswordInput id="pw-next" autoComplete="new-password" show={show} onToggle={() => setShow((s) => !s)} value={next} onChange={(v) => { setNext(v); clear('next'); }} />
+                <PasswordInput id="pw-next" placeholder={PLACEHOLDERS.NEW_PASSWORD} autoComplete="new-password" show={show} onToggle={() => setShow((s) => !s)} value={next} onChange={(v) => { setNext(v); clear('next'); }} />
               </Field>
               <Field label="Confirm new password" required error={errors.confirm} htmlFor="pw-confirm">
-                <PasswordInput id="pw-confirm" autoComplete="new-password" show={show} onToggle={() => setShow((s) => !s)} value={confirm} onChange={(v) => { setConfirm(v); clear('confirm'); }} />
+                <PasswordInput id="pw-confirm" placeholder={PLACEHOLDERS.CONFIRM_PASSWORD} autoComplete="new-password" show={show} onToggle={() => setShow((s) => !s)} value={confirm} onChange={(v) => { setConfirm(v); clear('confirm'); }} />
               </Field>
             </div>
 
@@ -250,17 +250,17 @@ export default function ProfilePage() {
 }
 
 /** Text input with a leading icon. Browser autofill is off so saved logins never overwrite profile fields. */
-const IconInput = ({ id, icon: Icon, value, onChange, invalid, type = 'text', inputMode, maxLength }: { id: string; icon: React.ComponentType<{ className?: string }>; value: string; onChange: (v: string) => void; invalid?: boolean; type?: string; inputMode?: 'numeric'; maxLength?: number }) => (
+const IconInput = ({ id, icon: Icon, value, onChange, invalid, type = 'text', inputMode, maxLength, placeholder }: { id: string; icon: React.ComponentType<{ className?: string }>; value: string; onChange: (v: string) => void; invalid?: boolean; type?: string; inputMode?: 'numeric'; maxLength?: number; placeholder?: string }) => (
   <div className="relative">
     <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-    <Input id={id} name={`profile-${id}`} type={type} inputMode={inputMode} maxLength={maxLength} value={value} aria-invalid={invalid} autoComplete="off" data-lpignore="true" data-1p-ignore onChange={(e) => onChange(e.target.value)} className="pl-9" />
+    <Input id={id} name={`profile-${id}`} type={type} inputMode={inputMode} maxLength={maxLength} placeholder={placeholder} value={value} aria-invalid={invalid} autoComplete="off" data-lpignore="true" data-1p-ignore onChange={(e) => onChange(e.target.value)} className="pl-9" />
   </div>
 );
 
 /** Password field with a show/hide eye (shared toggle across the form). */
-const PasswordInput = ({ id, value, onChange, show, onToggle, autoComplete }: { id: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; autoComplete: string }) => (
+const PasswordInput = ({ id, value, onChange, show, onToggle, autoComplete, placeholder }: { id: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; autoComplete: string; placeholder?: string }) => (
   <div className="relative">
-    <Input id={id} type={show ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} className="pr-10" />
+    <Input id={id} revealToggle={false} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} className="pr-10" />
     <button type="button" onClick={onToggle} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-brand-navy" aria-label={show ? 'Hide passwords' : 'Show passwords'}>
       {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
     </button>

@@ -131,6 +131,10 @@ export class EngagementRepository {
     return db.companySetting.findUnique({ where: { key } });
   }
 
+  deleteSetting(key: string, db: Db = prisma) {
+    return db.companySetting.deleteMany({ where: { key } });
+  }
+
   upsertSetting(key: string, value: Prisma.InputJsonValue, updatedBy: number | null, db: Db = prisma) {
     return db.companySetting.upsert({ where: { key }, create: { key, value, updatedBy }, update: { value, updatedBy } });
   }

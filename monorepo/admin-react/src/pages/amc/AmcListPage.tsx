@@ -2,18 +2,20 @@
  * AMC contracts list (all / expiring within 30 days).
  */
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldPlus } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { useAmcList } from '@/hooks/useFinance';
+import { useAmcActions, useAmcList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import { formatDate, formatMoney, formatRelative, humanize } from '@/lib/utils';
 import type { AmcContract } from '@/types';
-import { PageHeader, StatusBadge } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button } from '@/components/ui/primitives';
+import { ROW_ACTIONS } from '@/constants/ui';
 
 const EXPIRING_DAYS = 30;
 
@@ -22,6 +24,8 @@ export default function AmcListPage({ expiring }: { expiring?: boolean }) {
   const { can } = useAuth();
   const list = useListState();
   const { data, isLoading, error, refetch } = useAmcList({ ...list.query, ...(expiring ? { expiringWithinDays: EXPIRING_DAYS } : {}) });
+  const actions = useAmcActions();
+  const [toCancel, setToCancel] = useState<AmcContract | null>(null);
 
   const columns: Column<AmcContract>[] = [
     { key: 'amcNumber', header: 'AMC', cell: (a) => <div><p className="font-semibold text-brand-blue">{a.amcNumber}</p><p className="text-xs text-muted-foreground">{a.branch.name}</p></div> },
@@ -43,6 +47,17 @@ export default function AmcListPage({ expiring }: { expiring?: boolean }) {
     },
     { key: 'amount', header: 'Value', align: 'right', cell: (a) => <span className="num font-semibold">{formatMoney(a.contractAmount)}</span> },
     { key: 'status', header: 'Status', cell: (a) => <StatusBadge status={a.status} /> },
+    {
+      key: 'actions',
+      header: ROW_ACTIONS.HEADER,
+      align: 'right',
+      cell: (a) => (
+        <RowActions
+          onView={() => navigate(ROUTES.AMC_DETAIL(a.id))}
+          onCancel={can('amc.approve') && !['CANCELLED', 'EXPIRED'].includes(a.status) ? () => setToCancel(a) : undefined}
+        />
+      ),
+    },
   ];
 
   return (
@@ -71,6 +86,17 @@ export default function AmcListPage({ expiring }: { expiring?: boolean }) {
             {!expiring && <SelectFilter placeholder="All statuses" value={list.state.filters.status} onChange={(v) => list.setFilter('status', v)} options={['DRAFT', 'PENDING_PAYMENT', 'ACTIVE', 'EXPIRING', 'EXPIRED', 'CANCELLED'].map((s) => ({ value: s, label: humanize(s) }))} />}
           </FilterBar>
         }
+      />
+      <ConfirmDialog
+        open={!!toCancel}
+        onOpenChange={(o) => !o && setToCancel(null)}
+        title={`Cancel AMC ${toCancel?.amcNumber}?`}
+        description="Scheduled (unbooked) visits are cancelled. Invoices must be handled separately."
+        confirmLabel="Cancel AMC"
+        destructive
+        requireReason
+        loading={actions.cancel.isPending}
+        onConfirm={(reason) => toCancel && actions.cancel.mutate({ id: toCancel.id, reason }, { onSuccess: () => setToCancel(null) })}
       />
     </>
   );

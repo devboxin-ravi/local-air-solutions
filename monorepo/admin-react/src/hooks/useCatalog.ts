@@ -21,12 +21,12 @@ export function useServiceActions() {
     create: useAction((body: unknown) => catalogService.createService(body), { success: 'Service created', invalidate: SERVICE_KEYS, silentError: true }),
     update: useAction((v: { id: number; body: unknown }) => catalogService.updateService(v.id, v.body), { success: 'Service updated', invalidate: SERVICE_KEYS, silentError: true }),
     setActive: useAction((v: { id: number; isActive: boolean }) => catalogService.setActive(v.id, v.isActive), { success: (s) => `${s.name} ${s.isActive ? 'activated' : 'deactivated'}`, invalidate: SERVICE_KEYS }),
-    remove: useAction((id: number) => catalogService.deleteService(id), { success: 'Service deleted', invalidate: SERVICE_KEYS }),
+    remove: useAction((id: number) => catalogService.deleteService(id), { success: 'Service deactivated', invalidate: SERVICE_KEYS }),
     uploadImage: useAction((file: File) => catalogService.uploadImage(file), { success: 'Image uploaded' }),
     setPrice: useAction((v: { id: number; branchId: number | null; price: number }) => catalogService.setPrice(v.id, v.branchId, v.price), { success: 'Price updated', invalidate: SERVICE_KEYS }),
     createCategory: useAction((body: unknown) => catalogService.createCategory(body), { success: 'Category created', invalidate: SERVICE_KEYS }),
     updateCategory: useAction((v: { id: number; body: unknown }) => catalogService.updateCategory(v.id, v.body), { success: 'Category updated', invalidate: SERVICE_KEYS }),
-    removeCategory: useAction((id: number) => catalogService.deleteCategory(id), { success: 'Category deleted', invalidate: SERVICE_KEYS }),
+    removeCategory: useAction((id: number) => catalogService.deleteCategory(id), { success: 'Category deactivated', invalidate: SERVICE_KEYS }),
     reorderCategories: useAction((ids: number[]) => catalogService.reorderCategories(ids), { success: 'Order saved', invalidate: SERVICE_KEYS }),
   };
 }
@@ -39,6 +39,6 @@ export function useMasterActions(resource: MasterResource) {
   return {
     create: useAction((body: unknown) => masterService.create(resource, body), { success: 'Created', invalidate, silentError: true }),
     update: useAction((v: { id: number; body: unknown }) => masterService.update(resource, v.id, v.body), { success: 'Updated', invalidate, silentError: true }),
-    remove: useAction((id: number) => masterService.remove(resource, id), { success: 'Deleted', invalidate }),
+    remove: useAction((id: number) => masterService.remove(resource, id), { success: 'Deactivated', invalidate }),
   };
 }

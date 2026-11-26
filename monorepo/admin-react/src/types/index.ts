@@ -574,3 +574,29 @@ export interface InvoiceTotals {
 }
 
 export type QueryParams = Record<string, string | number | boolean | undefined | null>;
+
+/** Razorpay keys as the admin panel sees them — secrets are write-only and never returned. */
+export interface RazorpayKeyStatus {
+  configured: boolean;
+  source: 'database' | 'env' | null;
+  keyId: string | null;
+  mode: 'test' | 'live' | null;
+  hasWebhookSecret: boolean;
+  /** False when the server has no SECRETS_ENCRYPTION_KEY (keys cannot be saved from the panel). */
+  canStoreSecrets: boolean;
+}
+export interface RazorpayKeyInput {
+  keyId: string;
+  keySecret?: string;
+  webhookSecret?: string;
+}
+
+/** SMTP / FCM / WhatsApp Cloud credentials as the panel sees them — secrets only as "set / not set". */
+export type IntegrationName = 'smtp' | 'fcm' | 'whatsappCloud';
+export interface IntegrationStatus {
+  configured: boolean;
+  source: 'database' | 'env' | null;
+  values: Record<string, string | number | boolean>;
+  secretsSet: Record<string, boolean>;
+  canStoreSecrets: boolean;
+}

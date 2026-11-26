@@ -218,11 +218,14 @@ abstract class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.pill)),
         showCheckmark: false,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        labelStyle: WidgetStateTextStyle.resolveWith((s) => GoogleFonts.inter(
-              fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
-              fontSize: 13,
-              color: s.contains(WidgetState.selected) ? Colors.white : AppColors.navy,
-            )),
+        // Chips resolve only a WidgetStateColor inside labelStyle — a WidgetStateTextStyle is
+        // passed through unresolved and renders the label invisible. Keep the style static and
+        // put the per-state behaviour in the colour.
+        labelStyle: GoogleFonts.inter(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : AppColors.navy),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.transparent,

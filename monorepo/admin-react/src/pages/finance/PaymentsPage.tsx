@@ -3,23 +3,29 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ExternalLink, RotateCcw, XCircle } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
 import { usePaymentActions, usePaymentList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { PAYMENT_METHODS } from '@/constants/ui';
+import { PAYMENT_METHODS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import { assetUrl, formatDate, formatDateTime, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Payment } from '@/types';
 import { ConfirmDialog, Field, PageHeader, StatusBadge } from '@/components/common';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { refundSchema } from '@/lib/validation';
-import { DataTable, type Column } from '@/components/DataTable';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { DateRange, FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button, Input, Textarea } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
 
+/** Page of the record a payment was made against (invoice, else booking, else AMC). */
+const paymentSourceRoute = (p: Payment): string | null =>
+  p.invoice ? ROUTES.INVOICE_DETAIL(p.invoice.id) : p.booking ? ROUTES.BOOKING_DETAIL(p.booking.id) : p.amcContract ? ROUTES.AMC_DETAIL(p.amcContract.id) : null;
+
 export default function PaymentsPage({ verification }: { verification?: boolean }) {
+  const navigate = useNavigate();
   const { can } = useAuth();
   const list = useListState();
   const { data, isLoading, error, refetch } = usePaymentList({ ...list.query, ...(verification ? { status: 'PENDING_VERIFICATION' } : {}) });
@@ -46,10 +52,10 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
     { key: 'status', header: 'Status', cell: (p) => <div><StatusBadge status={p.status} />{p.verificationNote && <p className="mt-1 max-w-[180px] truncate text-[11px] text-muted-foreground" title={p.verificationNote}>{p.verificationNote}</p>}</div> },
     {
       key: 'actions',
-      header: '',
+      header: ROW_ACTIONS.HEADER,
       align: 'right',
       cell: (p) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex items-center justify-end gap-1">
           {p.status === 'PENDING_VERIFICATION' && can('payments.approve') && (
             <>
               <Button size="sm" variant="secondary" onClick={() => { setNote(''); setReview({ payment: p, approve: true }); }}><CheckCircle2 /> Approve</Button>
@@ -57,6 +63,7 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
             </>
           )}
           {p.status === 'VERIFIED' && can('payments.approve') && <Button size="sm" variant="ghost" onClick={() => { setRefund(p); setRefundAmount(String(toNumber(p.amount))); }}><RotateCcw /> Refund</Button>}
+          <RowActions onView={paymentSourceRoute(p) ? () => navigate(paymentSourceRoute(p) as string) : undefined} />
         </div>
       ),
     },
@@ -65,9 +72,9 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
   return (
     <>
       <PageHeader
-        title={verification ? 'Payment Verification' : 'Payments'}
+        title={verification ? 'Payment Verification' : 'Payment In'}
         description={verification ? 'Customer-submitted UPI references awaiting review. Only verified payments update invoices and the ledger.' : 'All recorded payments.'}
-        breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: verification ? 'Payment Verification' : 'Payments' }]}
+        breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: verification ? 'Payment Verification' : 'Payment In' }]}
       />
       <DataTable
         columns={columns}
@@ -106,10 +113,10 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
           <DialogHeader title="Record refund" description="Posts a REFUND entry to the ledger and re-opens the invoice balance." />
           <DialogBody className="space-y-4">
             <Field label="Amount (₹)" required error={refundErrors.errors.amount} htmlFor="refund-amount" hint={refund ? `Up to ${formatMoney(refund.amount)}` : undefined}>
-              <Input id="refund-amount" type="number" inputMode="decimal" min="0.01" max={toNumber(refund?.amount)} step="0.01" value={refundAmount} onChange={(e) => { setRefundAmount(e.target.value); refundErrors.clear('amount'); }} />
+              <Input id="refund-amount" placeholder={PLACEHOLDERS.AMOUNT} type="number" inputMode="decimal" min="0.01" max={toNumber(refund?.amount)} step="0.01" value={refundAmount} onChange={(e) => { setRefundAmount(e.target.value); refundErrors.clear('amount'); }} />
             </Field>
             <Field label="Reason" required error={refundErrors.errors.reason} htmlFor="refund-reason" counter={{ value: note.length, max: 1000 }}>
-              <Textarea id="refund-reason" value={note} onChange={(e) => { setNote(e.target.value); refundErrors.clear('reason'); }} maxLength={1000} />
+              <Textarea id="refund-reason" placeholder={PLACEHOLDERS.REASON} value={note} onChange={(e) => { setNote(e.target.value); refundErrors.clear('reason'); }} maxLength={1000} />
             </Field>
           </DialogBody>
           <DialogFooter>

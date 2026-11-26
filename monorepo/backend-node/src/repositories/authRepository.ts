@@ -7,7 +7,7 @@ import { Db, prisma } from './db';
 
 const userAuthInclude = {
   roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
-  customer: { select: { id: true } },
+  customer: { select: { id: true, status: true, deletedAt: true } },
   staffProfile: { select: { id: true, branchId: true } },
 } satisfies Prisma.UserInclude;
 

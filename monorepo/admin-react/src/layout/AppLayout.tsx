@@ -6,10 +6,10 @@
 import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Copyright } from 'lucide-react';
 import { TopHeader } from './TopHeader';
 import { LoadingBlock } from '@/components/common';
-import { config } from '@/config';
-import { PAGE_CONTAINER } from '@/constants/ui';
+import { DEVELOPER_CREDIT, PAGE_CONTAINER } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 
 export const AppLayout = () => {
@@ -32,7 +32,7 @@ export const AppLayout = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className={cn(PAGE_CONTAINER, 'py-6 lg:py-8')}
+            className={cn(PAGE_CONTAINER, 'py-4 lg:py-5')}
           >
             <Suspense fallback={<LoadingBlock rows={6} />}>
               <Outlet />
@@ -43,7 +43,10 @@ export const AppLayout = () => {
       <footer className="border-t bg-white">
         <div className={cn(PAGE_CONTAINER, 'flex flex-col items-center justify-between gap-1 py-4 text-xs text-muted-foreground sm:flex-row')}>
           <span>© {new Date().getFullYear()} Local Air Solutions · Cool Comfort Care</span>
-          <span>Admin v{config.appVersion}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Copyright className="h-3.5 w-3.5" aria-hidden />
+            {DEVELOPER_CREDIT.PREFIX} <span className="font-semibold text-brand-blue">{DEVELOPER_CREDIT.NAME}</span>
+          </span>
         </div>
       </footer>
     </div>

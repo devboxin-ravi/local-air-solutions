@@ -18,6 +18,13 @@ export const useBooking = (id: number) => useQuery({ queryKey: ['booking', id], 
 export const useCalendar = (params: { from: string; to: string; branchId?: number }) =>
   useQuery({ queryKey: ['bookings', 'calendar', params], queryFn: () => bookingService.calendar(params), placeholderData: keepPreviousData });
 
+/** Actions on any booking from a list (the id travels with the call). */
+export function useBookingListActions() {
+  return {
+    cancel: useAction((v: { id: number; reason: string }) => bookingService.cancel(v.id, v.reason), { success: 'Booking cancelled', invalidate: BOOKING_KEYS }),
+  };
+}
+
 export function useBookingActions(id: number) {
   return {
     changeStatus: useAction((v: { status: string; note?: string }) => bookingService.changeStatus(id, v.status, v.note), { success: 'Status updated', invalidate: BOOKING_KEYS }),

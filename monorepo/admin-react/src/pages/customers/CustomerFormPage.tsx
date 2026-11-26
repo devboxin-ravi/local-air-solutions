@@ -8,12 +8,14 @@ import { useCustomerForm } from '@/hooks/useCustomerForm';
 import { useBranches } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS } from '@/constants/ui';
 import { ErrorState, Field, FormCard, FormSection, LoadingBlock, PageHeader } from '@/components/common';
 import { AddressFields } from '@/components/AddressFields';
 import { Button, Input, NativeSelect, Textarea } from '@/components/ui/primitives';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function CustomerFormPage() {
+  const goBack = useGoBack(ROUTES.CUSTOMERS);
   const params = useParams();
   const id = params.id ? Number(params.id) : undefined;
   const navigate = useNavigate();
@@ -28,7 +30,7 @@ export default function CustomerFormPage() {
 
   return (
     <form onSubmit={f.submit} noValidate>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title={id ? `Edit ${f.existing.data?.fullName ?? 'customer'}` : 'Add Customer'}
         description="Contact details, branch and service preferences."
         breadcrumbs={[{ label: 'Customers', to: ROUTES.CUSTOMERS }, { label: id ? 'Edit' : 'Add Customer' }]}
@@ -75,19 +77,19 @@ export default function CustomerFormPage() {
         <FormSection step={1} title="Personal information" description="Contact details, branch and service preferences.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name" required error={e.fullName?.message} className="sm:col-span-2">
-              <Input {...reg('fullName')} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.fullName} />
+              <Input {...reg('fullName')} placeholder={PLACEHOLDERS.FULL_NAME} maxLength={LIMITS.NAME_MAX} aria-invalid={!!e.fullName} />
             </Field>
             <Field label="Mobile number" required error={e.mobile?.message} hint="10 digits, +91 is stored separately">
               <div className="flex">
                 <span className="flex items-center rounded-l-lg border border-r-0 bg-slate-50 px-3 text-sm text-slate-500">+91</span>
-                <Input {...reg('mobile')} inputMode="numeric" maxLength={10} className="rounded-l-none" aria-invalid={!!e.mobile} />
+                <Input {...reg('mobile')} placeholder={PLACEHOLDERS.MOBILE} inputMode="numeric" maxLength={10} className="rounded-l-none" aria-invalid={!!e.mobile} />
               </div>
             </Field>
             <Field label="Alternate contact" error={e.alternateMobile?.message}>
-              <Input {...reg('alternateMobile')} inputMode="numeric" maxLength={10} />
+              <Input {...reg('alternateMobile')} placeholder={PLACEHOLDERS.MOBILE} inputMode="numeric" maxLength={10} />
             </Field>
             <Field label="Email" error={e.email?.message} className="sm:col-span-2">
-              <Input type="email" {...reg('email')} maxLength={LIMITS.EMAIL_MAX} />
+              <Input type="email" {...reg('email')} placeholder={PLACEHOLDERS.EMAIL} maxLength={LIMITS.EMAIL_MAX} />
             </Field>
             <Field label="Customer type">
               <NativeSelect {...reg('customerType')}>
@@ -103,7 +105,7 @@ export default function CustomerFormPage() {
               </NativeSelect>
             </Field>
             <Field label="Branch" hint={user?.isCompanyWide ? undefined : 'Your branch is applied automatically'}>
-              <NativeSelect {...reg('branchId')} disabled={!user?.isCompanyWide}>
+              <NativeSelect searchable {...reg('branchId')} disabled={!user?.isCompanyWide}>
                 <option value="">Auto (from address)</option>
                 {branches?.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -113,7 +115,7 @@ export default function CustomerFormPage() {
               </NativeSelect>
             </Field>
             <Field label="Reminder interval (months)" hint="Overrides the service default" error={e.reminderIntervalMonths?.message}>
-              <Input type="number" min={1} max={36} {...reg('reminderIntervalMonths')} />
+              <Input type="number" min={1} max={36} {...reg('reminderIntervalMonths')} placeholder={PLACEHOLDERS.MONTHS} />
             </Field>
             <Field
               label="Notes"
@@ -123,7 +125,7 @@ export default function CustomerFormPage() {
                 max: LIMITS.NOTES_MAX,
               }}
             >
-              <Textarea {...reg('notes')} maxLength={LIMITS.NOTES_MAX} />
+              <Textarea {...reg('notes')} placeholder={PLACEHOLDERS.INTERNAL_NOTES} maxLength={LIMITS.NOTES_MAX} />
             </Field>
           </div>
         </FormSection>

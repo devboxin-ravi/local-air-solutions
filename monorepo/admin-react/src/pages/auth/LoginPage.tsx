@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { errorMessage } from '@/hooks/useApi';
 import { ROUTES } from '@/constants/routes';
-import { LIMITS, MESSAGES, PATTERNS } from '@/constants/ui';
+import { LIMITS, MESSAGES, PATTERNS, PLACEHOLDERS } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 import { BrandLogo, Field } from '@/components/common';
 import { Button, Input } from '@/components/ui/primitives';
@@ -179,6 +179,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
+                  revealToggle={false}
                   autoComplete="current-password"
                   placeholder="Password"
                   className={cn(fieldClass, 'pr-12')}
@@ -211,7 +212,7 @@ export default function LoginPage() {
             <Field label="Verification Code" hint="Enter the 6-digit code sent to your registered email.">
               <Input
                 inputMode="numeric"
-                autoComplete="one-time-code"
+                autoComplete="one-time-code" placeholder={PLACEHOLDERS.OTP}
                 maxLength={6}
                 value={otp}
                 onChange={(ev) => setOtp(ev.target.value.replace(/\D/g, ''))}

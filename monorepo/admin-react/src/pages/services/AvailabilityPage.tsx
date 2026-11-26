@@ -7,7 +7,8 @@ import { useServiceActions, useServiceList } from '@/hooks/useCatalog';
 import { useBranches } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { cn } from '@/lib/utils';
+import { SERIAL_COLUMN } from '@/constants/ui';
+import { cn, serialNumber } from '@/lib/utils';
 import type { Service } from '@/types';
 import { ErrorState, LoadingBlock, PageHeader } from '@/components/common';
 import { Card, Switch } from '@/components/ui/primitives';
@@ -38,15 +39,17 @@ export default function AvailabilityPage() {
           <table className="w-full min-w-[720px] text-[13.5px]">
             <thead>
               <tr className="border-b bg-slate-50 text-left text-[11.5px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="sticky left-0 bg-slate-50 px-5 py-3">Service</th>
+                <th className={cn('sticky left-0 bg-slate-50 px-4 py-3', SERIAL_COLUMN.CLASS)}>{SERIAL_COLUMN.HEADER}</th>
+                <th className="sticky left-16 bg-slate-50 px-5 py-3">Service</th>
                 <th className="px-4 py-3 text-center">Active</th>
                 {branches?.map((b) => <th key={b.id} className="px-4 py-3 text-center">{b.name}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {services.data?.items.map((s) => (
+              {services.data?.items.map((s, index) => (
                 <tr key={s.id} className="hover:bg-slate-50/60">
-                  <td className="sticky left-0 bg-white px-5 py-3">
+                  <td className={cn('sticky left-0 bg-white px-4 py-3', SERIAL_COLUMN.CLASS, SERIAL_COLUMN.CELL_TEXT)}>{serialNumber(index)}</td>
+                  <td className="sticky left-16 bg-white px-5 py-3">
                     <p className="font-semibold text-brand-navy">{s.name}</p>
                     <p className="text-xs text-muted-foreground">{s.category.name}</p>
                   </td>

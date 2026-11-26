@@ -168,7 +168,7 @@ class BookingDetailScreen extends ConsumerWidget {
                   label: 'Pay ${Fmt.money(unpaidInvoice?.balance ?? s.estimatedTotal)}',
                   icon: Icons.account_balance_wallet_rounded,
                   color: AppColors.green,
-                  onPressed: () => context.push(AppRoutes.payment, extra: (bookingId: s.id, invoiceId: unpaidInvoice?.id, amount: unpaidInvoice?.balance ?? s.estimatedTotal, label: unpaidInvoice?.number ?? s.number)),
+                  onPressed: () => context.push(AppRoutes.payment, extra: (bookingId: s.id, invoiceId: unpaidInvoice?.id, amount: unpaidInvoice?.balance ?? s.estimatedTotal, label: unpaidInvoice?.number ?? s.number, startOnline: false)),
                 ),
               ],
               const SizedBox(height: Space.md),

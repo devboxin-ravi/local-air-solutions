@@ -35,7 +35,8 @@ interface PaymentTarget {
 }
 
 export class PaymentService {
-  private razorpay: Razorpay | null = null;
+  /** SDK client, rebuilt when the keys in effect change. */
+  private razorpay: { keyId: string; keySecret: string; client: Razorpay } | null = null;
 
   constructor(
     private readonly repo: FinanceRepository,
@@ -50,10 +51,19 @@ export class PaymentService {
     private readonly settings: SettingsService,
   ) {}
 
-  private gateway(): Razorpay {
-    if (!config.razorpay.enabled) throw new IntegrationDisabledError(ErrorMessages.RAZORPAY_DISABLED);
-    if (!this.razorpay) this.razorpay = new Razorpay({ key_id: config.razorpay.keyId as string, key_secret: config.razorpay.keySecret as string });
-    return this.razorpay;
+  /** Keys in effect (admin panel, else server .env) or a clear "not configured" error. */
+  private async razorpayKeys() {
+    const creds = await this.settings.razorpayCredentials();
+    if (!creds) throw new IntegrationDisabledError(ErrorMessages.RAZORPAY_DISABLED);
+    return creds;
+  }
+
+  private async gateway(): Promise<Razorpay> {
+    const { keyId, keySecret } = await this.razorpayKeys();
+    if (!this.razorpay || this.razorpay.keyId !== keyId || this.razorpay.keySecret !== keySecret) {
+      this.razorpay = { keyId, keySecret, client: new Razorpay({ key_id: keyId, key_secret: keySecret }) };
+    }
+    return this.razorpay.client;
   }
 
   async list(actor: AuthUser, q: { page?: number; pageSize?: number; search?: string; branchId?: number; status?: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED' | 'REFUNDED' | 'FAILED'; method?: PaymentMethod; customerId?: number; from?: string; to?: string }) {
@@ -276,7 +286,7 @@ export class PaymentService {
     if (amount > moneyNumber(pmt.amount)) throw new BusinessRuleError('Refund exceeds payment amount.');
     if (pmt.method === 'RAZORPAY') {
       const gw = await this.repo.findGatewayTxnByPayment(id);
-      if (gw?.gatewayPaymentId) await this.gateway().payments.refund(gw.gatewayPaymentId, { amount: Math.round(amount * RazorpayConst.PAISE_PER_RUPEE) });
+      if (gw?.gatewayPaymentId) await (await this.gateway()).payments.refund(gw.gatewayPaymentId, { amount: Math.round(amount * RazorpayConst.PAISE_PER_RUPEE) });
     }
     await runInTransaction(async (tx) => {
       const locked = await this.repo.lockPayment(id, tx);
@@ -299,6 +309,20 @@ export class PaymentService {
   }
 
   // ─── Razorpay ───
+  /** Checks keys against Razorpay with a cheap authenticated call. Saved keys are used when none are given. */
+  async testRazorpayKeys(input: { keyId?: string; keySecret?: string }) {
+    const saved = await this.settings.razorpayCredentials();
+    const keyId = input.keyId || saved?.keyId;
+    const keySecret = input.keySecret || (input.keyId && input.keyId !== saved?.keyId ? undefined : saved?.keySecret);
+    if (!keyId || !keySecret) throw new BusinessRuleError(ErrorMessages.RAZORPAY_SECRET_REQUIRED);
+    try {
+      await new Razorpay({ key_id: keyId, key_secret: keySecret }).orders.all({ count: 1 });
+      return { ok: true, mode: keyId.startsWith(RazorpayConst.TEST_KEY_PREFIX) ? 'test' : 'live' };
+    } catch {
+      throw new BusinessRuleError(ErrorMessages.RAZORPAY_KEYS_REJECTED);
+    }
+  }
+
   private async amountDue(t: PaymentTarget): Promise<number> {
     if (t.invoiceId) {
       const inv = await this.repo.findInvoice(t.invoiceId);
@@ -326,7 +350,7 @@ export class PaymentService {
     const target = { ...input, customerId: actor.customerId };
     const amount = await this.amountDue(target);
     if (amount <= 0) throw new BusinessRuleError('Nothing to pay.');
-    const order = await this.gateway().orders.create({
+    const order = await (await this.gateway()).orders.create({
       amount: Math.round(amount * RazorpayConst.PAISE_PER_RUPEE),
       currency: RazorpayConst.CURRENCY,
       receipt: `c${actor.customerId}-${Date.now()}`,
@@ -341,7 +365,7 @@ export class PaymentService {
       status: RazorpayConst.STATUS.CREATED,
       rawPayload: JSON.parse(JSON.stringify({ order, amcContractId: input.amcContractId ?? null })) as Prisma.InputJsonValue,
     });
-    return { orderId: order.id, amount, currency: RazorpayConst.CURRENCY, keyId: config.razorpay.keyId };
+    return { orderId: order.id, amount, currency: RazorpayConst.CURRENCY, keyId: (await this.razorpayKeys()).keyId };
   }
 
   /** Idempotently records a captured gateway payment and settles it. */
@@ -372,8 +396,8 @@ export class PaymentService {
   }
 
   async verifyRazorpayCheckout(actor: AuthUser, input: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
-    if (!config.razorpay.enabled) throw new IntegrationDisabledError(ErrorMessages.RAZORPAY_DISABLED);
-    const expected = hmacSha256Hex(config.razorpay.keySecret as string, `${input.razorpay_order_id}|${input.razorpay_payment_id}`);
+    const { keySecret } = await this.razorpayKeys();
+    const expected = hmacSha256Hex(keySecret, `${input.razorpay_order_id}|${input.razorpay_payment_id}`);
     if (!safeEqual(expected, input.razorpay_signature)) {
       throw new AppError(ErrorMessages.RAZORPAY_SIGNATURE_INVALID, StatusCodes.BAD_REQUEST, ErrorCodes.PAYMENT_VERIFICATION_FAILED);
     }
@@ -386,8 +410,9 @@ export class PaymentService {
 
   /** Webhook: signature verified over the raw body; duplicate events are ignored. */
   async handleRazorpayWebhook(rawBody: Buffer | undefined, signature: string | undefined) {
-    if (!config.razorpay.webhookSecret) throw new IntegrationDisabledError(ErrorMessages.RAZORPAY_DISABLED);
-    if (!rawBody || !signature || !safeEqual(hmacSha256Hex(config.razorpay.webhookSecret, rawBody), signature)) {
+    const webhookSecret = (await this.settings.razorpayCredentials())?.webhookSecret;
+    if (!webhookSecret) throw new IntegrationDisabledError(ErrorMessages.RAZORPAY_DISABLED);
+    if (!rawBody || !signature || !safeEqual(hmacSha256Hex(webhookSecret, rawBody), signature)) {
       throw new AppError(ErrorMessages.RAZORPAY_SIGNATURE_INVALID, StatusCodes.BAD_REQUEST, ErrorCodes.PAYMENT_VERIFICATION_FAILED);
     }
     const event = JSON.parse(rawBody.toString('utf8')) as { event: string; payload: { payment?: { entity: { id: string; order_id: string } } } };

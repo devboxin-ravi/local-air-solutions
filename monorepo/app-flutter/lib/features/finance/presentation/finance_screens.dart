@@ -19,8 +19,11 @@ import '../../catalog/presentation/catalog_providers.dart';
 import '../../catalog/presentation/services_screen.dart';
 import '../domain/finance_entities.dart';
 import 'finance_providers.dart';
+import '../data/razorpay_checkout.dart';
+import '../../auth/presentation/auth_provider.dart';
 
-typedef PaymentArgs = ({int? bookingId, int? invoiceId, double amount, String label});
+/// [startOnline]: open Razorpay checkout as soon as the screen shows (right after booking).
+typedef PaymentArgs = ({int? bookingId, int? invoiceId, double amount, String label, bool startOnline});
 
 class PaymentScreen extends ConsumerStatefulWidget {
   const PaymentScreen({super.key, required this.args});
@@ -37,6 +40,48 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   final String _idempotencyKey = '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
   XFile? _screenshot;
   bool _submitting = false;
+  bool _payingOnline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.args.startOnline) WidgetsBinding.instance.addPostFrameCallback((_) => _payOnline());
+  }
+
+  /// Razorpay: server order → native checkout → server verification.
+  Future<void> _payOnline() async {
+    if (_payingOnline) return;
+    setState(() => _payingOnline = true);
+    final repo = ref.read(financeRepositoryProvider);
+    try {
+      final order = await repo.createRazorpayOrder(bookingId: widget.args.bookingId, invoiceId: widget.args.invoiceId);
+      final settings = ref.read(publicSettingsProvider).value;
+      final user = ref.read(authControllerProvider).user;
+      final result = await RazorpayCheckout().open(
+        order,
+        businessName: settings?.companyName ?? 'Local Air Solutions',
+        description: 'Payment for ${widget.args.label}',
+        contact: user?.mobile,
+        email: user?.email,
+      );
+      if (!mounted) return;
+      switch (result) {
+        case CheckoutSuccess(:final orderId, :final paymentId, :final signature):
+          await repo.verifyRazorpay(orderId: orderId, paymentId: paymentId, signature: signature);
+          if (widget.args.bookingId != null) ref.invalidate(bookingDetailProvider(widget.args.bookingId!));
+          ref.invalidate(paymentsProvider);
+          if (!mounted) return;
+          showAppSnack(context, Messages.paymentSuccess);
+          context.pop();
+        case CheckoutFailed(:final message, :final cancelled):
+          showAppSnack(context, message, error: !cancelled);
+      }
+    } on ApiException catch (e) {
+      if (mounted) showAppSnack(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _payingOnline = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -74,7 +119,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final settings = ref.watch(publicSettingsProvider).value;
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Pay via UPI')),
+      appBar: AppBar(title: const Text('Make a payment')),
       body: Form(
         key: _form,
         child: ListView(padding: const EdgeInsets.all(Space.page), children: [
@@ -86,7 +131,25 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               Text(Fmt.money(widget.args.amount), style: t.headlineMedium?.copyWith(color: AppColors.blue)),
             ]),
           ),
+          if (settings?.razorpayEnabled == true) ...[
+            const SizedBox(height: Space.xl),
+            Text('Pay online', style: t.titleMedium),
+            const SizedBox(height: Space.sm),
+            AppCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const IconBox(Icons.credit_card_rounded),
+                  const SizedBox(width: Space.md),
+                  Expanded(child: Text('Card, UPI, net banking or wallet — confirmed instantly.', style: t.bodyMedium)),
+                ]),
+                const SizedBox(height: Space.md),
+                PrimaryButton(label: 'Pay ${Fmt.money(widget.args.amount)} online', icon: Icons.lock_rounded, color: AppColors.green, loading: _payingOnline, onPressed: _payOnline),
+              ]),
+            ),
+          ],
+          if (settings == null || settings.upiEnabled) ...[
           const SizedBox(height: Space.xl),
+          if (settings?.razorpayEnabled == true) Text('Or pay by UPI and share the reference', style: t.bodySmall),
           Text('1. Pay using any UPI app', style: t.titleMedium),
           const SizedBox(height: Space.sm),
           if (settings != null && settings.upiId.isNotEmpty)
@@ -136,6 +199,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           PrimaryButton(label: 'Submit for verification', loading: _submitting, onPressed: _submit),
           const SizedBox(height: Space.md),
           Text('Your payment is confirmed once our team verifies the reference.', textAlign: TextAlign.center, style: t.bodySmall),
+          ],
         ]),
       ),
     );
@@ -211,7 +275,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Space.xl),
           if (inv.balanceDue > 0 && inv.status != 'CANCELLED')
-            PrimaryButton(label: 'Pay ${Fmt.money(inv.balanceDue)}', color: AppColors.green, icon: Icons.account_balance_wallet_rounded, onPressed: () => context.push(AppRoutes.payment, extra: (bookingId: null, invoiceId: inv.id, amount: inv.balanceDue, label: inv.number))),
+            PrimaryButton(label: 'Pay ${Fmt.money(inv.balanceDue)}', color: AppColors.green, icon: Icons.account_balance_wallet_rounded, onPressed: () => context.push(AppRoutes.payment, extra: (bookingId: null, invoiceId: inv.id, amount: inv.balanceDue, label: inv.number, startOnline: false))),
         ]),
       ),
     );

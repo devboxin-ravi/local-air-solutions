@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { DURATION_PRESETS, PRICING_TYPE_HINTS } from '@/constants/ui';
+import { DURATION_PRESETS, PLACEHOLDERS, PRICING_TYPE_HINTS } from '@/constants/ui';
 import { cn, formatDuration } from '@/lib/utils';
 import { Input } from '@/components/ui/primitives';
 
@@ -13,7 +13,7 @@ export function DurationPicker({ value, onChange, invalid, inputProps }: { value
   return (
     <div className="space-y-2">
       <div className="relative">
-        <Input type="number" min={10} step={5} aria-invalid={invalid} className="pr-24" {...inputProps} />
+        <Input type="number" min={10} step={5} aria-invalid={invalid} className="pr-24" placeholder={PLACEHOLDERS.MINUTES} {...inputProps} />
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground">min · {formatDuration(value)}</span>
       </div>
       <div className="flex flex-wrap gap-1.5">

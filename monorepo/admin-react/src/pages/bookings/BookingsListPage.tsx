@@ -2,18 +2,19 @@
  * Bookings list (all / status views / repairs / customer service history). Composition only.
  */
 
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CalendarPlus, Wrench } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { useBookingList } from '@/hooks/useOperations';
+import { useBookingList, useBookingListActions } from '@/hooks/useOperations';
 import { useAuth } from '@/hooks/useAuth';
 import { useServiceLookup } from '@/hooks/useApi';
 import { BOOKING_VIEWS, ROUTES } from '@/constants/routes';
-import { BOOKING_STATUSES } from '@/constants/ui';
+import { BOOKING_STATUSES, CANCELLABLE_STATUSES, ROW_ACTIONS } from '@/constants/ui';
 import { formatDate, formatMoney, humanize } from '@/lib/utils';
 import type { Booking } from '@/types';
-import { Badge, PageHeader, StatusBadge } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { DateRange, FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button } from '@/components/ui/primitives';
 
@@ -35,6 +36,8 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
   const list = useListState({ sortBy: 'createdAt' });
   const { data, isLoading, isFetching, error, refetch } = useBookingList({ ...lockedFilters, ...list.query });
   const { data: services } = useServiceLookup();
+  const actions = useBookingListActions();
+  const [toCancel, setToCancel] = useState<Booking | null>(null);
 
   const title = presetDef?.title ?? viewDef?.title ?? 'All Bookings';
   const description = presetDef?.description ?? viewDef?.description ?? 'Every service and repair booking across branches.';
@@ -94,6 +97,18 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
         </div>
       ),
     },
+    {
+      key: 'actions',
+      header: ROW_ACTIONS.HEADER,
+      align: 'right',
+      cell: (b) => (
+        <RowActions
+          onView={() => navigate(ROUTES.BOOKING_DETAIL(b.id))}
+          onEdit={can('bookings.edit') && b.status !== 'CANCELLED' && b.status !== 'COMPLETED' ? () => navigate(ROUTES.BOOKING_DETAIL(b.id)) : undefined}
+          onCancel={can('bookings.edit') && CANCELLABLE_STATUSES.includes(b.status) ? () => setToCancel(b) : undefined}
+        />
+      ),
+    },
   ];
 
   const statusOptions = (viewDef?.status ? viewDef.status.split(',') : BOOKING_STATUSES).map((s) => ({ value: s, label: humanize(s) }));
@@ -138,9 +153,20 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
             {preset !== 'repairs' && (
               <SelectFilter placeholder="All types" value={list.state.filters.bookingType} onChange={(v) => list.setFilter('bookingType', v)} options={[{ value: 'SERVICE', label: 'Service' }, { value: 'REPAIR', label: 'Repair' }]} className="sm:w-36" />
             )}
-            <SelectFilter placeholder="All services" value={list.state.filters.serviceId} onChange={(v) => list.setFilter('serviceId', v)} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))} />
+            <SelectFilter searchable placeholder="All services" value={list.state.filters.serviceId} onChange={(v) => list.setFilter('serviceId', v)} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))} />
           </FilterBar>
         }
+      />
+      <ConfirmDialog
+        open={!!toCancel}
+        onOpenChange={(o) => !o && setToCancel(null)}
+        title={`Cancel booking ${toCancel?.bookingNumber}?`}
+        description="The slot is released and any technician assignment is cancelled."
+        confirmLabel="Cancel booking"
+        destructive
+        requireReason
+        loading={actions.cancel.isPending}
+        onConfirm={(reason) => toCancel && actions.cancel.mutate({ id: toCancel.id, reason }, { onSuccess: () => setToCancel(null) })}
       />
     </>
   );

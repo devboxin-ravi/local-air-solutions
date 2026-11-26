@@ -39,6 +39,8 @@ abstract class ApiConstants {
   static String meInvoice(int id) => '/me/invoices/$id';
   static const String mePayments = '/me/payments';
   static const String meUpiPayment = '/me/payments/upi';
+  static const String meRazorpayOrder = '/me/payments/razorpay/order';
+  static const String meRazorpayVerify = '/me/payments/razorpay/verify';
   static const String meAmc = '/me/amc';
   static String meAmcOne(int id) => '/me/amc/$id';
   static const String meReminders = '/me/reminders';

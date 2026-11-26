@@ -98,17 +98,9 @@ export class MasterDataService {
     return updated;
   }
 
+  /** Soft delete: the record is deactivated (kept for history, restorable from the Active toggle). */
   async remove(entity: Entity, id: number, actor: AuthUser, meta: RequestMeta) {
-    const fn = {
-      state: () => this.repo.deleteState(id),
-      city: () => this.repo.deleteCity(id),
-      branch: () => this.repo.deleteBranch(id),
-      serviceArea: () => this.repo.deleteServiceArea(id),
-      skill: () => this.repo.deleteSkill(id),
-      product: () => this.repo.deleteProduct(id),
-    }[entity];
-    await fn().catch(mapDbError(entity));
-    await this.settings.audit(actor, AuditActions.DELETE, entity, id, null, null, meta);
+    await this.update(entity, id, { isActive: false }, actor, meta);
   }
 
   async getBranch(id: number) {

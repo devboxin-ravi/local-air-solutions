@@ -7,7 +7,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { notificationService, reminderService, reportService, settingsService } from '@/services/engagementService';
 import { downloadBlob, monthKeysBetween } from '@/lib/utils';
-import type { DashboardData, QueryParams } from '@/types';
+import type { DashboardData, IntegrationName, QueryParams, RazorpayKeyInput } from '@/types';
 import { errorMessage, useAction } from './useApi';
 
 export const useDashboard = (params: QueryParams) =>
@@ -62,6 +62,36 @@ export const useMarkNotificationsRead = () => useAction((ids: number[] | 'all') 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => settingsService.all() });
 export const useSaveSettings = () =>
   useAction((v: { key: string; value: Record<string, unknown> }) => settingsService.update(v.key, v.value), { success: 'Settings saved', invalidate: [['settings']] });
+
+/** Razorpay key status (never the secrets) and the admin actions on it. */
+export const useRazorpayKeys = () => useQuery({ queryKey: ['settings', 'razorpay'], queryFn: () => settingsService.razorpayKeys() });
+export function useRazorpayKeyActions() {
+  const invalidate = [['settings']];
+  return {
+    save: useAction((body: RazorpayKeyInput) => settingsService.saveRazorpayKeys(body), { success: 'Razorpay keys saved', invalidate }),
+    clear: useAction(() => settingsService.clearRazorpayKeys(), { success: 'Razorpay keys removed', invalidate }),
+    test: useAction((body: Partial<RazorpayKeyInput>) => settingsService.testRazorpayKeys(body), { success: (r) => `Keys work — ${r.mode} mode` }),
+  };
+}
+
+/** One integration's status (only fetched while its dialog is open). */
+export const useIntegration = (name: IntegrationName | null) =>
+  useQuery({ queryKey: ['settings', 'integration', name], queryFn: () => settingsService.integration(name as IntegrationName), enabled: !!name });
+export function useIntegrationActions() {
+  const invalidate = [['settings']];
+  return {
+    save: useAction((v: { name: IntegrationName; body: Record<string, unknown> }) => settingsService.saveIntegration(v.name, v.body), { success: 'Settings saved', invalidate }),
+    clear: useAction((name: IntegrationName) => settingsService.clearIntegration(name), { success: 'Credentials removed', invalidate }),
+    test: useAction((v: { name: IntegrationName; body: Record<string, unknown> }) => settingsService.testIntegration(v.name, v.body), { success: 'Connection works' }),
+  };
+}
+
+/** Saves several settings sections in one go (one page showing more than one section). */
+export const useSaveSettingsBatch = () =>
+  useAction((items: Array<{ key: string; value: Record<string, unknown> }>) => Promise.all(items.map((i) => settingsService.update(i.key, i.value))), {
+    success: 'Settings saved',
+    invalidate: [['settings']],
+  });
 
 export const useTemplates = () => useQuery({ queryKey: ['templates'], queryFn: () => settingsService.templates() });
 export const useUpdateTemplate = () =>

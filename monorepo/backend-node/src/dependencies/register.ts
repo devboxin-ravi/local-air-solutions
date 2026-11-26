@@ -34,6 +34,7 @@ import { AmcService } from '../services/amcService';
 import { ReportService } from '../services/reportService';
 import { DocumentService } from '../services/documentService';
 import { ShareService } from '../services/shareService';
+import { IntegrationCredentialStore } from '../services/integrationCredentials';
 
 export function buildContainer() {
   const repos = {
@@ -51,11 +52,14 @@ export function buildContainer() {
     reports: new ReportRepository(),
   };
 
-  const email = new EmailProvider();
-  const push = new PushProvider();
-  const whatsapp = new WhatsAppCloudProvider();
+  // Admin-entered integration credentials (loaded once at startup, refreshed on save).
+  const integrations = new IntegrationCredentialStore(repos.engagement);
+  void integrations.load();
+  const email = new EmailProvider(integrations);
+  const push = new PushProvider(integrations);
+  const whatsapp = new WhatsAppCloudProvider(integrations);
 
-  const settings = new SettingsService(repos.engagement);
+  const settings = new SettingsService(repos.engagement, integrations);
   const notifications = new NotificationService(repos.engagement, settings, email, push, whatsapp);
   const customers = new CustomerService(repos.customers, repos.master, settings);
   const auth = new AuthService(repos.auth, repos.users, repos.customers, settings, email, customers);

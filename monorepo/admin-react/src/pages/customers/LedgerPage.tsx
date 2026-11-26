@@ -17,6 +17,7 @@ import { CustomerPicker } from '@/components/Pickers';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
 import { LedgerTab } from './CustomerDetailPage';
+import { PLACEHOLDERS } from '@/constants/ui';
 
 export default function LedgerPage() {
   const { can } = useAuth();
@@ -87,7 +88,7 @@ export default function LedgerPage() {
               <Input id="ledger-amount" type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="0.00" value={adj.amount} onChange={(e) => { setAdj({ ...adj, amount: e.target.value }); clear('amount'); }} />
             </Field>
             <Field label="Description" required error={errors.description} htmlFor="ledger-description" className="sm:col-span-2">
-              <Input id="ledger-description" value={adj.description} maxLength={500} onChange={(e) => { setAdj({ ...adj, description: e.target.value }); clear('description'); }} />
+              <Input id="ledger-description" placeholder={PLACEHOLDERS.LEDGER_DESCRIPTION} value={adj.description} maxLength={500} onChange={(e) => { setAdj({ ...adj, description: e.target.value }); clear('description'); }} />
             </Field>
           </DialogBody>
           <DialogFooter>

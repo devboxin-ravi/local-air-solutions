@@ -35,9 +35,6 @@ export class CatalogRepository {
   countServicesInCategory(categoryId: number, db: Db = prisma) {
     return db.service.count({ where: { categoryId } });
   }
-  deleteCategory(id: number, db: Db = prisma) {
-    return db.serviceCategory.delete({ where: { id } });
-  }
 
   // ─── Services ───
   async listServices(where: Prisma.ServiceWhereInput, orderBy: Prisma.ServiceOrderByWithRelationInput[], skip: number, take: number, db: Db = prisma) {
@@ -64,9 +61,6 @@ export class CatalogRepository {
   }
   countServiceUsage(id: number, db: Db = prisma) {
     return db.bookingItem.count({ where: { serviceId: id } });
-  }
-  deleteService(id: number, db: Db = prisma) {
-    return db.service.delete({ where: { id } });
   }
   async setServiceSkills(serviceId: number, skillIds: number[], db: Db = prisma) {
     await db.serviceSkill.deleteMany({ where: { serviceId } });

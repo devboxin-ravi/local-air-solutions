@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { categorySchema } from '@/lib/validation';
 import { ROUTES } from '@/constants/routes';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import type { Category } from '@/types';
 import { ActiveBadge, ConfirmDialog, EmptyState, ErrorState, Field, LoadingBlock, PageHeader } from '@/components/common';
 import { Button, Card, Input, Label, Switch, Textarea } from '@/components/ui/primitives';
@@ -104,13 +104,13 @@ export default function CategoriesPage() {
           <DialogHeader title={editing === 'new' ? 'Add category' : 'Edit category'} />
           <DialogBody className="space-y-4">
             <Field label="Name" required error={errors.name} htmlFor="category-name">
-              <Input id="category-name" value={form.name} maxLength={LIMITS.NAME_MAX} onChange={(e) => setField('name', e.target.value)} autoFocus />
+              <Input id="category-name" placeholder={PLACEHOLDERS.CATEGORY_NAME} value={form.name} maxLength={LIMITS.NAME_MAX} onChange={(e) => setField('name', e.target.value)} autoFocus />
             </Field>
             <Field label="Description" error={errors.description} htmlFor="category-description" counter={{ value: form.description.length, max: LIMITS.DESCRIPTION_MAX }}>
-              <Textarea id="category-description" value={form.description} maxLength={LIMITS.DESCRIPTION_MAX} onChange={(e) => setField('description', e.target.value)} />
+              <Textarea id="category-description" placeholder={PLACEHOLDERS.DESCRIPTION} value={form.description} maxLength={LIMITS.DESCRIPTION_MAX} onChange={(e) => setField('description', e.target.value)} />
             </Field>
             <Field label="Icon name" error={errors.icon} htmlFor="category-icon" hint="Optional Lucide icon name used by the apps, e.g. air-vent">
-              <Input id="category-icon" value={form.icon} maxLength={50} onChange={(e) => setField('icon', e.target.value.toLowerCase())} />
+              <Input id="category-icon" placeholder={PLACEHOLDERS.ICON_NAME} value={form.icon} maxLength={50} onChange={(e) => setField('icon', e.target.value.toLowerCase())} />
             </Field>
             <div className="flex items-center justify-between rounded-xl border bg-slate-50/50 px-4 py-3">
               <Label>Active</Label>
@@ -123,7 +123,7 @@ export default function CategoriesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ConfirmDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)} title={`Delete ${toDelete?.name}?`} description="Categories that contain services cannot be deleted — deactivate them instead." confirmLabel="Delete" destructive loading={actions.removeCategory.isPending} onConfirm={() => toDelete && actions.removeCategory.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })} />
+      <ConfirmDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)} title={`Delete ${toDelete?.name}?`} description={ROW_ACTIONS.DEACTIVATE_NOTE} confirmLabel="Delete" destructive loading={actions.removeCategory.isPending} onConfirm={() => toDelete && actions.removeCategory.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })} />
     </>
   );
 }

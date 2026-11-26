@@ -34,8 +34,9 @@ export interface Option {
   label: string;
 }
 
-export const SelectFilter = ({ value, onChange, options, placeholder, className, ariaLabel }: { value: string | number | undefined; onChange: (v: string) => void; options: Option[]; placeholder: string; className?: string; ariaLabel?: string }) => (
-  <NativeSelect value={value ?? ''} onChange={(e) => onChange(e.target.value)} className={cn('w-full sm:w-44', className)} aria-label={ariaLabel ?? placeholder}>
+/** `searchable` forces type-to-search (use it for lists that come from the database and keep growing). */
+export const SelectFilter = ({ value, onChange, options, placeholder, className, ariaLabel, searchable }: { value: string | number | undefined; onChange: (v: string) => void; options: Option[]; placeholder: string; className?: string; ariaLabel?: string; searchable?: boolean }) => (
+  <NativeSelect searchable={searchable} value={value ?? ''} onChange={(e) => onChange(e.target.value)} className={cn('w-full sm:w-44', className)} aria-label={ariaLabel ?? placeholder}>
     <option value="">{placeholder}</option>
     {options.map((o) => (
       <option key={o.value} value={o.value}>

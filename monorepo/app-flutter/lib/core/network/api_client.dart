@@ -134,7 +134,7 @@ class ApiClient {
   Future<T> patch<T>(String path, {Object? body, required T Function(dynamic data) parse}) =>
       _wrap(() => _dio.patch<dynamic>(path, data: body), (d, _) => parse(d));
 
-  Future<void> delete(String path) => _wrap(() => _dio.delete<dynamic>(path), (_, __) {});
+  Future<void> delete(String path, {Object? body}) => _wrap(() => _dio.delete<dynamic>(path, data: body), (_, __) {});
 
   /// Multipart upload. [files] are local file paths; [field] is the form field name.
   Future<T> upload<T>(String path, {required String field, required List<String> files, Map<String, String> fields = const {}, Map<String, String>? headers, required T Function(dynamic data) parse}) async {

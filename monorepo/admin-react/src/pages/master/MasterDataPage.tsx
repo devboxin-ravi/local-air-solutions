@@ -5,18 +5,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMasterActions, useMasterList } from '@/hooks/useCatalog';
 import { useBranches, useCities, useStates, fieldErrors } from '@/hooks/useApi';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { emptyToNull, masterSchemas } from '@/lib/validation';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { ROUTES } from '@/constants/routes';
 import type { MasterResource } from '@/services/catalogService';
 import { ActiveBadge, ConfirmDialog, Field, PageHeader } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput } from '@/components/Filters';
 import { Button, Input, Label, NativeSelect, Switch } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, Tabs, TabsList, TabsTrigger } from '@/components/ui/overlays';
@@ -46,7 +46,7 @@ const CONFIG: Record<string, { resource: MasterResource; title: string; singular
     title: 'States',
     singular: 'state',
     description: 'States where the company operates.',
-    fields: [{ key: 'name', label: 'Name', required: true, maxLength: LIMITS.NAME_MAX }, { key: 'code', label: 'Code', required: true, upper: true, hint: 'Letters only, e.g. CG', maxLength: 10 }],
+    fields: [{ key: 'name', label: 'Name', placeholder: PLACEHOLDERS.NAME, required: true, maxLength: LIMITS.NAME_MAX }, { key: 'code', label: 'Code', required: true, upper: true, hint: 'Letters only, e.g. CG', placeholder: PLACEHOLDERS.STATE_CODE, maxLength: 10 }],
     columns: [{ key: 'code', header: 'Code' }, { key: 'cities', header: 'Cities', render: (r) => (r._count as { cities?: number })?.cities ?? 0 }],
   },
   cities: {
@@ -54,7 +54,7 @@ const CONFIG: Record<string, { resource: MasterResource; title: string; singular
     title: 'Cities',
     singular: 'city',
     description: 'Cities grouped by state.',
-    fields: [{ key: 'stateId', label: 'State', type: 'select', options: 'states', required: true }, { key: 'name', label: 'Name', required: true, maxLength: LIMITS.NAME_MAX }],
+    fields: [{ key: 'stateId', label: 'State', type: 'select', options: 'states', required: true }, { key: 'name', label: 'Name', placeholder: PLACEHOLDERS.NAME, required: true, maxLength: LIMITS.NAME_MAX }],
     columns: [{ key: 'state', header: 'State', render: (r) => (r.state as { name?: string })?.name }, { key: 'branches', header: 'Branches', render: (r) => (r._count as { branches?: number })?.branches ?? 0 }],
   },
   branches: {
@@ -65,14 +65,14 @@ const CONFIG: Record<string, { resource: MasterResource; title: string; singular
     fields: [
       { key: 'stateIdUi', label: 'State', type: 'select', options: 'states', required: true },
       { key: 'cityId', label: 'City', type: 'select', options: 'cities', required: true },
-      { key: 'code', label: 'Code', required: true, upper: true, hint: 'e.g. RPR-01', maxLength: 20 },
-      { key: 'name', label: 'Name', required: true, maxLength: LIMITS.NAME_MAX },
-      { key: 'address', label: 'Address', maxLength: LIMITS.ADDRESS_MAX, wide: true },
-      { key: 'phone', label: 'Phone', hint: '10-digit mobile', input: 'tel', maxLength: 10 },
-      { key: 'email', label: 'Email', input: 'email', maxLength: LIMITS.EMAIL_MAX },
+      { key: 'code', label: 'Code', required: true, upper: true, hint: 'e.g. RPR-01', placeholder: PLACEHOLDERS.BRANCH_CODE, maxLength: 20 },
+      { key: 'name', label: 'Name', placeholder: PLACEHOLDERS.NAME, required: true, maxLength: LIMITS.NAME_MAX },
+      { key: 'address', label: 'Address', placeholder: PLACEHOLDERS.ADDRESS, maxLength: LIMITS.ADDRESS_MAX, wide: true },
+      { key: 'phone', label: 'Phone', placeholder: PLACEHOLDERS.MOBILE, hint: '10-digit mobile', input: 'tel', maxLength: 10 },
+      { key: 'email', label: 'Email', placeholder: PLACEHOLDERS.EMAIL, input: 'email', maxLength: LIMITS.EMAIL_MAX },
       { key: 'gstin', label: 'GSTIN', upper: true, maxLength: 15, placeholder: '22AAAAA0000A1Z5' },
-      { key: 'latitude', label: 'Latitude', type: 'number' },
-      { key: 'longitude', label: 'Longitude', type: 'number' },
+      { key: 'latitude', label: 'Latitude', placeholder: PLACEHOLDERS.LATITUDE, type: 'number' },
+      { key: 'longitude', label: 'Longitude', placeholder: PLACEHOLDERS.LONGITUDE, type: 'number' },
     ],
     columns: [
       { key: 'code', header: 'Code' },
@@ -88,21 +88,21 @@ const CONFIG: Record<string, { resource: MasterResource; title: string; singular
     description: 'Localities served by each branch. PIN codes map customer addresses to branches automatically.',
     fields: [
       { key: 'branchId', label: 'Branch', type: 'select', options: 'branches', required: true },
-      { key: 'name', label: 'Area name', required: true, maxLength: LIMITS.NAME_MAX },
-      { key: 'pincodes', label: 'PIN codes', hint: 'Comma-separated, e.g. 492001,492004', maxLength: 1000 },
-      { key: 'latitude', label: 'Centre latitude', type: 'number' },
-      { key: 'longitude', label: 'Centre longitude', type: 'number' },
-      { key: 'radiusKm', label: 'Radius (km)', type: 'number' },
+      { key: 'name', label: 'Area name', placeholder: PLACEHOLDERS.AREA_NAME, required: true, maxLength: LIMITS.NAME_MAX },
+      { key: 'pincodes', label: 'PIN codes', placeholder: PLACEHOLDERS.PINCODES, hint: 'Comma-separated, e.g. 492001,492004', maxLength: 1000 },
+      { key: 'latitude', label: 'Centre latitude', placeholder: PLACEHOLDERS.LATITUDE, type: 'number' },
+      { key: 'longitude', label: 'Centre longitude', placeholder: PLACEHOLDERS.LONGITUDE, type: 'number' },
+      { key: 'radiusKm', label: 'Radius (km)', placeholder: PLACEHOLDERS.RADIUS_KM, type: 'number' },
     ],
     columns: [{ key: 'branch', header: 'Branch', render: (r) => (r.branch as { name?: string })?.name }, { key: 'pincodes', header: 'PIN codes' }, { key: 'staff', header: 'Technicians', render: (r) => (r._count as { staff?: number })?.staff ?? 0 }],
   },
-  skills: { resource: 'skills', title: 'Skills', singular: 'skill', description: 'Technician skills used for smart assignment.', fields: [{ key: 'name', label: 'Name', required: true, maxLength: LIMITS.NAME_MAX }], columns: [] },
+  skills: { resource: 'skills', title: 'Skills', singular: 'skill', description: 'Technician skills used for smart assignment.', fields: [{ key: 'name', label: 'Name', placeholder: PLACEHOLDERS.NAME, required: true, maxLength: LIMITS.NAME_MAX }], columns: [] },
   products: {
     resource: 'products',
     title: 'Products',
     singular: 'product',
     description: 'Product types customers choose when booking.',
-    fields: [{ key: 'name', label: 'Name', required: true, maxLength: LIMITS.NAME_MAX }, { key: 'category', label: 'Category', maxLength: 100 }, { key: 'sortOrder', label: 'Sort order', type: 'number', hint: '0 shows first' }],
+    fields: [{ key: 'name', label: 'Name', placeholder: PLACEHOLDERS.NAME, required: true, maxLength: LIMITS.NAME_MAX }, { key: 'category', label: 'Category', placeholder: PLACEHOLDERS.PRODUCT_CATEGORY, maxLength: 100 }, { key: 'sortOrder', label: 'Sort order', placeholder: PLACEHOLDERS.SORT_ORDER, type: 'number', hint: '0 shows first' }],
     columns: [{ key: 'category', header: 'Category' }],
   },
 };
@@ -162,19 +162,24 @@ export default function MasterDataPage() {
     }
   };
 
+  const extraColumns = cfg.columns.map((c) => ({ key: c.key, header: c.header, cell: (r: Row) => (c.render ? c.render(r) : String(r[c.key] ?? '—')) }));
+  // Order: S.No. (table) → Code (when the resource has one) → name → other columns.
+  const codeColumn = extraColumns.filter((c) => c.key === 'code');
   const columns: Column<Row>[] = [
-    { key: 'name', header: 'Name', cell: (r) => <span className="font-semibold text-brand-navy">{r.name}</span> },
-    ...cfg.columns.map((c) => ({ key: c.key, header: c.header, cell: (r: Row) => (c.render ? c.render(r) : String(r[c.key] ?? '—')) })),
+    ...codeColumn,
+    // Header names the record (State, City, Branch…) instead of a generic "Name".
+    { key: 'name', header: cfg.singular.charAt(0).toUpperCase() + cfg.singular.slice(1), cell: (r) => <span className="font-semibold text-brand-navy">{r.name}</span> },
+    ...extraColumns.filter((c) => c.key !== 'code'),
     { key: 'isActive', header: 'Status', cell: (r) => <ActiveBadge active={r.isActive} /> },
     {
       key: 'actions',
-      header: '',
+      header: ROW_ACTIONS.HEADER,
       align: 'right',
       cell: (r) => (
-        <div className="flex justify-end gap-1">
-          {can('masterData.edit') && <Button variant="ghost" size="icon-sm" aria-label="Edit" onClick={() => setEditing(r)}><Pencil /></Button>}
-          {can('masterData.delete') && <Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => setToDelete(r)}><Trash2 className="text-red-500" /></Button>}
-        </div>
+        <RowActions
+          onEdit={can('masterData.edit') ? () => setEditing(r) : undefined}
+          onDelete={can('masterData.delete') && r.isActive ? () => setToDelete(r) : undefined}
+        />
       ),
     },
   ];
@@ -202,7 +207,7 @@ export default function MasterDataPage() {
             {cfg.fields.map((f) => (
               <Field key={f.key} label={f.label} required={f.required} hint={f.hint} error={errors[f.key]} htmlFor={`master-${f.key}`} className={cfg.fields.length <= 2 || f.wide ? 'sm:col-span-2' : undefined}>
                 {f.type === 'select' ? (
-                  <NativeSelect id={`master-${f.key}`} value={String(form[f.key] ?? '')} onChange={(e) => setField(f.key, e.target.value, f.key === 'stateIdUi' ? { cityId: '' } : {})}>
+                  <NativeSelect searchable id={`master-${f.key}`} value={String(form[f.key] ?? '')} onChange={(e) => setField(f.key, e.target.value, f.key === 'stateIdUi' ? { cityId: '' } : {})}>
                     <option value="">Select {f.label.toLowerCase()}</option>
                     {options[f.options as 'states' | 'cities' | 'branches'].map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                   </NativeSelect>
@@ -233,7 +238,7 @@ export default function MasterDataPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ConfirmDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)} title={`Delete ${toDelete?.name}?`} description="Records in use cannot be deleted — deactivate them instead." confirmLabel="Delete" destructive loading={actions.remove.isPending} onConfirm={() => toDelete && actions.remove.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })} />
+      <ConfirmDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)} title={`Delete ${toDelete?.name}?`} description={ROW_ACTIONS.DEACTIVATE_NOTE} confirmLabel="Delete" destructive loading={actions.remove.isPending} onConfirm={() => toDelete && actions.remove.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })} />
     </>
   );
 }

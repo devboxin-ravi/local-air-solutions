@@ -80,6 +80,23 @@ class FinanceRepository {
         parse: (d) => paymentFromJson(d as Map<String, dynamic>),
       );
 
+  /// Server creates the order (amount computed there). Pass the invoice when there is one, else the booking.
+  Future<RazorpayOrder> createRazorpayOrder({int? bookingId, int? invoiceId}) => _api.post(
+        ApiConstants.meRazorpayOrder,
+        body: {if (invoiceId != null) 'invoiceId': invoiceId else if (bookingId != null) 'bookingId': bookingId},
+        parse: (d) {
+          final j = d as Map<String, dynamic>;
+          return RazorpayOrder(orderId: j['orderId'] as String, amount: Fmt.toNum(j['amount']), currency: j['currency'] as String, keyId: j['keyId'] as String);
+        },
+      );
+
+  /// Server checks the signature and records + settles the payment.
+  Future<PaymentRecord> verifyRazorpay({required String orderId, required String paymentId, required String signature}) => _api.post(
+        ApiConstants.meRazorpayVerify,
+        body: {'razorpay_order_id': orderId, 'razorpay_payment_id': paymentId, 'razorpay_signature': signature},
+        parse: (d) => paymentFromJson(d as Map<String, dynamic>),
+      );
+
   Future<List<AmcContract>> amcContracts() => _api.getPage(ApiConstants.meAmc, query: {'pageSize': 50}, item: amcFromJson).then((p) => p.items);
   Future<AmcContract> amc(int id) => _api.get(ApiConstants.meAmcOne(id), parse: (d) => amcFromJson(d as Map<String, dynamic>));
 

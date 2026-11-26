@@ -7,7 +7,14 @@ import { DEFAULT_SETTINGS, SettingKey, SettingKeys, TRACKER_REQUIRED_STEPS } fro
 import { EngagementRepository } from '../repositories/engagementRepository';
 import { Db } from '../repositories/db';
 import type { AuthUser, RequestMeta } from '../models';
-import { NotFoundError } from '../utils/errors';
+import { BusinessRuleError, NotFoundError } from '../utils/errors';
+import { decryptSecret, encryptSecret } from '../utils/secretBox';
+import { ErrorMessages } from '../constants';
+import { Razorpay as RazorpayConst } from '../constants/integrations';
+import { logger } from '../utils/logger';
+import type { IntegrationName } from '../constants/integrations';
+import type { IntegrationCredentialStore } from './integrationCredentials';
+import { EmailProvider, PushProvider, WhatsAppCloudProvider } from './deliveryProviders';
 import { toPageMeta, toPageParams } from '../utils/helpers';
 import { config } from '../config';
 
@@ -112,8 +119,25 @@ export interface BookingTrackerSettings {
   steps: TrackerStep[];
 }
 
+/** Razorpay keys in effect (decrypted). */
+export interface RazorpayCredentials {
+  keyId: string;
+  keySecret: string;
+  webhookSecret?: string;
+  source: 'database' | 'env';
+}
+/** As stored in company_settings: secrets sealed with SECRETS_ENCRYPTION_KEY. */
+interface StoredRazorpayKeys {
+  keyId: string;
+  keySecret: string;
+  webhookSecret?: string;
+}
+
 export class SettingsService {
-  constructor(private readonly repo: EngagementRepository) {}
+  constructor(
+    private readonly repo: EngagementRepository,
+    private readonly integrations: IntegrationCredentialStore,
+  ) {}
 
   async get<T>(key: SettingKey, db?: Db): Promise<T> {
     const row = await this.repo.findSetting(key, db);
@@ -161,12 +185,13 @@ export class SettingsService {
       result[key] = { ...(DEFAULT_SETTINGS[key] as object), ...((row?.value as object) ?? {}) };
     }
     result[SettingKeys.APP_HOME] = await this.appHome();
-    return { ...result, integrations: this.integrationStatus() };
+    return { ...result, integrations: await this.integrationStatus() };
   }
 
   /** Public subset safe for unauthenticated apps (branding, support contacts, payment options). */
   async getPublic() {
-    const [company, payment, general, appHome, trackerSteps] = await Promise.all([this.company(), this.payment(), this.general(), this.appHome(), this.trackerSteps()]);
+    const [company, payment, general, appHome, trackerSteps, razorpay] = await Promise.all([this.company(), this.payment(), this.general(), this.appHome(), this.trackerSteps(), this.razorpayCredentials()]);
+    const razorpayOn = payment.razorpayEnabled && razorpay !== null;
     return {
       company: { name: company.name, tagline: company.tagline, logoUrl: company.logoUrl, phone: company.phone, email: company.email, supportPhone: company.supportPhone, supportWhatsapp: company.supportWhatsapp, address: company.address },
       payment: {
@@ -174,8 +199,9 @@ export class SettingsService {
         upiEnabled: payment.upiEnabled,
         upiId: payment.upiEnabled ? payment.upiId : '',
         upiPayeeName: payment.upiPayeeName,
-        razorpayEnabled: payment.razorpayEnabled && config.razorpay.enabled,
-        razorpayKeyId: payment.razorpayEnabled && config.razorpay.enabled ? config.razorpay.keyId : null,
+        razorpayEnabled: razorpayOn,
+        // The Key ID is public by design (Razorpay Checkout needs it); the secret never leaves the server.
+        razorpayKeyId: razorpayOn ? razorpay.keyId : null,
         cashEnabled: payment.cashEnabled,
       },
       general: { allowCustomerCancellationHours: general.allowCustomerCancellationHours },
@@ -193,13 +219,118 @@ export class SettingsService {
     };
   }
 
-  integrationStatus() {
+  async integrationStatus() {
     return {
-      smtp: config.smtp.enabled,
-      razorpay: config.razorpay.enabled,
-      whatsappCloud: config.whatsapp.cloudEnabled,
-      fcm: config.fcm.enabled,
+      smtp: this.integrations.smtp() !== null,
+      razorpay: (await this.razorpayCredentials()) !== null,
+      whatsappCloud: this.integrations.whatsapp() !== null,
+      fcm: this.integrations.fcm() !== null,
     };
+  }
+
+  // ─── SMTP / FCM / WhatsApp Cloud credentials ───
+  /** Status for the admin panel — non-secret values only. */
+  async integration(name: IntegrationName) {
+    await this.integrations.load();
+    return this.integrations.status(name);
+  }
+
+  async saveIntegration(name: IntegrationName, input: Record<string, unknown>, actor: AuthUser, meta: RequestMeta) {
+    await this.integrations.load();
+    const { before, after } = await this.integrations.save(name, input);
+    await this.audit(actor, 'UPDATE', 'setting', `integration.${name}`, before, after, meta);
+    return this.integrations.status(name);
+  }
+
+  async clearIntegration(name: IntegrationName, actor: AuthUser, meta: RequestMeta) {
+    await this.integrations.clear(name);
+    await this.audit(actor, 'DELETE', 'setting', `integration.${name}`, null, null, meta);
+    return this.integrations.status(name);
+  }
+
+  /** Tries the typed values (blanks filled from what is in effect) against the real service. */
+  async testIntegration(name: IntegrationName, input: Record<string, unknown>) {
+    await this.integrations.load();
+    const candidate = this.integrations.candidate(name, input);
+    if (!candidate) throw new BusinessRuleError(ErrorMessages.INTEGRATION_INCOMPLETE);
+    try {
+      if (name === 'smtp') await EmailProvider.test(candidate as never);
+      else if (name === 'fcm') await PushProvider.test(candidate as never);
+      else await WhatsAppCloudProvider.test(candidate as never);
+      return { ok: true };
+    } catch (err) {
+      throw new BusinessRuleError(ErrorMessages.INTEGRATION_TEST_FAILED((err as Error).message));
+    }
+  }
+
+  // ─── Razorpay credentials ───
+  /** Decrypted keys cached in memory; cleared whenever an admin saves or removes keys. */
+  private razorpayCache: { value: RazorpayCredentials | null } | null = null;
+
+  /**
+   * Keys in effect: the ones saved from the admin panel, else the server .env. Null = not configured.
+   * The secret never leaves the server — callers get it only to sign/verify.
+   */
+  async razorpayCredentials(): Promise<RazorpayCredentials | null> {
+    if (this.razorpayCache) return this.razorpayCache.value;
+    let value: RazorpayCredentials | null = null;
+    const row = await this.repo.findSetting(RazorpayConst.CREDENTIALS_SETTING_KEY);
+    const stored = row?.value as StoredRazorpayKeys | null | undefined;
+    if (stored?.keyId && stored.keySecret && config.secrets.encryptionKey) {
+      try {
+        value = {
+          keyId: stored.keyId,
+          keySecret: decryptSecret(stored.keySecret, config.secrets.encryptionKey),
+          webhookSecret: stored.webhookSecret ? decryptSecret(stored.webhookSecret, config.secrets.encryptionKey) : undefined,
+          source: 'database',
+        };
+      } catch (err) {
+        logger.error(ErrorMessages.SECRET_UNREADABLE, { err: (err as Error).message });
+      }
+    }
+    if (!value && config.razorpay.keyId && config.razorpay.keySecret) {
+      value = { keyId: config.razorpay.keyId, keySecret: config.razorpay.keySecret, webhookSecret: config.razorpay.webhookSecret, source: 'env' };
+    }
+    this.razorpayCache = { value };
+    return value;
+  }
+
+  /** What the admin panel may see: never the secrets themselves. */
+  async razorpayStatus() {
+    const creds = await this.razorpayCredentials();
+    return {
+      configured: creds !== null,
+      source: creds?.source ?? null,
+      keyId: creds?.keyId ?? null,
+      mode: creds ? (creds.keyId.startsWith(RazorpayConst.TEST_KEY_PREFIX) ? 'test' : 'live') : null,
+      hasWebhookSecret: Boolean(creds?.webhookSecret),
+      canStoreSecrets: Boolean(config.secrets.encryptionKey),
+    };
+  }
+
+  /** Saves keys entered in the admin panel. A blank secret keeps the one already saved. */
+  async saveRazorpayCredentials(input: { keyId: string; keySecret?: string; webhookSecret?: string }, actor: AuthUser, meta: RequestMeta) {
+    const masterKey = config.secrets.encryptionKey;
+    if (!masterKey) throw new BusinessRuleError(ErrorMessages.SECRETS_KEY_MISSING);
+    const row = await this.repo.findSetting(RazorpayConst.CREDENTIALS_SETTING_KEY);
+    const before = (row?.value as StoredRazorpayKeys | null | undefined) ?? null;
+    const keySecret = input.keySecret ? encryptSecret(input.keySecret, masterKey) : before?.keySecret;
+    if (!keySecret) throw new BusinessRuleError(ErrorMessages.RAZORPAY_SECRET_REQUIRED);
+    const webhookSecret = input.webhookSecret ? encryptSecret(input.webhookSecret, masterKey) : before?.webhookSecret;
+    const next: StoredRazorpayKeys = { keyId: input.keyId, keySecret, ...(webhookSecret ? { webhookSecret } : {}) };
+    await this.repo.upsertSetting(RazorpayConst.CREDENTIALS_SETTING_KEY, next as unknown as Prisma.InputJsonValue, actor.id);
+    this.razorpayCache = null;
+    // Audit who changed which key id — never the secrets.
+    await this.audit(actor, 'UPDATE', 'setting', RazorpayConst.CREDENTIALS_SETTING_KEY, before ? { keyId: before.keyId } : null, { keyId: input.keyId, secretChanged: Boolean(input.keySecret), webhookSecretChanged: Boolean(input.webhookSecret) }, meta);
+    return this.razorpayStatus();
+  }
+
+  /** Removes admin-entered keys (the server .env keys, if any, apply again). */
+  async clearRazorpayCredentials(actor: AuthUser, meta: RequestMeta) {
+    await this.repo.deleteSetting(RazorpayConst.CREDENTIALS_SETTING_KEY);
+    this.razorpayCache = null;
+    await this.audit(actor, 'DELETE', 'setting', RazorpayConst.CREDENTIALS_SETTING_KEY, null, null, meta);
+    return this.razorpayStatus();
   }
 
   async update(key: SettingKey, value: Record<string, unknown>, actor: AuthUser, meta: RequestMeta) {

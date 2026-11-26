@@ -10,7 +10,7 @@ import { useBranches } from '@/hooks/useApi';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { WEEKDAYS } from '@/constants/ui';
+import { PLACEHOLDERS, WEEKDAYS } from '@/constants/ui';
 import { cn, toYmd } from '@/lib/utils';
 import { slotGenerateSchema } from '@/lib/validation';
 import { useFormErrors } from '@/hooks/useFormErrors';
@@ -77,7 +77,7 @@ export default function SlotsPage() {
         actions={can('slots.create') && <Button onClick={() => setGenOpen(true)} disabled={!effectiveBranch}><Wand2 /> Generate slots</Button>}
       />
       <Card className="mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-        <NativeSelect aria-label="Branch" value={effectiveBranch ?? ''} onChange={(e) => setBranchId(Number(e.target.value) || undefined)} className="sm:w-56">
+        <NativeSelect searchable aria-label="Branch" value={effectiveBranch ?? ''} onChange={(e) => setBranchId(Number(e.target.value) || undefined)} className="sm:w-56">
           {branches?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </NativeSelect>
         <DateRange from={range.from} to={range.to} onChange={(from, to) => setRange({ from, to })} />
@@ -110,7 +110,7 @@ export default function SlotsPage() {
                       </div>
                       {can('slots.edit') && (
                         <>
-                          <Input type="number" min={Math.max(1, s.bookedCount)} max={100} defaultValue={s.capacity} aria-label="Capacity" className="h-8 w-16 text-center" onBlur={(e) => saveCapacity(s, e.currentTarget)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
+                          <Input type="number" min={Math.max(1, s.bookedCount)} max={100} defaultValue={s.capacity} aria-label="Capacity" placeholder={PLACEHOLDERS.CAPACITY} className="h-8 w-16 text-center" onBlur={(e) => saveCapacity(s, e.currentTarget)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
                           <Button variant="ghost" size="icon-sm" aria-label={s.isActive ? 'Deactivate slot' : 'Activate slot'} onClick={() => actions.update.mutate({ id: s.id, body: { isActive: !s.isActive } })}>
                             <Power className={s.isActive ? 'text-brand-green-600' : ''} />
                           </Button>
@@ -138,8 +138,8 @@ export default function SlotsPage() {
             <Field label="To" required error={errors.toDate} htmlFor="gen-to" hint="Max 60 days"><Input id="gen-to" type="date" value={gen.toDate} min={gen.fromDate} onChange={(e) => setGenField('toDate', e.target.value)} /></Field>
             <Field label="Start time" required error={errors.startTime} htmlFor="gen-start"><Input id="gen-start" type="time" value={gen.startTime} onChange={(e) => setGenField('startTime', e.target.value)} /></Field>
             <Field label="End time" required error={errors.endTime} htmlFor="gen-end"><Input id="gen-end" type="time" value={gen.endTime} onChange={(e) => setGenField('endTime', e.target.value)} /></Field>
-            <Field label="Slot length (minutes)" required error={errors.slotDurationMinutes} htmlFor="gen-duration" hint="30 to 480"><Input id="gen-duration" type="number" min={30} max={480} step={30} value={gen.slotDurationMinutes} onChange={(e) => setGenField('slotDurationMinutes', e.target.value)} /></Field>
-            <Field label="Max jobs per slot" required error={errors.capacity} htmlFor="gen-capacity" hint="1 to 100"><Input id="gen-capacity" type="number" min={1} max={100} value={gen.capacity} onChange={(e) => setGenField('capacity', e.target.value)} /></Field>
+            <Field label="Slot length (minutes)" required error={errors.slotDurationMinutes} htmlFor="gen-duration" hint="30 to 480"><Input id="gen-duration" placeholder={PLACEHOLDERS.MINUTES} type="number" min={30} max={480} step={30} value={gen.slotDurationMinutes} onChange={(e) => setGenField('slotDurationMinutes', e.target.value)} /></Field>
+            <Field label="Max jobs per slot" required error={errors.capacity} htmlFor="gen-capacity" hint="1 to 100"><Input id="gen-capacity" placeholder={PLACEHOLDERS.CAPACITY} type="number" min={1} max={100} value={gen.capacity} onChange={(e) => setGenField('capacity', e.target.value)} /></Field>
             <Field label="Working days" required error={errors.workingDays} className="sm:col-span-2">
               <div className="flex flex-wrap gap-1.5">
                 {WEEKDAYS.map((d, i) => {

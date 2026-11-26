@@ -90,10 +90,10 @@ export class CatalogService {
     return updated;
   }
 
+  /** Soft delete: the category is deactivated (kept for history, restorable from the Active toggle). */
   async deleteCategory(id: number, actor: AuthUser, meta: RequestMeta) {
-    if ((await this.repo.countServicesInCategory(id)) > 0) throw new ConflictError(ErrorMessages.CANNOT_DELETE_IN_USE('Category'));
-    await this.repo.deleteCategory(id).catch(mapUnique('Category'));
-    await this.settings.audit(actor, AuditActions.DELETE, 'serviceCategory', id, null, null, meta);
+    await this.repo.updateCategory(id, { isActive: false }).catch(mapUnique('Category'));
+    await this.settings.audit(actor, AuditActions.DELETE, 'serviceCategory', id, null, { isActive: false }, meta);
   }
 
   async reorderCategories(ids: number[]) {
@@ -165,10 +165,10 @@ export class CatalogService {
     return this.updateService(id, { isActive }, actor, meta);
   }
 
+  /** Soft delete: the service is deactivated so past bookings/invoices keep their reference. */
   async deleteService(id: number, actor: AuthUser, meta: RequestMeta) {
-    if ((await this.repo.countServiceUsage(id)) > 0) throw new ConflictError(ErrorMessages.CANNOT_DELETE_IN_USE('Service'));
-    await this.repo.deleteService(id).catch(mapUnique('Service'));
-    await this.settings.audit(actor, AuditActions.DELETE, 'service', id, null, null, meta);
+    await this.repo.updateService(id, { isActive: false }).catch(mapUnique('Service'));
+    await this.settings.audit(actor, AuditActions.DELETE, 'service', id, null, { isActive: false }, meta);
   }
 
   async reorderServices(ids: number[]) {

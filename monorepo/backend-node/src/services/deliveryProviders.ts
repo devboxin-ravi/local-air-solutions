@@ -1,15 +1,16 @@
 /**
  * Outbound delivery adapters: SMTP email, FCM push (HTTP v1), WhatsApp Cloud API.
- * Each adapter reports `enabled` from config and never pretends to succeed when disabled.
+ * Credentials come from the IntegrationCredentialStore (admin panel, else server .env).
+ * Each adapter reports `enabled` and never pretends to succeed when disabled.
  */
 
 import nodemailer, { Transporter } from 'nodemailer';
 import jwt from 'jsonwebtoken';
-import { config } from '../config';
 import { ErrorMessages } from '../constants';
 import { IntegrationUrls, TokenTtl } from '../constants/integrations';
 import { IntegrationDisabledError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import type { FcmCredentials, IntegrationCredentialStore, SmtpCredentials, WhatsAppCredentials } from './integrationCredentials';
 
 export interface EmailAttachment {
   filename: string;
@@ -17,69 +18,90 @@ export interface EmailAttachment {
   contentType?: string;
 }
 
+const smtpTransport = (c: SmtpCredentials): Transporter =>
+  nodemailer.createTransport({ host: c.host, port: c.port, secure: c.secure, auth: { user: c.user, pass: c.password } });
+
 export class EmailProvider {
-  private transporter: Transporter | null = null;
+  private transporter: { version: number; client: Transporter } | null = null;
+
+  constructor(private readonly credentials: IntegrationCredentialStore) {}
 
   get enabled(): boolean {
-    return config.smtp.enabled;
+    return this.credentials.smtp() !== null;
   }
 
-  private getTransporter(): Transporter {
-    if (!this.enabled) throw new IntegrationDisabledError(ErrorMessages.EMAIL_DISABLED);
-    if (!this.transporter) {
-      this.transporter = nodemailer.createTransport({
-        host: config.smtp.host,
-        port: config.smtp.port,
-        secure: config.smtp.secure,
-        auth: { user: config.smtp.user, pass: config.smtp.password },
-      });
+  /** Throws with the server's reason if the SMTP login fails. */
+  static async test(c: SmtpCredentials): Promise<void> {
+    await smtpTransport(c).verify();
+  }
+
+  private getTransporter(c: SmtpCredentials): Transporter {
+    if (!this.transporter || this.transporter.version !== this.credentials.version) {
+      this.transporter = { version: this.credentials.version, client: smtpTransport(c) };
     }
-    return this.transporter;
+    return this.transporter.client;
   }
 
   async send(to: string, subject: string, text: string, attachments: EmailAttachment[] = []): Promise<void> {
+    const c = this.credentials.smtp();
+    if (!c) throw new IntegrationDisabledError(ErrorMessages.EMAIL_DISABLED);
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0f1f3d;line-height:1.6">${text
       .split('\n')
-      .map((l) => l.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c] as string))
+      .map((l) => l.replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[ch] as string))
       .join('<br/>')}</div>`;
-    await this.getTransporter().sendMail({ from: config.smtp.from, to, subject, text, html, attachments });
+    await this.getTransporter(c).sendMail({ from: c.from, to, subject, text, html, attachments });
   }
 }
 
+/** Exchanges a service-account key for a Google OAuth access token. */
+async function fetchGoogleToken(c: FcmCredentials): Promise<{ value: string; expiresInSeconds: number }> {
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = jwt.sign(
+    { iss: c.clientEmail, scope: IntegrationUrls.FCM_SCOPE, aud: IntegrationUrls.GOOGLE_OAUTH_TOKEN, iat: now, exp: now + TokenTtl.GOOGLE_ACCESS_SECONDS },
+    c.privateKey,
+    { algorithm: 'RS256' },
+  );
+  const res = await fetch(IntegrationUrls.GOOGLE_OAUTH_TOKEN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }),
+  });
+  if (!res.ok) throw new Error(`FCM auth failed: ${res.status}`);
+  const json = (await res.json()) as { access_token: string; expires_in: number };
+  return { value: json.access_token, expiresInSeconds: json.expires_in };
+}
+
 export class PushProvider {
-  private token: { value: string; expiresAt: number } | null = null;
+  private token: { version: number; value: string; expiresAt: number } | null = null;
+
+  constructor(private readonly credentials: IntegrationCredentialStore) {}
 
   get enabled(): boolean {
-    return config.fcm.enabled;
+    return this.credentials.fcm() !== null;
   }
 
-  private async accessToken(): Promise<string> {
-    if (this.token && this.token.expiresAt - TokenTtl.GOOGLE_REFRESH_MARGIN_MS > Date.now()) return this.token.value;
-    const now = Math.floor(Date.now() / 1000);
-    const assertion = jwt.sign(
-      { iss: config.fcm.clientEmail, scope: IntegrationUrls.FCM_SCOPE, aud: IntegrationUrls.GOOGLE_OAUTH_TOKEN, iat: now, exp: now + TokenTtl.GOOGLE_ACCESS_SECONDS },
-      config.fcm.privateKey as string,
-      { algorithm: 'RS256' },
-    );
-    const res = await fetch(IntegrationUrls.GOOGLE_OAUTH_TOKEN, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion }),
-    });
-    if (!res.ok) throw new Error(`FCM auth failed: ${res.status}`);
-    const json = (await res.json()) as { access_token: string; expires_in: number };
-    this.token = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 };
-    return json.access_token;
+  /** Throws if Google rejects the service account. */
+  static async test(c: FcmCredentials): Promise<void> {
+    await fetchGoogleToken(c);
+  }
+
+  private async accessToken(c: FcmCredentials): Promise<string> {
+    const t = this.token;
+    if (t && t.version === this.credentials.version && t.expiresAt - TokenTtl.GOOGLE_REFRESH_MARGIN_MS > Date.now()) return t.value;
+    const fresh = await fetchGoogleToken(c);
+    this.token = { version: this.credentials.version, value: fresh.value, expiresAt: Date.now() + fresh.expiresInSeconds * 1000 };
+    return fresh.value;
   }
 
   /** Sends to each token; returns tokens that are no longer valid (to prune). */
   async send(tokens: string[], title: string, body: string, data: Record<string, string> = {}): Promise<string[]> {
-    if (!this.enabled) throw new IntegrationDisabledError('Push notifications (FCM) are not configured.');
-    const bearer = await this.accessToken();
+    const c = this.credentials.fcm();
+    if (!c) throw new IntegrationDisabledError(ErrorMessages.PUSH_DISABLED);
+    const bearer = await this.accessToken(c);
     const invalid: string[] = [];
     let delivered = 0;
     for (const token of tokens) {
-      const res = await fetch(IntegrationUrls.FCM_SEND(config.fcm.projectId as string), {
+      const res = await fetch(IntegrationUrls.FCM_SEND(c.projectId), {
         method: 'POST',
         headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: { token, notification: { title, body }, data } }),
@@ -94,15 +116,24 @@ export class PushProvider {
 }
 
 export class WhatsAppCloudProvider {
+  constructor(private readonly credentials: IntegrationCredentialStore) {}
+
   get enabled(): boolean {
-    return config.whatsapp.cloudEnabled;
+    return this.credentials.whatsapp() !== null;
+  }
+
+  /** Reads the phone number record — fails if the token or phone number id is wrong. */
+  static async test(c: WhatsAppCredentials): Promise<void> {
+    const res = await fetch(IntegrationUrls.WHATSAPP_PHONE(c.phoneNumberId), { headers: { Authorization: `Bearer ${c.accessToken}` } });
+    if (!res.ok) throw new Error(`WhatsApp Cloud API error ${res.status}`);
   }
 
   async sendText(phoneE164Digits: string, text: string): Promise<void> {
-    if (!this.enabled) throw new IntegrationDisabledError(ErrorMessages.WHATSAPP_CLOUD_DISABLED);
-    const res = await fetch(IntegrationUrls.WHATSAPP_MESSAGES(config.whatsapp.phoneNumberId as string), {
+    const c = this.credentials.whatsapp();
+    if (!c) throw new IntegrationDisabledError(ErrorMessages.WHATSAPP_CLOUD_DISABLED);
+    const res = await fetch(IntegrationUrls.WHATSAPP_MESSAGES(c.phoneNumberId), {
       method: 'POST',
-      headers: { Authorization: `Bearer ${config.whatsapp.accessToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${c.accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to: phoneE164Digits, type: 'text', text: { body: text } }),
     });
     if (!res.ok) throw new Error(`WhatsApp Cloud API error ${res.status}`);

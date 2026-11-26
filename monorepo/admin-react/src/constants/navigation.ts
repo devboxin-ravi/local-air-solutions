@@ -4,7 +4,9 @@
  */
 
 import {
+  AppWindow,
   BarChart3,
+  Briefcase,
   Bell,
   BellRing,
   Building2,
@@ -16,8 +18,7 @@ import {
   FileText,
   ListChecks,
   LayoutDashboard,
-  Mail,
-  MessageCircle,
+  MessagesSquare,
   Percent,
   ScrollText,
   Settings,
@@ -25,6 +26,7 @@ import {
   SlidersHorizontal,
   Smartphone,
   Users,
+  Wallet,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -43,6 +45,22 @@ export interface NavChild {
 
 /** Section headings on the Settings page, in display order. */
 export const SETTINGS_GROUPS = ['Business', 'Billing & Payments', 'Communication', 'Customer App', 'Security'] as const;
+
+/** Icon shown beside each settings group heading. */
+export const SETTINGS_GROUP_ICONS: Record<(typeof SETTINGS_GROUPS)[number], LucideIcon> = {
+  Business: Briefcase,
+  'Billing & Payments': Wallet,
+  Communication: MessagesSquare,
+  'Customer App': AppWindow,
+  Security: ShieldCheck,
+};
+
+/** Labels of the settings sidebar collapse toggle. */
+export const SETTINGS_SIDEBAR = {
+  TITLE: 'Settings',
+  COLLAPSE: 'Collapse sidebar',
+  EXPAND: 'Expand sidebar',
+} as const;
 
 const section = (key: string, icon: LucideIcon, group: (typeof SETTINGS_GROUPS)[number]): NavChild => ({
   label: SETTING_SECTIONS[key].title,
@@ -154,7 +172,7 @@ export const NAVIGATION: NavModule[] = [
     basePath: '/finance',
     children: [
       { label: 'Invoices', to: ROUTES.INVOICES },
-      { label: 'Payments', to: ROUTES.PAYMENTS, permission: 'payments.view' },
+      { label: 'Payment In', to: ROUTES.PAYMENTS, permission: 'payments.view' },
       { label: 'Payment Verification', to: ROUTES.PAYMENT_VERIFICATION, permission: 'payments.approve' },
       { label: 'Customer Ledger', to: ROUTES.FINANCE_LEDGER, permission: 'ledger.view' },
       { label: 'Outstanding Payments', to: ROUTES.OUTSTANDING, permission: 'ledger.view' },
@@ -210,8 +228,6 @@ export const SETTINGS_MENU: NavModule = {
     section('payment', CreditCard, 'Billing & Payments'),
     section('notification', Bell, 'Communication'),
     section('reminder', BellRing, 'Communication'),
-    section('whatsapp', MessageCircle, 'Communication'),
-    section('email', Mail, 'Communication'),
     {
       label: 'Notification Templates',
       description: 'Wording of messages sent for each booking and payment event.',

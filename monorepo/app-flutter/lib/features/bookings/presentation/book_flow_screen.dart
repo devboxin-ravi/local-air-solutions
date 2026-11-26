@@ -1,6 +1,8 @@
 /// Booking flow: (1) services / problem → (2) address → (3) date & slot → (4) review & payment.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -82,8 +84,14 @@ class BookFlowScreen extends ConsumerWidget {
                         ctrl.next();
                         return;
                       }
+                      final payOnline = flow.draft.paymentMethod == 'RAZORPAY';
+                      final amount = flow.draft.estimate;
                       final created = await ctrl.submit();
-                      if (created != null && context.mounted) context.go(AppRoutes.bookingSuccess, extra: created);
+                      if (created == null || !context.mounted) return;
+                      final router = GoRouter.of(context);
+                      router.go(AppRoutes.bookingSuccess, extra: created);
+                      // Chose "Pay online": open checkout on top of the confirmation screen.
+                      if (payOnline) unawaited(router.push(AppRoutes.payment, extra: (bookingId: created.id, invoiceId: null, amount: amount, label: created.number, startOnline: true)));
                     },
                   ),
                 ),
@@ -401,6 +409,8 @@ class _ReviewStep extends ConsumerWidget {
     final methods = <(String, String, IconData)>[
       if (settings == null || settings.cashEnabled) ('CASH', 'Pay after service (cash/UPI to technician)', Icons.payments_outlined),
       if (settings?.upiEnabled ?? true) ('UPI_MANUAL', 'Pay via UPI & share reference', Icons.qr_code_2_rounded),
+      // Online payment needs a known amount (repairs priced after inspection pay later).
+      if (settings?.razorpayEnabled == true && draft.estimate > 0) ('RAZORPAY', 'Pay online now (card / UPI / net banking)', Icons.credit_card_rounded),
     ];
     if (!methods.any((m) => m.$1 == draft.paymentMethod) && methods.isNotEmpty) draft.paymentMethod = methods.first.$1;
 
@@ -445,7 +455,6 @@ class _ReviewStep extends ConsumerWidget {
               ]),
             ),
           )),
-      if (settings?.razorpayEnabled == true) Text('Online card/UPI payments are available from the booking page after confirmation.', style: t.bodySmall),
       const SizedBox(height: Space.xl),
     ]);
   }

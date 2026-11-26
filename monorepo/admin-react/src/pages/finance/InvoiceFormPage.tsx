@@ -18,6 +18,8 @@ import { CustomerPicker, SearchSelect } from '@/components/Pickers';
 import { formatMoney } from '@/lib/utils';
 import { InvoiceOptions, TotalsSummary, type InvoiceOptionsValue } from '@/components/FinanceWidgets';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
+import { PLACEHOLDERS } from '@/constants/ui';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Line {
   key: number;
@@ -39,6 +41,7 @@ const blank = (): Line => ({
 });
 
 export default function InvoiceFormPage() {
+  const goBack = useGoBack(ROUTES.INVOICES);
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const results = useCustomerSearch(search);
@@ -97,7 +100,7 @@ export default function InvoiceFormPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title="Manual Invoice"
         description="For walk-in jobs, spare parts or adjustments not linked to a booking."
         breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Manual Invoice' }]}
@@ -124,7 +127,7 @@ export default function InvoiceFormPage() {
                 />
               </Field>
               <Field label="Branch" required error={errors.branchId} htmlFor="invoice-branch">
-                <NativeSelect
+                <NativeSelect searchable
                   id="invoice-branch"
                   value={branchId}
                   onChange={(e) => {
@@ -164,7 +167,6 @@ export default function InvoiceFormPage() {
                     <SearchSelect
                       id={`invoice-line-${l.key}-service`}
                       noneLabel="Custom item"
-                      searchPlaceholder="Type a service name or code…"
                       value={l.serviceId}
                       options={(services ?? []).map((s) => ({
                         value: s.id,
@@ -197,7 +199,7 @@ export default function InvoiceFormPage() {
                       inputMode="numeric"
                       min={1}
                       max={999}
-                      value={l.quantity}
+                      value={l.quantity} placeholder={PLACEHOLDERS.QUANTITY}
                       onChange={(e) =>
                         update(l.key, {
                           quantity: Math.max(1, Math.floor(Number(e.target.value)) || 1),
@@ -211,7 +213,7 @@ export default function InvoiceFormPage() {
                       inputMode="decimal"
                       min={0}
                       step="0.01"
-                      value={l.rate}
+                      value={l.rate} placeholder={PLACEHOLDERS.AMOUNT}
                       onChange={(e) =>
                         update(l.key, {
                           rate: Math.max(0, Number(e.target.value) || 0),
@@ -246,7 +248,7 @@ export default function InvoiceFormPage() {
             <InvoiceOptions value={opts} onChange={setOpts} />
           </FormSection>
         </FormCard>
-        <Card className="p-5 xl:sticky xl:top-[113px] xl:self-start">
+        <Card className="p-5 xl:sticky xl:top-[97px] xl:self-start">
           <p className="mb-4 font-display text-[15px] font-bold">Totals</p>
           <TotalsSummary totals={preview.data} applyGst={opts.applyGst} isInterState={opts.isInterState} />
           <Button className="mt-6 w-full" size="lg" loading={actions.createManual.isPending} onClick={submit}>
