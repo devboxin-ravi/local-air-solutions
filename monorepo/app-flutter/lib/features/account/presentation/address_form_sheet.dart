@@ -100,6 +100,7 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
         _lng = loc.longitude;
         if (_line1.text.trim().isEmpty && loc.line1 != null) _line1.text = loc.line1!;
         if (loc.line2 != null) _line2.text = loc.line2!;
+        if (_landmark.text.trim().isEmpty && loc.landmark != null) _landmark.text = loc.landmark!;
         if (loc.pincode != null) _pin.text = loc.pincode!;
         if (state != null) {
           _stateId = state.id;

@@ -139,23 +139,24 @@ class _DetailsStepState extends ConsumerState<_DetailsStep> {
     final t = Theme.of(context).textTheme;
 
     return ListView(padding: const EdgeInsets.symmetric(horizontal: Space.page), children: [
-      Text('Product', style: t.titleMedium),
-      const SizedBox(height: Space.sm),
-      Wrap(
-        spacing: Space.sm,
-        runSpacing: Space.sm,
-        children: (products.value ?? const <Product>[])
-            .map((p) => ChoiceChip(
-                  label: Text(p.name),
-                  selected: draft.productId == p.id,
-                  onSelected: (on) {
-                    draft.productId = on ? p.id : null;
-                    ctrl.touch();
-                  },
-                ))
-            .toList(),
-      ),
+      // The appliance is only asked for repair requests; a service booking is defined by the services chosen.
       if (draft.isRepair) ...[
+        Text('Product', style: t.titleMedium),
+        const SizedBox(height: Space.sm),
+        Wrap(
+          spacing: Space.sm,
+          runSpacing: Space.sm,
+          children: (products.value ?? const <Product>[])
+              .map((p) => ChoiceChip(
+                    label: Text(p.name),
+                    selected: draft.productId == p.id,
+                    onSelected: (on) {
+                      draft.productId = on ? p.id : null;
+                      ctrl.touch();
+                    },
+                  ))
+              .toList(),
+        ),
         const SizedBox(height: Space.xl),
         Text('What’s the problem?', style: t.titleMedium),
         const SizedBox(height: Space.sm),
