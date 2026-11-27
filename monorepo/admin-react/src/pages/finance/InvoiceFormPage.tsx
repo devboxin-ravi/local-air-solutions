@@ -49,7 +49,8 @@ export default function InvoiceFormPage() {
   const { branchId: scopeBranchId } = useBranchScope();
   const [branchId, setBranchId] = useState<number | ''>(scopeBranchId ?? '');
   const { data: branches } = useBranches({ activeOnly: true });
-  const { data: services } = useServiceLookup();
+  // Services offered in (and priced for) the invoice's branch.
+  const { data: services } = useServiceLookup(branchId === '' ? undefined : branchId);
   const [lines, setLines] = useState<Line[]>([blank()]);
   const [opts, setOpts] = useState<InvoiceOptionsValue>({
     applyGst: true,

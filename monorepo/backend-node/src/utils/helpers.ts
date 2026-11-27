@@ -131,3 +131,14 @@ export const slugify = (s: string): string =>
 /** Remove undefined keys (for Prisma partial updates). */
 export const compact = <T extends Record<string, unknown>>(obj: T): Partial<T> =>
   Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+
+/** "Senior Technician (Raipur)" → "SENIOR_TECHNICIAN_RAIPUR". Letters + underscores only, to match role-code rules. */
+export const toRoleCode = (name: string, maxLength: number, fallback: string, minLength: number): string => {
+  const code = name
+    .toUpperCase()
+    .replace(/[^A-Z]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, maxLength)
+    .replace(/_+$/g, '');
+  return code.length >= minLength ? code : fallback;
+};

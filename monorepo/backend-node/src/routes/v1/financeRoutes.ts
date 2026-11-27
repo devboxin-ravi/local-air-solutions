@@ -8,7 +8,7 @@ import * as fin from '../../controllers/financeController';
 import * as eng from '../../controllers/engagementController';
 import { authenticate, requireAnyPermission, requirePermission, requireUserType } from '../../middleware/auth';
 import { validate, validateBodyBy } from '../../middleware/validate';
-import { perm } from '../../constants';
+import { perm, SharedLinks } from '../../constants';
 import { REPORT_KEYS } from '../../constants/reports';
 import { idParams, listQuery } from '../../validations/common';
 import { amcCancelSchema, amcCreateSchema, amcListQuery, amcUpdateSchema, amcVisitBookSchema, amcVisitListQuery, auditListQuery, globalSearchQuery, integrationCredentialSchemas, integrationNameParams, integrationTestSchema, invoiceCancelSchema, invoiceFromBookingSchema, invoiceLineSchema, invoiceListQuery, invoiceManualSchema, invoiceShareSchema, ledgerAdjustmentSchema, notificationReadSchema, paymentCreateSchema, paymentListQuery, paymentRefundSchema, paymentVerifySchema, razorpayCredentialsSchema, razorpayTestSchema, reminderCreateSchema, reminderListQuery, reminderUpdateSchema, reportQuery, settingKeyParams, settingValueSchema, settingValueSchemas, shareQuery, templateUpdateSchema } from '../../validations/finance';
@@ -30,6 +30,8 @@ r.post('/invoices/from-booking', authenticate, admin, requirePermission(perm('in
 r.post('/invoices', authenticate, admin, requirePermission(perm('invoices', 'create')), validate({ body: invoiceManualSchema }), fin.createManualInvoice);
 r.post('/invoices/share', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ body: invoiceShareSchema }), fin.shareInvoices);
 r.get('/invoices/:id', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ params: idParams }), fin.getInvoice);
+// Public: the signed token is the authorisation (see SharedLinks / ShareService.publicInvoicePdf).
+r.get(SharedLinks.INVOICE_PDF_ROUTE, fin.publicInvoicePdf);
 r.get('/invoices/:id/pdf', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ params: idParams }), fin.invoicePdf);
 r.post('/invoices/:id/cancel', authenticate, admin, requirePermission(perm('invoices', 'delete')), validate({ params: idParams, body: invoiceCancelSchema }), fin.cancelInvoice);
 
@@ -43,7 +45,8 @@ r.post('/payments/razorpay/webhook', fin.razorpayWebhook);
 
 // ─── Ledger & finance ───
 r.post('/ledger/adjustments', authenticate, admin, requirePermission(perm('ledger', 'create')), validate({ body: ledgerAdjustmentSchema }), fin.ledgerAdjust);
-r.get('/ledger/outstanding', authenticate, admin, requirePermission(perm('ledger', 'view')), validate({ query: listQuery }), fin.outstanding);
+r.get('/ledger/customers', authenticate, admin, requirePermission(perm('ledger', 'view')), validate({ query: listQuery }), fin.ledgerCustomers);
+r.get('/ledger/outstanding',authenticate, admin, requirePermission(perm('ledger', 'view')), validate({ query: listQuery }), fin.outstanding);
 r.get('/finance/summary', authenticate, admin, requireAnyPermission(perm('invoices', 'view'), perm('reports', 'view')), validate({ query: reportQuery }), fin.financeSummary);
 
 // ─── AMC ───

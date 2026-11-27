@@ -38,11 +38,12 @@ export default {
         header: '0 1px 0 rgba(15,31,61,0.06), 0 2px 8px rgba(15,31,61,0.04)',
       },
       height: { control: '2.5rem', 'control-sm': '2rem', header: '4rem' },
-      transitionDuration: { micro: '150ms', dropdown: '180ms', modal: '220ms', page: '240ms' },
+      transitionDuration: { micro: '150ms', dropdown: '120ms', modal: '160ms', page: '240ms' },
       keyframes: {
         'fade-in': { from: { opacity: 0 }, to: { opacity: 1 } },
-        'slide-down': { from: { opacity: 0, transform: 'translateY(-6px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
-        'zoom-in': { from: { opacity: 0, transform: 'scale(0.97)' }, to: { opacity: 1, transform: 'scale(1)' } },
+        'slide-down': { from: { opacity: 0, translate: '0 -6px' }, to: { opacity: 1, translate: '0 0' } },
+        // Uses the standalone `scale` property so it never overrides the centring translate on dialogs.
+        'zoom-in': { from: { opacity: 0, scale: '0.97' }, to: { opacity: 1, scale: '1' } },
         shimmer: { '100%': { transform: 'translateX(100%)' } },
         'fade-up': { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
         float: { '0%, 100%': { transform: 'translateY(0) rotate(0deg)' }, '50%': { transform: 'translateY(-10px) rotate(8deg)' } },
@@ -50,9 +51,9 @@ export default {
       animation: {
         'fade-up': 'fade-up 460ms cubic-bezier(0.2, 0.7, 0.2, 1) both',
         float: 'float 9s ease-in-out infinite',
-        'fade-in': 'fade-in 180ms ease-out',
-        'slide-down': 'slide-down 180ms ease-out',
-        'zoom-in': 'zoom-in 200ms ease-out',
+        'fade-in': 'fade-in 120ms ease-out',
+        'slide-down': 'slide-down 120ms ease-out',
+        'zoom-in': 'zoom-in 140ms ease-out',
       },
     },
   },

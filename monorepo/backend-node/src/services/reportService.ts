@@ -8,7 +8,7 @@ import { ACTIVE_JOB_STATUSES, PENDING_BOOKING_STATUSES } from '../constants';
 import { ReportRepository, DateRange } from '../repositories/reportRepository';
 import type { AuthUser } from '../models';
 import { moneyNumber, parseDateOnly, todayDateOnly, addDays } from '../utils/helpers';
-import { resolveBranchScope } from './accessControl';
+import { customerBranchWhere, resolveBranchScope } from './accessControl';
 
 const DASHBOARD_LIST_SIZE = 6;
 const SEARCH_LIMIT = 5;
@@ -78,7 +78,7 @@ export class ReportService {
       this.repo.countBookings({ ...b, status: { in: ACTIVE_JOB_STATUSES } }),
       this.repo.countBookings({ ...b, status: 'COMPLETED' }),
       this.repo.countActiveTechnicians(branchId),
-      this.repo.countCustomers({ deletedAt: null, ...b }),
+      this.repo.countCustomers({ deletedAt: null, ...customerBranchWhere(branchId) }),
       this.repo.sumInvoices({ ...b, invoiceDate: { gte: monthStart } }),
       this.repo.sumInvoices({ ...b, invoiceDate: { gte: prevMonthStart, lt: monthStart } }),
       this.repo.sumInvoices({ ...b, balanceDue: { gt: 0 } }),
@@ -92,10 +92,10 @@ export class ReportService {
       branchId ? Promise.resolve([]) : this.repo.branchPerformance(range),
       this.repo.technicianPerformance(range, branchId),
       this.repo.recentBookings({ ...b }, DASHBOARD_LIST_SIZE),
-      this.repo.recentPayments(branchId ? { customer: { branchId } } : {}, DASHBOARD_LIST_SIZE),
+      this.repo.recentPayments(branchId ? { customer: customerBranchWhere(branchId) } : {}, DASHBOARD_LIST_SIZE),
       this.repo.recentAssignments(branchId ? { booking: { branchId } } : {}, DASHBOARD_LIST_SIZE),
       this.repo.upcomingAppointments({ ...b, scheduledDate: { gte: today }, status: { notIn: ['CANCELLED', 'REJECTED', 'COMPLETED'] } }, DASHBOARD_LIST_SIZE),
-      this.repo.countPayments({ status: 'PENDING_VERIFICATION', ...(branchId ? { customer: { branchId } } : {}) }),
+      this.repo.countPayments({ status: 'PENDING_VERIFICATION', ...(branchId ? { customer: customerBranchWhere(branchId) } : {}) }),
       this.repo.countBookings({ ...b, status: { in: ['CONFIRMED', 'RESCHEDULED'] }, assignments: { none: { isCurrent: true } } }),
       this.repo.countAmc({ ...b, status: 'EXPIRING' }),
     ]);
@@ -202,7 +202,7 @@ export class ReportService {
     const [all, period, payments, gst] = await Promise.all([
       this.repo.sumInvoices(b),
       this.repo.sumInvoices({ ...b, invoiceDate: { gte: range.from, lte: range.to } }),
-      this.repo.sumVerifiedPayments({ ...(branchId ? { customer: { branchId } } : {}), receivedAt: { gte: range.from, lte: range.to } }),
+      this.repo.sumVerifiedPayments({ ...(branchId ? { customer: customerBranchWhere(branchId) } : {}), receivedAt: { gte: range.from, lte: range.to } }),
       this.repo.gstReport(range, branchId),
     ]);
     return {

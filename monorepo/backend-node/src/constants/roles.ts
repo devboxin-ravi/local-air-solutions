@@ -103,3 +103,11 @@ export const ROLE_LABELS: Record<string, string> = {
   TECHNICIAN: 'Technician / Staff',
   CUSTOMER: 'Customer',
 };
+
+/** Role codes are generated from the role name when not supplied (UPPER_SNAKE_CASE, letters only). */
+export const RoleCodeRules = {
+  MAX_LENGTH: 50,
+  MIN_LENGTH: 2,
+  /** Used when the name has no Latin letters to build a code from (e.g. a Hindi name). */
+  FALLBACK: 'CUSTOM_ROLE',
+} as const;

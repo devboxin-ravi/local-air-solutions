@@ -36,7 +36,7 @@ export default function RolesPage() {
   const role = open ? roles.data?.find((r) => r.id === open.id) : undefined;
   const [granted, setGranted] = useState<Set<string>>(new Set());
   const [newOpen, setNewOpen] = useState(false);
-  const [newRole, setNewRole] = useState({ code: '', name: '' });
+  const [newRole, setNewRole] = useState({ name: '' });
   const [toDelete, setToDelete] = useState<Role | null>(null);
   const { errors, validate, clear, fromServer, reset } = useFormErrors();
   const canManage = can('roles.manage');
@@ -49,7 +49,7 @@ export default function RolesPage() {
       {
         onSuccess: (r) => {
           setNewOpen(false);
-          setNewRole({ code: '', name: '' });
+          setNewRole({ name: '' });
           setOpen({ id: r.id, mode: 'edit' }); // a new role starts empty — go straight to ticking permissions
         },
         onError: (e) => fromServer(e),
@@ -364,9 +364,6 @@ export default function RolesPage() {
           <DialogBody className="space-y-4">
             <Field label="Role name" required error={errors.name} htmlFor="role-name">
               <Input id="role-name" placeholder={PLACEHOLDERS.ROLE_NAME} value={newRole.name} autoFocus onChange={(e) => { setNewRole({ ...newRole, name: e.target.value }); clear('name'); }} maxLength={100} />
-            </Field>
-            <Field label="Code" required error={errors.code} htmlFor="role-code" hint="UPPER_SNAKE_CASE, e.g. ACCOUNTANT">
-              <Input id="role-code" placeholder={PLACEHOLDERS.ROLE_CODE} value={newRole.code} onChange={(e) => { setNewRole({ ...newRole, code: e.target.value.toUpperCase().replace(/[^A-Z_]/g, '') }); clear('code'); }} maxLength={50} />
             </Field>
           </DialogBody>
           <DialogFooter>

@@ -19,7 +19,7 @@ import { AppError, BusinessRuleError, ConflictError, IntegrationDisabledError, N
 import { StatusCodes } from '../constants/api';
 import { formatDocNumber, formatInr, hmacSha256Hex, moneyNumber, parseDateOnly, safeEqual, toPageMeta, toPageParams } from '../utils/helpers';
 import { logger } from '../utils/logger';
-import { assertBranchAccess, resolveBranchScope } from './accessControl';
+import { assertBranchAccess, customerBranchWhere, resolveBranchScope } from './accessControl';
 import { BookingService } from './bookingService';
 import { AmcService } from './amcService';
 import { InvoiceService } from './invoiceService';
@@ -72,7 +72,7 @@ export class PaymentService {
     const p = toPageParams(q.page, q.pageSize);
     const where: Prisma.PaymentWhereInput = {
       ...(isCustomer ? { customerId: actor.customerId ?? -1 } : q.customerId ? { customerId: q.customerId } : {}),
-      ...(branchId ? { customer: { branchId } } : {}),
+      ...(branchId ? { customer: customerBranchWhere(branchId) } : {}),
       ...(q.status ? { status: q.status } : {}),
       ...(q.method ? { method: q.method } : {}),
       ...(q.from || q.to ? { createdAt: { ...(q.from ? { gte: parseDateOnly(q.from) } : {}), ...(q.to ? { lte: new Date(`${q.to}T23:59:59.999Z`) } : {}) } } : {}),

@@ -75,7 +75,6 @@ export const PLACEHOLDERS = {
   PRODUCT_CATEGORY: 'e.g. Air Conditioner',
   ICON_NAME: 'e.g. air-vent',
   ROLE_NAME: 'e.g. Accountant',
-  ROLE_CODE: 'e.g. ACCOUNTANT',
   TEMPLATE_SUBJECT: 'e.g. Booking confirmed',
   TEMPLATE_BODY: 'Hi, your booking {{bookingNumber}}…',
   TRACKER_LABEL: 'e.g. On the way',
@@ -91,6 +90,29 @@ export const PLACEHOLDERS = {
 export const CUSTOMER_PICKER = {
   PLACEHOLDER: 'Search customer by name, mobile or ID…',
   EMPTY_TEXT: 'No customers found.',
+  /** Fetched in pages of this size (API maximum) until every matching customer is loaded. */
+  PAGE_SIZE: 100,
+  SORT_BY: 'fullName',
+} as const;
+
+/** Sharing an invoice on WhatsApp. */
+export const INVOICE_SHARE = {
+  PDF_MIME: 'application/pdf',
+  /** Shown when the file can't go through the share sheet: the PDF was downloaded and the chat opened. */
+  ATTACH_HINT: (fileName: string) => `${fileName} downloaded — attach it in the WhatsApp chat that just opened.`,
+} as const;
+
+/** "Record payment" on the Payment In page (manual entry, not tied to an invoice page). */
+export const MANUAL_PAYMENT = {
+  BUTTON: 'Record payment',
+  CONTEXT: 'Payment received outside the app — cash, UPI or bank transfer.',
+  CUSTOMER_LABEL: 'Customer',
+  CUSTOMER_REQUIRED: 'Select a customer',
+  INVOICE_LABEL: 'Against invoice',
+  NO_INVOICE: 'No invoice — advance / on account',
+  NO_OUTSTANDING: 'No unpaid invoices for this customer',
+  INVOICE_HINT: 'Pick an unpaid invoice to settle it; otherwise the amount is credited to the customer ledger.',
+  INVOICE_PAGE_SIZE: 50,
 } as const;
 
 /** Developer credit shown in the footer of every admin page. */
@@ -419,7 +441,6 @@ export const PATTERNS = {
   GST_STATE_CODE: /^\d{2}$/,
   SAC_CODE: /^\d{4,8}$/,
   UPI_ID: /^[\w.-]{2,256}@[a-zA-Z]{2,64}$/,
-  ROLE_CODE: /^[A-Z_]+$/,
   MASTER_CODE: /^[A-Z0-9-]+$/,
   PINCODE_LIST: /^\s*[1-9]\d{5}(\s*,\s*[1-9]\d{5})*\s*$/,
   PASSWORD: /^(?=.*[A-Za-z])(?=.*\d).+$/,
@@ -433,7 +454,6 @@ export const MESSAGES = {
   GST_STATE_CODE: 'Use the 2-digit GST state code, e.g. 22',
   SAC_CODE: 'SAC code is 4 to 8 digits',
   UPI_ID: 'Enter a valid UPI ID, e.g. name@bank',
-  ROLE_CODE: 'Use UPPER_SNAKE_CASE letters only',
   MASTER_CODE: 'Use uppercase letters, numbers and hyphens',
   PINCODE_LIST: 'Comma-separated 6-digit PIN codes',
   URL: 'Enter a full URL, e.g. https://example.com',

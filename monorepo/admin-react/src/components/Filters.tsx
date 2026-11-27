@@ -47,10 +47,11 @@ export const SelectFilter = ({ value, onChange, options, placeholder, className,
 );
 
 export const DateRange = ({ from, to, onChange }: { from?: string; to?: string; onChange: (from: string, to: string) => void }) => (
-  <div className="flex items-center gap-2">
-    <Input type="date" value={from ?? ''} onChange={(e) => onChange(e.target.value, to ?? '')} className="w-[150px]" aria-label="From date" />
-    <span className="text-xs text-muted-foreground">to</span>
-    <Input type="date" value={to ?? ''} min={from} onChange={(e) => onChange(from ?? '', e.target.value)} className="w-[150px]" aria-label="To date" />
+  // Phones: the two inputs share the row (flex-1, shrinkable) instead of fixed 150px boxes that overflow.
+  <div className="flex w-full items-center gap-2 sm:w-auto">
+    <Input type="date" value={from ?? ''} onChange={(e) => onChange(e.target.value, to ?? '')} className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" aria-label="From date" />
+    <span className="shrink-0 text-xs text-muted-foreground">to</span>
+    <Input type="date" value={to ?? ''} min={from} onChange={(e) => onChange(from ?? '', e.target.value)} className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" aria-label="To date" />
   </div>
 );
 

@@ -11,8 +11,10 @@ import { LIMITS } from '@/constants/ui';
 import { SETTINGS_MENU } from '@/constants/navigation';
 import { useAction } from './useApi';
 import { useAuth } from './useAuth';
+import { useBranchScope } from './useBranchScope';
 
 export function useGlobalSearch() {
+  const { branchId } = useBranchScope();
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {
@@ -20,8 +22,9 @@ export function useGlobalSearch() {
     return () => clearTimeout(t);
   }, [term]);
   const query = useQuery({
-    queryKey: ['search', debounced],
-    queryFn: () => reportService.search(debounced),
+    queryKey: ['search', debounced, branchId],
+    // Same branch scope as the rest of the admin (header branch selector).
+    queryFn: () => reportService.search(debounced, branchId),
     enabled: debounced.length >= 2,
     placeholderData: keepPreviousData,
   });

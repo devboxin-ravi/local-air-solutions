@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Mobile: a `grid` with no base `grid-cols-*` (e.g. "grid gap-4 md:grid-cols-2") gets one implicit `auto`
+ * column, which grows to its widest child and pushes the page wider than the phone. Give every grid a
+ * single shrinkable column by default; any grid-cols-* utility (base or responsive) still overrides it.
+ */
+@layer base {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @layer base {
   :root {
     --background: 216 33% 97%;

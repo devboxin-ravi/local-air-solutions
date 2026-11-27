@@ -95,7 +95,28 @@ export class InvoiceService {
     if (actor.userType === 'CUSTOMER') {
       if (inv.customerId !== actor.customerId) throw new NotFoundError('Invoice');
     } else assertBranchAccess(actor, inv.branchId);
-    return inv;
+    return this.withCompanyProfile(inv);
+  }
+
+  /** Invoice for a signed public PDF link (no login): never a cancelled one. */
+  async getForShareLink(id: number) {
+    const inv = await this.repo.findInvoice(id);
+    if (!inv || inv.status === 'CANCELLED') throw new NotFoundError('Invoice');
+    return this.withCompanyProfile(inv);
+  }
+
+  /**
+   * Company details on an invoice come from Settings → Company Profile (copied when the invoice is issued).
+   * Fields that were still blank at issue time (profile completed later) are filled from the current
+   * profile; values already on the invoice are kept exactly as issued.
+   */
+  private async withCompanyProfile<T extends { snapshot: Prisma.JsonValue }>(inv: T): Promise<T> {
+    const current = (await this.settings.company()) as unknown as Record<string, unknown>;
+    const snap = (inv.snapshot && typeof inv.snapshot === 'object' && !Array.isArray(inv.snapshot) ? inv.snapshot : {}) as Record<string, unknown>;
+    const issued = (snap.company && typeof snap.company === 'object' ? snap.company : {}) as Record<string, unknown>;
+    const company: Record<string, unknown> = { ...current };
+    for (const [key, value] of Object.entries(issued)) if (value !== null && value !== undefined && value !== '') company[key] = value;
+    return { ...inv, snapshot: { ...snap, company } as Prisma.JsonObject };
   }
 
   preview(lines: InvoiceLineInput[], opts: InvoiceOptions) {

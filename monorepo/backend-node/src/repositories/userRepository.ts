@@ -47,6 +47,11 @@ export class UserRepository {
     return db.role.findUnique({ where: { id }, include: { permissions: { include: { permission: true } } } });
   }
 
+  /** Id + name of every role (for uniqueness checks). */
+  listRoleNames(db: Db = prisma) {
+    return db.role.findMany({ select: { id: true, name: true } });
+  }
+
   findRolesByCodes(codes: string[], db: Db = prisma) {
     return db.role.findMany({ where: { code: { in: codes } } });
   }

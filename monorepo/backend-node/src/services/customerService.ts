@@ -10,7 +10,7 @@ import { nextSequence, runInTransaction } from '../repositories/db';
 import type { AuthUser, RequestMeta } from '../models';
 import { BusinessRuleError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../utils/errors';
 import { compact, formatCode, toPageMeta, toPageParams } from '../utils/helpers';
-import { assertBranchAccess, resolveBranchScope } from './accessControl';
+import { assertBranchAccess, customerBranchWhere, resolveBranchScope } from './accessControl';
 import { SettingsService } from './settingsService';
 
 export interface AddressInput {
@@ -54,7 +54,7 @@ export class CustomerService {
     const p = toPageParams(q.page, q.pageSize);
     const where: Prisma.CustomerWhereInput = {
       deletedAt: null,
-      ...(branchId ? { branchId } : {}),
+      ...customerBranchWhere(branchId),
       ...(q.status ? { status: q.status } : {}),
       ...(q.customerType ? { customerType: q.customerType } : {}),
       ...(q.cityId ? { addresses: { some: { cityId: q.cityId } } } : {}),
@@ -87,8 +87,15 @@ export class CustomerService {
     return this.repo.findByMobile(mobile);
   }
 
-  private async validateAddress(a: AddressInput) {
-    return (await this.resolveServiceArea(a))?.id ?? null;
+  /**
+   * Customers created without a resolvable address (e.g. app sign-up before a service area existed)
+   * have no branch and are hidden from branch-filtered admin lists. Once one of their addresses
+   * resolves to a branch, adopt it. Never overrides a branch that is already set.
+   */
+  private async adoptBranchIfMissing(customerId: number, branchId: number | null | undefined): Promise<void> {
+    if (!branchId) return;
+    const customer = await this.repo.findById(customerId);
+    if (customer && !customer.branchId) await this.repo.update(customerId, { branchId });
   }
 
   /**
@@ -112,27 +119,34 @@ export class CustomerService {
    */
   async resolveAddressBranch(address: {
     id: number;
+    customerId: number;
     stateId: number;
     cityId: number;
     pincode: string;
     serviceArea?: { branchId: number } | null;
   }): Promise<number | null> {
-    if (address.serviceArea) return address.serviceArea.branchId;
-    const area = await this.resolveServiceArea(address);
-    if (!area) return null;
-    await this.repo.updateAddress(address.id, { serviceAreaId: area.id });
-    return area.branchId;
+    let branchId = address.serviceArea?.branchId ?? null;
+    if (!branchId) {
+      const area = await this.resolveServiceArea(address);
+      if (!area) return null;
+      await this.repo.updateAddress(address.id, { serviceAreaId: area.id });
+      branchId = area.branchId;
+    }
+    await this.adoptBranchIfMissing(address.customerId, branchId);
+    return branchId;
   }
 
   async create(actor: AuthUser, input: CustomerInput, meta: RequestMeta) {
-    const branchId = actor.isCompanyWide ? input.branchId ?? null : actor.branchId;
+    const requestedBranchId = actor.isCompanyWide ? input.branchId ?? null : actor.branchId;
     if (!input.allowDuplicateMobile) {
       const dupes = await this.repo.findByMobile(input.mobile);
       if (dupes.length) {
         throw new ConflictError(`Mobile already used by ${dupes.map((d) => `${d.fullName} (${d.customerCode})`).join(', ')}. Confirm to create anyway.`, 'DUPLICATE_MOBILE');
       }
     }
-    const serviceAreaId = input.address ? await this.validateAddress(input.address) : null;
+    const area = input.address ? await this.resolveServiceArea(input.address) : null;
+    const serviceAreaId = area?.id ?? null;
+    const branchId = requestedBranchId ?? area?.branchId ?? null;
     const created = await runInTransaction(async (tx) => {
       const seq = await nextSequence(tx, 'CUSTOMER');
       const c = await this.repo.create(
@@ -186,7 +200,7 @@ export class CustomerService {
     const p = toPageParams(q.page, q.pageSize);
     const where: Prisma.CustomerAddressWhereInput = {
       isActive: true,
-      customer: { deletedAt: null, ...(branchId ? { branchId } : {}) },
+      customer: { deletedAt: null, ...customerBranchWhere(branchId) },
       ...(q.cityId ? { cityId: q.cityId } : {}),
       ...(q.pincode ? { pincode: { startsWith: q.pincode } } : {}),
       ...(q.search ? { OR: [{ line1: { contains: q.search } }, { landmark: { contains: q.search } }, { customer: { fullName: { contains: q.search } } }] } : {}),
@@ -196,32 +210,37 @@ export class CustomerService {
   }
 
   async addAddress(customerId: number, input: AddressInput) {
-    const serviceAreaId = await this.validateAddress(input);
-    return runInTransaction(async (tx) => {
+    const area = await this.resolveServiceArea(input);
+    const created = await runInTransaction(async (tx) => {
       const count = await this.repo.countAddresses(customerId, tx);
       const isDefault = input.isDefault || count === 0;
       if (isDefault) await this.repo.clearDefaultAddress(customerId, tx);
-      return this.repo.createAddress({ ...input, customerId, isDefault, serviceAreaId }, tx);
+      return this.repo.createAddress({ ...input, customerId, isDefault, serviceAreaId: area?.id ?? null }, tx);
     });
+    await this.adoptBranchIfMissing(customerId, area?.branchId);
+    return created;
   }
 
   async updateAddress(customerId: number, addressId: number, input: Partial<AddressInput>) {
     const existing = await this.repo.findAddress(addressId);
     if (!existing || existing.customerId !== customerId) throw new NotFoundError('Address');
     let serviceAreaId: number | null | undefined;
+    let areaBranchId: number | undefined;
     if (input.cityId || input.stateId || input.pincode) {
-      serviceAreaId = await this.validateAddress({
-        ...(existing as unknown as AddressInput),
-        ...input,
+      const area = await this.resolveServiceArea({
         stateId: input.stateId ?? existing.stateId,
         cityId: input.cityId ?? existing.cityId,
         pincode: input.pincode ?? existing.pincode,
-      } as AddressInput);
+      });
+      serviceAreaId = area?.id ?? null;
+      areaBranchId = area?.branchId;
     }
-    return runInTransaction(async (tx) => {
+    const updated = await runInTransaction(async (tx) => {
       if (input.isDefault) await this.repo.clearDefaultAddress(customerId, tx);
       return this.repo.updateAddress(addressId, compact({ ...input, serviceAreaId }) as Prisma.CustomerAddressUncheckedUpdateInput, tx);
     });
+    await this.adoptBranchIfMissing(customerId, areaBranchId);
+    return updated;
   }
 
   async removeAddress(customerId: number, addressId: number) {

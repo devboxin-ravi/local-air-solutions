@@ -3,6 +3,7 @@
  * Backend-enforced — UI hiding is never relied upon.
  */
 
+import type { Prisma } from '@prisma/client';
 import { ErrorMessages } from '../constants';
 import type { AuthUser } from '../models';
 import { ForbiddenError } from '../utils/errors';
@@ -31,3 +32,12 @@ export const assertBranchAccess = (actor: AuthUser, branchId: number | null | un
   if (actor.isCompanyWide) return;
   if (!branchId || branchId !== actor.branchId) throw new ForbiddenError(ErrorMessages.BRANCH_FORBIDDEN);
 };
+
+/**
+ * Customer filter for a branch-scoped list. Customers not yet assigned to a branch (e.g. app sign-ups
+ * whose address matched no service area) are included, so they are never hidden from staff; they
+ * adopt a branch once an address resolves (CustomerService.adoptBranchIfMissing).
+ * Wrapped in AND so it can be combined with a search `OR` on the same object.
+ */
+export const customerBranchWhere = (branchId: number | undefined): Prisma.CustomerWhereInput =>
+  branchId ? { AND: [{ OR: [{ branchId }, { branchId: null }] }] } : {};

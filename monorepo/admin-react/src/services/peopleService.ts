@@ -8,6 +8,15 @@ import { http } from './apiClient';
 
 export const customerService = {
   list: (params?: QueryParams) => http.page<Customer>(API.CUSTOMERS, params),
+  /** Every customer matching `params` (follows all pages) — for pickers that must list all customers. */
+  listAll: async (params: QueryParams, pageSize: number): Promise<Customer[]> => {
+    const items: Customer[] = [];
+    for (let page = 1; ; page++) {
+      const res = await http.page<Customer>(API.CUSTOMERS, { ...params, page, pageSize });
+      items.push(...res.items);
+      if (page >= res.meta.totalPages || !res.items.length) return items;
+    }
+  },
   get: (id: number) => http.get<Customer>(API.CUSTOMER(id)),
   create: (body: unknown) => http.post<Customer>(API.CUSTOMERS, body),
   update: (id: number, body: unknown) => http.patch<Customer>(API.CUSTOMER(id), body),

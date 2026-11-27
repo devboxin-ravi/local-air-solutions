@@ -99,4 +99,6 @@ export interface ShareLink {
   channel: 'WHATSAPP';
   url: string;
   message: string;
+  /** Signed, expiring public PDF link (invoice shares only). */
+  pdfUrl?: string;
 }

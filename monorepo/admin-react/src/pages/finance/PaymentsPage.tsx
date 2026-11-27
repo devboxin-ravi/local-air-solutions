@@ -4,12 +4,12 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, ExternalLink, RotateCcw, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, PlusCircle, RotateCcw, XCircle } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { usePaymentActions, usePaymentList } from '@/hooks/useFinance';
+import { useManualPayment, usePaymentActions, usePaymentList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { PAYMENT_METHODS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
+import { MANUAL_PAYMENT, PAYMENT_METHODS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import { assetUrl, formatDate, formatDateTime, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Payment } from '@/types';
 import { ConfirmDialog, Field, PageHeader, StatusBadge } from '@/components/common';
@@ -17,7 +17,9 @@ import { useFormErrors } from '@/hooks/useFormErrors';
 import { refundSchema } from '@/lib/validation';
 import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { DateRange, FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
-import { Button, Input, Textarea } from '@/components/ui/primitives';
+import { Button, Input, NativeSelect, Textarea } from '@/components/ui/primitives';
+import { RecordPaymentDialog } from '@/components/FinanceWidgets';
+import { CustomerPicker } from '@/components/Pickers';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
 
 /** Page of the record a payment was made against (invoice, else booking, else AMC). */
@@ -30,6 +32,7 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
   const list = useListState();
   const { data, isLoading, error, refetch } = usePaymentList({ ...list.query, ...(verification ? { status: 'PENDING_VERIFICATION' } : {}) });
   const actions = usePaymentActions();
+  const manual = useManualPayment();
   const [review, setReview] = useState<{ payment: Payment; approve: boolean } | null>(null);
   const [note, setNote] = useState('');
   const [refund, setRefund] = useState<Payment | null>(null);
@@ -75,6 +78,7 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
         title={verification ? 'Payment Verification' : 'Payment In'}
         description={verification ? 'Customer-submitted UPI references awaiting review. Only verified payments update invoices and the ledger.' : 'All recorded payments.'}
         breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: verification ? 'Payment Verification' : 'Payment In' }]}
+        actions={!verification && can('payments.create') && <Button onClick={() => manual.setOpen(true)}><PlusCircle /> {MANUAL_PAYMENT.BUTTON}</Button>}
       />
       <DataTable
         columns={columns}
@@ -96,6 +100,31 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
           </FilterBar>
         }
       />
+      <RecordPaymentDialog
+        open={manual.open}
+        onOpenChange={manual.setOpen}
+        context={MANUAL_PAYMENT.CONTEXT}
+        defaultAmount={manual.balance}
+        maxAmount={manual.balance}
+        submitting={manual.submitting}
+        onSubmit={manual.submit}
+      >
+        <Field label={MANUAL_PAYMENT.CUSTOMER_LABEL} required error={manual.customerError ? MANUAL_PAYMENT.CUSTOMER_REQUIRED : undefined}>
+          <CustomerPicker value={manual.customer} options={manual.customers} loading={manual.customersLoading} search={manual.search} onSearchChange={manual.setSearch} onSelect={manual.selectCustomer} invalid={manual.customerError} />
+        </Field>
+        {manual.customer && (
+          <Field label={MANUAL_PAYMENT.INVOICE_LABEL} hint={manual.invoices.length ? MANUAL_PAYMENT.INVOICE_HINT : MANUAL_PAYMENT.NO_OUTSTANDING}>
+            <NativeSelect value={manual.invoiceId ?? ''} disabled={manual.invoicesLoading} onChange={(e) => manual.setInvoiceId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">{MANUAL_PAYMENT.NO_INVOICE}</option>
+              {manual.invoices.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.invoiceNumber} · {formatDate(i.invoiceDate)} · balance {formatMoney(i.balanceDue)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+      </RecordPaymentDialog>
       <ConfirmDialog
         open={!!review}
         onOpenChange={(o) => !o && setReview(null)}

@@ -34,7 +34,6 @@ export default function AmcFormPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const selected = customer ?? preset.data ?? null;
   const { data: branches } = useBranches({ activeOnly: true });
-  const { data: services } = useServiceLookup();
   const actions = useAmcActions();
   const { branchId: scopeBranchId } = useBranchScope();
 
@@ -56,6 +55,9 @@ export default function AmcFormPage() {
     },
   });
   const e = form.formState.errors;
+  // Services offered in (and priced for) the contract's branch.
+  const contractBranchId = Number(form.watch('branchId')) || undefined;
+  const { data: services } = useServiceLookup(contractBranchId);
 
   useEffect(() => {
     if (!selected) return;

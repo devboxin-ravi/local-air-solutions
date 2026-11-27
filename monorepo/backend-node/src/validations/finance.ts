@@ -344,7 +344,8 @@ export const auditListQuery = listQuery.extend({
   from: dateOnly.optional(),
   to: dateOnly.optional(),
 });
-export const roleSchema = z.object({ code: trimmed(2, 50).toUpperCase().regex(/^[A-Z_]+$/), name: trimmed(2, 100), description: optionalTrimmed(500), permissionCodes: z.array(z.string().max(100)).max(500).default([]) });
+/** `code` is optional: when omitted it is generated from `name` (StaffService.createRole). */
+export const roleSchema = z.object({ code: trimmed(2, 50).toUpperCase().regex(/^[A-Z_]+$/).optional(), name: trimmed(2, 100), description: optionalTrimmed(500), permissionCodes: z.array(z.string().max(100)).max(500).default([]) });
 export const roleUpdateSchema = z.object({ name: trimmed(2, 100).optional(), description: optionalTrimmed(500), permissionCodes: z.array(z.string().max(100)).max(500).optional() });
 export const notificationReadSchema = z.object({ ids: z.union([z.array(id).max(500), z.literal('all')]) });
 export const shareQuery = z.object({ type: z.enum(['booking', 'assignment', 'invoice', 'paymentReminder', 'serviceReminder']), id });

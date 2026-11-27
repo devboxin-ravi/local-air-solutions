@@ -13,6 +13,9 @@ export interface DateRange {
 
 const branchSql = (alias: string, branchId?: number) =>
   branchId ? Prisma.sql`AND ${Prisma.raw(alias)}.branch_id = ${branchId}` : Prisma.empty;
+/** Branch filter on the customers table: also includes customers not yet assigned to a branch (same rule as customer lists). */
+const customerBranchSql = (alias: string, branchId?: number) =>
+  branchId ? Prisma.sql`AND (${Prisma.raw(alias)}.branch_id = ${branchId} OR ${Prisma.raw(alias)}.branch_id IS NULL)` : Prisma.empty;
 
 export class ReportRepository {
   countBookings(where: Prisma.ServiceBookingWhereInput, db: Db = prisma) {
@@ -55,7 +58,7 @@ export class ReportRepository {
     return db.$queryRaw<Array<{ month: string; collected: Prisma.Decimal }>>`
       SELECT DATE_FORMAT(p.received_at, '%Y-%m') AS month, SUM(p.amount) AS collected
         FROM payments p JOIN customers c ON c.id = p.customer_id
-       WHERE p.status = 'VERIFIED' AND p.received_at BETWEEN ${range.from} AND ${range.to} ${branchSql('c', branchId)}
+       WHERE p.status = 'VERIFIED' AND p.received_at BETWEEN ${range.from} AND ${range.to} ${customerBranchSql('c', branchId)}
        GROUP BY month ORDER BY month`;
   }
 
@@ -123,7 +126,7 @@ export class ReportRepository {
              (SELECT COALESCE(SUM(i.grand_total),0) FROM invoices i WHERE i.customer_id = c.id AND i.status <> 'CANCELLED' AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS billed,
              (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.customer_id = c.id AND p.status = 'VERIFIED' AND p.received_at BETWEEN ${range.from} AND ${range.to}) AS paid
         FROM customers c
-       WHERE c.deleted_at IS NULL ${branchSql('c', branchId)}
+       WHERE c.deleted_at IS NULL ${customerBranchSql('c', branchId)}
        ORDER BY billed DESC LIMIT ${take}`;
   }
 
@@ -141,7 +144,7 @@ export class ReportRepository {
     return db.$queryRaw<Array<{ method: string; status: string; count: bigint; amount: Prisma.Decimal }>>`
       SELECT p.method, p.status, COUNT(*) AS count, SUM(p.amount) AS amount
         FROM payments p JOIN customers c ON c.id = p.customer_id
-       WHERE p.created_at BETWEEN ${range.from} AND ${range.to} ${branchSql('c', branchId)}
+       WHERE p.created_at BETWEEN ${range.from} AND ${range.to} ${customerBranchSql('c', branchId)}
        GROUP BY p.method, p.status`;
   }
 
@@ -232,7 +235,8 @@ export class ReportRepository {
       }),
       db.customer.findMany({
         where: {
-          ...b,
+          // Same rule as customer lists: a branch filter also includes customers not yet assigned to a branch.
+          ...(branchId ? { AND: [{ OR: [{ branchId }, { branchId: null }] }] } : {}),
           deletedAt: null,
           OR: [{ fullName: { contains: term } }, { mobile: { contains: term } }, { customerCode: { contains: term } }, { email: { contains: term } }],
         },

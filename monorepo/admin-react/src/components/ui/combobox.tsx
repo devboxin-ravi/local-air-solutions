@@ -171,7 +171,8 @@ export const Combobox = ({
             spellCheck={false}
             value={open ? query : shownLabel}
             placeholder={open ? shownLabel || placeholder : placeholder}
-            onFocus={openList}
+            // Opens on click, typing or ArrowDown — not on focus, so a dialog that auto-focuses this
+            // field doesn't pop the list open over the form the moment it appears.
             onClick={openList}
             onChange={(e) => {
               if (!open) setOpen(true);
