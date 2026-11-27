@@ -160,6 +160,12 @@ abstract class Messages {
 /// Current-location lookup for the address form.
 abstract class LocationConfig {
   static const Duration fixTimeout = Duration(seconds: 20);
+
+  /// Stop refining the GPS fix once it is at least this accurate (metres).
+  static const double targetAccuracyMeters = 20;
+
+  /// Plus codes (e.g. "7MJ8+XQ") returned by the geocoder are not useful as a street line.
+  static final RegExp plusCodePattern = RegExp(r'^[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]*$', caseSensitive: false);
   static const String geocodeLanguage = 'en';
   static const String geocodeCountry = 'IN';
   static const String useCurrentLabel = 'Use my current location';

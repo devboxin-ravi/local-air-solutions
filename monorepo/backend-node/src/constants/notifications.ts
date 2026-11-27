@@ -11,6 +11,9 @@ export interface TemplateDefinition {
   body: string;
 }
 
+/** Shown in place of {{slot}} when a booking has no time slot yet. */
+export const SLOT_TO_BE_CONFIRMED = 'time to be confirmed';
+
 export const DEFAULT_TEMPLATES: TemplateDefinition[] = [
   { eventType: NotificationEvents.BOOKING_CREATED, title: 'Booking received', body: 'Your booking {{bookingNumber}} for {{date}} has been received. We will confirm shortly.' },
   { eventType: NotificationEvents.BOOKING_CONFIRMED, title: 'Booking confirmed', body: 'Booking {{bookingNumber}} is confirmed for {{date}} ({{slot}}).' },

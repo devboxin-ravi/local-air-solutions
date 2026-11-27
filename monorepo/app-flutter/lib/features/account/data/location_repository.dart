@@ -30,30 +30,80 @@ class LocationRepository {
     if (permission == LocationPermission.denied) throw const LocationException(Messages.locationDenied);
     if (permission == LocationPermission.deniedForever) throw const LocationException(Messages.locationDeniedForever, openSettings: true);
 
-    final Position pos;
+    final pos = await _preciseFix();
+
+    List<Placemark> marks;
     try {
-      pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: LocationConfig.fixTimeout));
+      marks = await _geocoding.placemarkFromCoordinates(pos.latitude, pos.longitude);
+    } catch (_) {
+      marks = const []; // Coordinates are still useful for directions even without an address.
+    }
+    return _toLocation(pos, marks);
+  }
+
+  /// Streams GPS fixes and keeps the most accurate one, stopping early once it reaches
+  /// [LocationConfig.targetAccuracyMeters]. The first fix is often a coarse network/cell position.
+  Future<Position> _preciseFix() async {
+    Position? best;
+    try {
+      await for (final p in Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 0),
+      ).timeout(LocationConfig.fixTimeout)) {
+        if (best == null || p.accuracy < best.accuracy) best = p;
+        if (p.accuracy <= LocationConfig.targetAccuracyMeters) break;
+      }
+    } catch (_) {
+      // Timed out or stream error — fall through with the best fix seen so far.
+    }
+    if (best != null) return best;
+    try {
+      return await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: LocationConfig.fixTimeout));
     } catch (_) {
       throw const LocationException(Messages.locationFailed);
     }
+  }
 
-    Placemark? p;
-    try {
-      final marks = await _geocoding.placemarkFromCoordinates(pos.latitude, pos.longitude);
-      p = marks.isEmpty ? null : marks.first;
-    } catch (_) {
-      p = null; // Coordinates are still useful for directions even without an address.
+  /// Merges all placemarks the geocoder returns: the first is often only a plus code or locality,
+  /// while later ones carry the street, house number and neighbourhood.
+  DetectedLocation _toLocation(Position pos, List<Placemark> marks) {
+    String? clean(String? s) {
+      final t = s?.trim();
+      if (t == null || t.isEmpty || LocationConfig.plusCodePattern.hasMatch(t)) return null;
+      return t;
     }
-    String? clean(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
-    final street = [clean(p?.subThoroughfare), clean(p?.thoroughfare)].whereType<String>().join(' ');
+
+    String? first(String? Function(Placemark) pick) {
+      for (final m in marks) {
+        final v = clean(pick(m));
+        if (v != null) return v;
+      }
+      return null;
+    }
+
+    final city = first((m) => m.locality) ?? first((m) => m.subAdministrativeArea);
+    final area = first((m) => m.subLocality);
+    String? street;
+    for (final m in marks) {
+      final s = [clean(m.subThoroughfare), clean(m.thoroughfare)].whereType<String>().join(' ');
+      if (s.isNotEmpty) {
+        street = s;
+        break;
+      }
+    }
+    // A named place (building, shop, society) that isn't just the street / area / city repeated.
+    final known = {street, area, city}.whereType<String>().map((s) => s.toLowerCase()).toSet();
+    final place = first((m) => known.contains(m.name?.trim().toLowerCase()) ? null : m.name);
+
     return DetectedLocation(
       latitude: pos.latitude,
       longitude: pos.longitude,
-      line1: clean(street) ?? clean(p?.name),
-      line2: clean(p?.subLocality),
-      city: clean(p?.locality) ?? clean(p?.subAdministrativeArea),
-      state: clean(p?.administrativeArea),
-      pincode: clean(p?.postalCode),
+      accuracyMeters: pos.accuracy,
+      line1: street ?? place,
+      line2: area,
+      landmark: street != null ? place : null,
+      city: city,
+      state: first((m) => m.administrativeArea),
+      pincode: first((m) => m.postalCode),
     );
   }
 

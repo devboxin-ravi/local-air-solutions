@@ -54,12 +54,26 @@ class HomeSummary {
 
 /// Address details resolved from the device's current GPS position.
 class DetectedLocation {
-  const DetectedLocation({required this.latitude, required this.longitude, this.line1, this.line2, this.city, this.state, this.pincode});
+  const DetectedLocation({
+    required this.latitude,
+    required this.longitude,
+    this.accuracyMeters,
+    this.line1,
+    this.line2,
+    this.landmark,
+    this.city,
+    this.state,
+    this.pincode,
+  });
 
   final double latitude;
   final double longitude;
+
+  /// Horizontal accuracy of the GPS fix in metres, when the device reports it.
+  final double? accuracyMeters;
   final String? line1;
   final String? line2;
+  final String? landmark;
   final String? city;
   final String? state;
   final String? pincode;

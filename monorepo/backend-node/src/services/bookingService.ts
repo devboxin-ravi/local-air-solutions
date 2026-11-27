@@ -13,6 +13,7 @@ import {
   NumberPrefixes,
   PaymentPolicies,
   SLOT_HOLDING_STATUSES,
+  SLOT_TO_BE_CONFIRMED,
 } from '../constants';
 import { BookingRepository } from '../repositories/bookingRepository';
 import { CustomerRepository } from '../repositories/customerRepository';
@@ -202,11 +203,12 @@ export class BookingService {
     });
 
     await this.settings.audit(actor, AuditActions.CREATE, 'booking', booking.id, null, { bookingNumber: booking.bookingNumber }, meta);
-    const data = { bookingNumber: booking.bookingNumber, date: formatDisplayDate(scheduledDate), slot: '' };
+    const saved = await this.repo.findById(booking.id);
+    const data = { bookingNumber: booking.bookingNumber, date: formatDisplayDate(scheduledDate), slot: saved?.scheduledTime || SLOT_TO_BE_CONFIRMED };
     await this.notifications.notify({ userId: customer.userId, event: initialStatus === 'CONFIRMED' ? NotificationEvents.BOOKING_CONFIRMED : NotificationEvents.BOOKING_CREATED, data, dedupeKey: `booking:${booking.id}:created` });
     const managers = await this.users.findUsersByRoles(['BRANCH_MANAGER', 'COMPANY_ADMIN'], branchId);
     await this.notifications.notifyMany(managers.map((m) => m.id).filter((id) => id !== actor.id), NotificationEvents.BOOKING_CREATED, data);
-    return this.repo.findById(booking.id);
+    return saved;
   }
 
   // ─── Status workflow ───
@@ -242,7 +244,7 @@ export class BookingService {
       data: {
         bookingNumber: b.bookingNumber,
         date: formatDisplayDate(b.scheduledDate),
-        slot: b.scheduledTime ?? '',
+        slot: b.scheduledTime || SLOT_TO_BE_CONFIRMED,
         technicianName: tech?.staff.user.name ?? '',
       },
       dedupeKey: `booking:${b.id}:${status}:${b.statusHistory.length}`,

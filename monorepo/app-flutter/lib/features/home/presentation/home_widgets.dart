@@ -343,15 +343,18 @@ class CategoryGridCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
             child: Column(children: [
               Container(
-                width: 54,
-                height: 54,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(color: bg, shape: BoxShape.circle, boxShadow: [BoxShadow(color: fg.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, 4))]),
-                child: Icon(icon, color: fg, size: 28),
+                child: Icon(icon, color: fg, size: 26),
               ),
-              const Spacer(),
-              Text(label,
-                  textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w700, color: AppColors.navy)),
-              const Spacer(),
+              // Label takes the remaining height (never overflows the fixed-height grid cell).
+              Expanded(
+                child: Center(
+                  child: Text(label,
+                      textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, height: 1.2, fontWeight: FontWeight.w700, color: AppColors.navy)),
+                ),
+              ),
             ]),
           ),
         ),
