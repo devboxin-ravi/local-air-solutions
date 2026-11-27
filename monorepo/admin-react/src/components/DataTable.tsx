@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, XCircle } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Download, Eye, Pencil, Trash2, XCircle } from 'lucide-react';
 import { cn, formatNumber, serialNumber } from '@/lib/utils';
 import { COLUMN_RESIZE, ROW_ACTIONS, SERIAL_COLUMN } from '@/constants/ui';
 import { useColumnResize, type ColumnResize } from '@/hooks/useColumnResize';
@@ -55,8 +55,9 @@ const PAGE_SIZES = [10, 20, 50, 100];
  * Icon buttons for a table row's Actions column. Pass only the handlers the user may run;
  * missing handlers hide their button. Clicks never trigger the row's own onRowClick.
  */
-export const RowActions = ({ onView, onEdit, onCancel, onDelete }: { onView?: () => void; onEdit?: () => void; onCancel?: () => void; onDelete?: () => void }) => {
+export const RowActions = ({ onView, onDownload, onEdit, onCancel, onDelete }: { onView?: () => void; onDownload?: () => void; onEdit?: () => void; onCancel?: () => void; onDelete?: () => void }) => {
   const items: Array<{ key: string; label: string; icon: React.ReactNode; onClick?: () => void }> = [
+    { key: 'download', label: ROW_ACTIONS.DOWNLOAD, icon: <Download />, onClick: onDownload },
     { key: 'view', label: ROW_ACTIONS.VIEW, icon: <Eye />, onClick: onView },
     { key: 'edit', label: ROW_ACTIONS.EDIT, icon: <Pencil />, onClick: onEdit },
     { key: 'cancel', label: ROW_ACTIONS.CANCEL, icon: <XCircle className="text-amber-600" />, onClick: onCancel },

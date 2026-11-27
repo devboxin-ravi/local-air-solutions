@@ -42,11 +42,24 @@ export function useInvoiceActions() {
     }),
     downloadPdf: async (id: number, invoiceNumber: string, print = false) => {
       try {
+        // Same PDF as download / email / WhatsApp (one generator on the server).
         const blob = await invoiceService.pdf(id);
         if (print) {
+          // Print the PDF itself from a hidden frame (a "noopener" tab gives no handle to call print() on).
           const url = URL.createObjectURL(blob);
-          const w = window.open(url, '_blank', 'noopener');
-          if (w) w.addEventListener('load', () => w.print());
+          const frame = document.createElement('iframe');
+          frame.setAttribute('aria-hidden', 'true');
+          frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+          frame.onload = () => {
+            frame.contentWindow?.focus();
+            frame.contentWindow?.print();
+            setTimeout(() => {
+              URL.revokeObjectURL(url);
+              frame.remove();
+            }, INVOICE_SHARE.PRINT_CLEANUP_MS);
+          };
+          frame.src = url;
+          document.body.appendChild(frame);
         } else downloadBlob(blob, `${invoiceNumber}.pdf`);
       } catch (e) {
         toast.error(errorMessage(e));

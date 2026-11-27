@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, FilePlus2, Mail, MessageCircle } from 'lucide-react';
+import { FilePlus2, Mail, MessageCircle } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
 import { useInvoiceActions, useInvoiceList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,13 +35,13 @@ export default function InvoicesPage() {
     { key: 'total', header: 'Total', align: 'right', cell: (i) => <span className="num font-semibold">{formatMoney(i.grandTotal)}</span> },
     { key: 'balance', header: 'Balance', align: 'right', cell: (i) => <span className={`num ${Number(i.balanceDue) > 0 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>{formatMoney(i.balanceDue)}</span> },
     { key: 'status', header: 'Status', cell: (i) => <div className="flex flex-wrap gap-1"><StatusBadge status={i.status} />{i.isFreeService && <Badge tone="green">Free service</Badge>}</div> },
-    { key: 'pdf', header: '', align: 'right', cell: (i) => <Button variant="ghost" size="icon-sm" aria-label="Download PDF" onClick={(e) => { e.stopPropagation(); void actions.downloadPdf(i.id, i.invoiceNumber); }}><Download /></Button> },
     {
       key: 'actions',
       header: ROW_ACTIONS.HEADER,
       align: 'right',
       cell: (i) => (
         <RowActions
+          onDownload={() => void actions.downloadPdf(i.id, i.invoiceNumber)}
           onView={() => navigate(ROUTES.INVOICE_DETAIL(i.id))}
           onCancel={can('invoices.delete') && i.status !== 'CANCELLED' && toNumber(i.amountPaid) === 0 ? () => setToCancel(i) : undefined}
         />

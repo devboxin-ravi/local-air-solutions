@@ -98,6 +98,8 @@ export const CUSTOMER_PICKER = {
 /** Sharing an invoice on WhatsApp. */
 export const INVOICE_SHARE = {
   PDF_MIME: 'application/pdf',
+  /** Keep the hidden print frame alive long enough for the print dialog (ms). */
+  PRINT_CLEANUP_MS: 60_000,
   /** Shown when the file can't go through the share sheet: the PDF was downloaded and the chat opened. */
   ATTACH_HINT: (fileName: string) => `${fileName} downloaded — attach it in the WhatsApp chat that just opened.`,
 } as const;
@@ -221,6 +223,7 @@ export const BACK_LABEL = 'Back';
 export const ROW_ACTIONS = {
   HEADER: 'Actions',
   VIEW: 'View',
+  DOWNLOAD: 'Download PDF',
   EDIT: 'Edit',
   CANCEL: 'Cancel',
   DELETE: 'Delete',
