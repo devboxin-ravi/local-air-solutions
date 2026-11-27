@@ -106,6 +106,24 @@ export class CustomerService {
     );
   }
 
+  /**
+   * Returns the branch serving a saved address. Addresses created before a matching branch/service area
+   * existed carry no service area; those are re-resolved now and the result is persisted on the address.
+   */
+  async resolveAddressBranch(address: {
+    id: number;
+    stateId: number;
+    cityId: number;
+    pincode: string;
+    serviceArea?: { branchId: number } | null;
+  }): Promise<number | null> {
+    if (address.serviceArea) return address.serviceArea.branchId;
+    const area = await this.resolveServiceArea(address);
+    if (!area) return null;
+    await this.repo.updateAddress(address.id, { serviceAreaId: area.id });
+    return area.branchId;
+  }
+
   async create(actor: AuthUser, input: CustomerInput, meta: RequestMeta) {
     const branchId = actor.isCompanyWide ? input.branchId ?? null : actor.branchId;
     if (!input.allowDuplicateMobile) {
