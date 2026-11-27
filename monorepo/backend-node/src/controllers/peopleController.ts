@@ -62,6 +62,10 @@ export const createStaff = asyncHandler(async (req, res) => {
 export const updateStaff = asyncHandler(async (req, res) => {
   sendOk(res, await services().staff.update(actorOf(req), idParam(req), req.body, metaOf(req)));
 });
+export const deleteStaff = asyncHandler(async (req, res) => {
+  await services().staff.remove(actorOf(req), idParam(req), metaOf(req));
+  sendNoContent(res);
+});
 export const staffHistory = asyncHandler(async (req, res) => {
   const q = req.query as { page?: number; pageSize?: number };
   sendPage(res, await services().staff.workHistory(actorOf(req), idParam(req), q.page, q.pageSize));

@@ -11,6 +11,7 @@ import { passwordField } from '@/lib/validation';
 import { ROUTES } from '@/constants/routes';
 import { BrandLogo, Field } from '@/components/common';
 import { Button, Card, Input } from '@/components/ui/primitives';
+import { PLACEHOLDERS } from '@/constants/ui';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -31,15 +32,15 @@ export default function ForgotPasswordPage() {
         <p className="mt-1 text-[13.5px] text-muted-foreground">{step === 'request' ? 'We’ll send a verification code to the email on your account.' : 'Enter the code and choose a new password.'}</p>
         <div className="mt-6 space-y-4">
           <Field label="Email or mobile">
-            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} disabled={step === 'reset'} autoFocus />
+            <Input value={identifier} placeholder={PLACEHOLDERS.LOGIN_ID} onChange={(e) => setIdentifier(e.target.value)} disabled={step === 'reset'} autoFocus />
           </Field>
           {step === 'reset' && (
             <>
               <Field label="Verification code">
-                <Input inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+                <Input inputMode="numeric" maxLength={6} value={code} placeholder={PLACEHOLDERS.OTP} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
               </Field>
               <Field label="New password" error={pwError}>
-                <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Input type="password" autoComplete="new-password" value={password} placeholder={PLACEHOLDERS.NEW_PASSWORD} onChange={(e) => setPassword(e.target.value)} />
               </Field>
             </>
           )}

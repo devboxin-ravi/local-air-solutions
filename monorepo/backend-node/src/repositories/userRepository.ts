@@ -59,6 +59,11 @@ export class UserRepository {
     return db.role.update({ where: { id }, data });
   }
 
+  /** Active (not deleted) users holding a role. */
+  countRoleUsers(roleId: number, db: Db = prisma) {
+    return db.userRole.count({ where: { roleId, user: { deletedAt: null } } });
+  }
+
   deleteRole(id: number, db: Db = prisma) {
     return db.role.delete({ where: { id } });
   }

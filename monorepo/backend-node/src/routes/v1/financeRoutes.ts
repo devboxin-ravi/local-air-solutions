@@ -11,37 +11,7 @@ import { validate, validateBodyBy } from '../../middleware/validate';
 import { perm } from '../../constants';
 import { REPORT_KEYS } from '../../constants/reports';
 import { idParams, listQuery } from '../../validations/common';
-import {
-  amcCancelSchema,
-  amcCreateSchema,
-  amcListQuery,
-  amcUpdateSchema,
-  amcVisitBookSchema,
-  amcVisitListQuery,
-  auditListQuery,
-  globalSearchQuery,
-  invoiceCancelSchema,
-  invoiceFromBookingSchema,
-  invoiceLineSchema,
-  invoiceListQuery,
-  invoiceManualSchema,
-  invoiceShareSchema,
-  ledgerAdjustmentSchema,
-  notificationReadSchema,
-  paymentCreateSchema,
-  paymentListQuery,
-  paymentRefundSchema,
-  paymentVerifySchema,
-  reminderCreateSchema,
-  reminderListQuery,
-  reminderUpdateSchema,
-  reportQuery,
-  settingKeyParams,
-  settingValueSchema,
-  settingValueSchemas,
-  shareQuery,
-  templateUpdateSchema,
-} from '../../validations/finance';
+import { amcCancelSchema, amcCreateSchema, amcListQuery, amcUpdateSchema, amcVisitBookSchema, amcVisitListQuery, auditListQuery, globalSearchQuery, integrationCredentialSchemas, integrationNameParams, integrationTestSchema, invoiceCancelSchema, invoiceFromBookingSchema, invoiceLineSchema, invoiceListQuery, invoiceManualSchema, invoiceShareSchema, ledgerAdjustmentSchema, notificationReadSchema, paymentCreateSchema, paymentListQuery, paymentRefundSchema, paymentVerifySchema, razorpayCredentialsSchema, razorpayTestSchema, reminderCreateSchema, reminderListQuery, reminderUpdateSchema, reportQuery, settingKeyParams, settingValueSchema, settingValueSchemas, shareQuery, templateUpdateSchema } from '../../validations/finance';
 
 const r = Router();
 const invoicePreviewSchema = z.object({
@@ -100,6 +70,16 @@ r.post('/notifications/read', authenticate, validate({ body: notificationReadSch
 // ─── Settings & audit ───
 r.get('/settings', authenticate, admin, requirePermission(perm('settings', 'view')), eng.getSettings);
 r.put('/settings/:key', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: settingKeyParams, body: settingValueSchema }), validateBodyBy((req) => settingValueSchemas[req.params.key as keyof typeof settingValueSchemas]), eng.updateSetting);
+// Razorpay keys: status is readable, secrets are write-only (never returned).
+r.get('/settings/integrations/razorpay', authenticate, admin, requirePermission(perm('settings', 'view')), eng.getRazorpayKeys);
+r.put('/settings/integrations/razorpay', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ body: razorpayCredentialsSchema }), eng.saveRazorpayKeys);
+r.delete('/settings/integrations/razorpay', authenticate, admin, requirePermission(perm('settings', 'manage')), eng.clearRazorpayKeys);
+r.post('/settings/integrations/razorpay/test', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ body: razorpayTestSchema }), eng.testRazorpayKeys);
+// SMTP / FCM / WhatsApp Cloud credentials (after the fixed /razorpay routes). Secrets are write-only.
+r.get('/settings/integrations/:name', authenticate, admin, requirePermission(perm('settings', 'view')), validate({ params: integrationNameParams }), eng.getIntegration);
+r.put('/settings/integrations/:name', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: integrationNameParams }), validateBodyBy((req) => integrationCredentialSchemas[req.params.name as keyof typeof integrationCredentialSchemas]), eng.saveIntegration);
+r.delete('/settings/integrations/:name', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: integrationNameParams }), eng.clearIntegration);
+r.post('/settings/integrations/:name/test', authenticate, admin, requirePermission(perm('settings', 'manage')), validate({ params: integrationNameParams, body: integrationTestSchema }), eng.testIntegration);
 r.get('/notification-templates', authenticate, admin, requirePermission(perm('notifications', 'view')), eng.listTemplates);
 r.patch('/notification-templates/:id', authenticate, admin, requirePermission(perm('notifications', 'manage')), validate({ params: idParams, body: templateUpdateSchema }), eng.updateTemplate);
 r.get('/audit-logs', authenticate, admin, requirePermission(perm('auditLogs', 'view')), validate({ query: auditListQuery }), eng.listAuditLogs);

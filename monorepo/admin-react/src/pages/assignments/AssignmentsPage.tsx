@@ -66,7 +66,7 @@ export default function AssignmentsPage({ mode }: { mode: Mode }) {
   const toolbar = (
     <FilterBar right={<DateRange from={list.state.filters.from} to={list.state.filters.to} onChange={(from, to) => list.update({ from, to })} />}>
       <SearchInput value={list.state.search} onChange={list.setSearch} placeholder="Booking no. or customer…" />
-      <SelectFilter placeholder="All technicians" value={list.state.filters.staffId} onChange={(v) => list.setFilter('staffId', v)} options={(techs ?? []).map((t) => ({ value: t.id, label: t.user.name }))} />
+      <SelectFilter searchable placeholder="All technicians" value={list.state.filters.staffId} onChange={(v) => list.setFilter('staffId', v)} options={(techs ?? []).map((t) => ({ value: t.id, label: t.user.name }))} />
       {!isBookingMode && <SelectFilter placeholder="All statuses" value={list.state.filters.status} onChange={(v) => list.setFilter('status', v)} options={['ASSIGNED', 'ACCEPTED', 'REJECTED', 'CANCELLED', 'COMPLETED'].map((s) => ({ value: s, label: humanize(s) }))} />}
     </FilterBar>
   );

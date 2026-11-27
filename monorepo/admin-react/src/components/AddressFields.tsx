@@ -3,7 +3,7 @@
  */
 
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS } from '@/constants/ui';
 import type { City, State } from '@/types';
 import { Field } from './common';
 import { Input, NativeSelect } from './ui/primitives';
@@ -29,10 +29,10 @@ export function AddressFields<T extends Record<string, unknown>>({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Label" required error={errors?.label?.message} hint="Home, Office, Shop…">
-        <Input {...r('label')} maxLength={50} />
+        <Input {...r('label')} placeholder={PLACEHOLDERS.ADDRESS_LABEL} maxLength={50} />
       </Field>
       <Field label="PIN code" required error={errors?.pincode?.message}>
-        <Input {...r('pincode')} inputMode="numeric" maxLength={6} aria-invalid={!!errors?.pincode} />
+        <Input {...r('pincode')} placeholder={PLACEHOLDERS.PINCODE} inputMode="numeric" maxLength={6} aria-invalid={!!errors?.pincode} />
       </Field>
       <Field label="Address line 1" required className="sm:col-span-2" error={errors?.line1?.message}>
         <Input {...r('line1')} maxLength={LIMITS.ADDRESS_MAX} placeholder="House / flat no., building, street" aria-invalid={!!errors?.line1} />
@@ -41,16 +41,16 @@ export function AddressFields<T extends Record<string, unknown>>({
         <Input {...r('line2')} maxLength={LIMITS.ADDRESS_MAX} placeholder="Area, locality" />
       </Field>
       <Field label="Landmark" error={errors?.landmark?.message}>
-        <Input {...r('landmark')} maxLength={200} />
+        <Input {...r('landmark')} placeholder={PLACEHOLDERS.LANDMARK} maxLength={200} />
       </Field>
       <Field label="State" required error={errors?.stateId?.message}>
-        <NativeSelect {...r('stateId')} aria-invalid={!!errors?.stateId}>
+        <NativeSelect searchable {...r('stateId')} aria-invalid={!!errors?.stateId}>
           <option value="">Select state</option>
           {states?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </NativeSelect>
       </Field>
       <Field label="City" required error={errors?.cityId?.message} hint={cities && !cities.length ? 'No cities for this state — add in Master Data' : undefined}>
-        <NativeSelect {...r('cityId')} aria-invalid={!!errors?.cityId}>
+        <NativeSelect searchable {...r('cityId')} aria-invalid={!!errors?.cityId}>
           <option value="">Select city</option>
           {cities?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </NativeSelect>

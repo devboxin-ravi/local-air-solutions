@@ -9,10 +9,13 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useReport, useReportExport } from '@/hooks/useEngagement';
 import { useAuth } from '@/hooks/useAuth';
 import { useBranchScope } from '@/hooks/useBranchScope';
+import { useColumnResize } from '@/hooks/useColumnResize';
 import { ROUTES } from '@/constants/routes';
-import { formatCompactMoney, formatMoney, formatNumber, humanize, toYmd } from '@/lib/utils';
+import { SERIAL_COLUMN } from '@/constants/ui';
+import { cn, formatCompactMoney, formatMoney, formatNumber, humanize, serialNumber, toYmd } from '@/lib/utils';
 import { EmptyState, ErrorState, LoadingBlock, PageHeader, SectionCard } from '@/components/common';
 import { DateRange } from '@/components/Filters';
+import { ColumnResizer } from '@/components/DataTable';
 import { Button, Card, NativeSelect } from '@/components/ui/primitives';
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -41,6 +44,7 @@ export default function ReportPage({ reportKey }: { reportKey?: string }) {
   const labelKey = data?.columns[0]?.key;
   const valueCol = data?.columns.find((c) => c.money) ?? data?.columns.find((c, i) => i > 0 && typeof data.rows[0]?.[c.key] === 'number');
   const chartData = (data?.rows ?? []).slice(0, 24);
+  const resize = useColumnResize(`${key}|${(data?.columns ?? []).map((c) => c.key).join(',')}`);
 
   return (
     <>
@@ -90,15 +94,25 @@ export default function ReportPage({ reportKey }: { reportKey?: string }) {
             </SectionCard>
           )}
           <Card className="scrollbar-thin overflow-x-auto">
-            <table className="w-full min-w-[640px] text-[13.5px]">
+            <table ref={resize.tableRef} style={resize.tableStyle} className={cn('w-full min-w-[640px] text-[13.5px]', resize.widths && '[&_td]:overflow-hidden [&_td]:text-ellipsis')}>
               <thead>
                 <tr className="border-b bg-slate-50 text-[11.5px] font-semibold uppercase tracking-wider text-slate-500">
-                  {data.columns.map((c) => <th key={c.key} className={`px-4 py-3 ${c.money || typeof data.rows[0][c.key] === 'number' ? 'text-right' : 'text-left'}`}>{c.header}</th>)}
+                  <th style={resize.cellStyle(0)} className={cn('relative px-4 py-3', SERIAL_COLUMN.CLASS)}>
+                    {SERIAL_COLUMN.HEADER}
+                    <ColumnResizer index={0} resize={resize} />
+                  </th>
+                  {data.columns.map((c, i) => (
+                    <th key={c.key} style={resize.cellStyle(i + 1)} className={cn('relative px-4 py-3', c.money || typeof data.rows[0][c.key] === 'number' ? 'text-right' : 'text-left')}>
+                      {c.header}
+                      {i < data.columns.length - 1 && <ColumnResizer index={i + 1} resize={resize} />}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {data.rows.map((r, i) => (
                   <tr key={i} className="hover:bg-slate-50/60">
+                    <td className={cn('px-4 py-3', SERIAL_COLUMN.CLASS, SERIAL_COLUMN.CELL_TEXT)}>{serialNumber(i)}</td>
                     {data.columns.map((c) => {
                       const v = r[c.key];
                       const numeric = c.money || typeof v === 'number';

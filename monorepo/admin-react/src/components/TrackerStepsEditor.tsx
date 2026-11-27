@@ -4,7 +4,7 @@
  */
 
 import { Check } from 'lucide-react';
-import { TRACKER } from '@/constants/ui';
+import { PLACEHOLDERS, TRACKER } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 import { Input, Switch } from '@/components/ui/primitives';
 
@@ -90,15 +90,15 @@ export function TrackerStepsEditor({ value, disabled, errors, onChange }: Tracke
                     <Switch checked={s.visible} disabled={disabled || required} onCheckedChange={(c) => update(i, { visible: c })} aria-label={`Show ${name}`} />
                   </td>
                   <td className="px-3 py-2">
-                    <Input value={s.label} maxLength={TRACKER.LABEL_MAX} disabled={disabled} aria-invalid={!!err('label')} onChange={(e) => update(i, { label: e.target.value })} />
+                    <Input value={s.label} placeholder={PLACEHOLDERS.TRACKER_LABEL} maxLength={TRACKER.LABEL_MAX} disabled={disabled} aria-invalid={!!err('label')} onChange={(e) => update(i, { label: e.target.value })} />
                     {err('label') && <p className="mt-1 text-xs text-destructive">{err('label')}</p>}
                   </td>
                   <td className="px-3 py-2">
-                    <Input value={s.title} maxLength={TRACKER.TITLE_MAX} disabled={disabled} aria-invalid={!!err('title')} onChange={(e) => update(i, { title: e.target.value })} />
+                    <Input value={s.title} placeholder={PLACEHOLDERS.TRACKER_TITLE} maxLength={TRACKER.TITLE_MAX} disabled={disabled} aria-invalid={!!err('title')} onChange={(e) => update(i, { title: e.target.value })} />
                     {err('title') && <p className="mt-1 text-xs text-destructive">{err('title')}</p>}
                   </td>
                   <td className="px-3 py-2">
-                    <Input value={s.hint} maxLength={TRACKER.HINT_MAX} disabled={disabled} aria-invalid={!!err('hint')} onChange={(e) => update(i, { hint: e.target.value })} />
+                    <Input value={s.hint} placeholder={PLACEHOLDERS.TRACKER_HINT} maxLength={TRACKER.HINT_MAX} disabled={disabled} aria-invalid={!!err('hint')} onChange={(e) => update(i, { hint: e.target.value })} />
                     {err('hint') && <p className="mt-1 text-xs text-destructive">{err('hint')}</p>}
                   </td>
                 </tr>

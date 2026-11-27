@@ -19,10 +19,13 @@ import type { Customer } from '@/types';
 import { Field, FormCard, FormSection, PageHeader } from '@/components/common';
 import { ChipMultiSelect, CustomerPicker } from '@/components/Pickers';
 import { Button, Checkbox, Input, Label, NativeSelect, Textarea } from '@/components/ui/primitives';
+import { PLACEHOLDERS } from '@/constants/ui';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const today = new Date();
 
 export default function AmcFormPage() {
+  const goBack = useGoBack(ROUTES.AMC);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const preset = useCustomer(params.get('customerId') ? Number(params.get('customerId')) : undefined);
@@ -71,7 +74,7 @@ export default function AmcFormPage() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title="Create AMC"
         description="Contracts start as drafts. Issue the invoice, record payment, and the AMC activates with visits scheduled automatically."
         breadcrumbs={[{ label: 'AMC', to: ROUTES.AMC }, { label: 'Create AMC' }]}
@@ -105,7 +108,7 @@ export default function AmcFormPage() {
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Service address" required error={e.addressId?.message}>
-                <NativeSelect {...form.register('addressId')} disabled={!selected}>
+                <NativeSelect searchable {...form.register('addressId')} disabled={!selected}>
                   <option value={0}>Select address</option>
                   {selected?.addresses.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -115,7 +118,7 @@ export default function AmcFormPage() {
                 </NativeSelect>
               </Field>
               <Field label="Branch" required error={e.branchId?.message}>
-                <NativeSelect {...form.register('branchId')}>
+                <NativeSelect searchable {...form.register('branchId')}>
                   <option value={0}>Select branch</option>
                   {branches?.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -126,7 +129,7 @@ export default function AmcFormPage() {
               </Field>
             </div>
             <Field label="Product details" required error={e.productDetails?.message} hint="e.g. 2 × Split AC 1.5 Ton (Daikin), 1 × Window AC">
-              <Textarea {...form.register('productDetails')} maxLength={1000} className="min-h-[64px]" />
+              <Textarea {...form.register('productDetails')} placeholder={PLACEHOLDERS.PRODUCT_DETAILS} maxLength={1000} className="min-h-[64px]" />
             </Field>
           </div>
         </FormSection>
@@ -139,13 +142,13 @@ export default function AmcFormPage() {
               <Input type="date" {...form.register('endDate')} />
             </Field>
             <Field label="Number of visits" required error={e.totalVisits?.message}>
-              <Input type="number" min={1} max={52} {...form.register('totalVisits')} />
+              <Input type="number" min={1} max={52} {...form.register('totalVisits')} placeholder={PLACEHOLDERS.VISITS} />
             </Field>
             <Field label="Visit every (months)" required error={e.visitFrequencyMonths?.message}>
-              <Input type="number" min={1} max={12} {...form.register('visitFrequencyMonths')} />
+              <Input type="number" min={1} max={12} {...form.register('visitFrequencyMonths')} placeholder={PLACEHOLDERS.MONTHS} />
             </Field>
             <Field label="Contract amount (₹)" required error={e.contractAmount?.message} hint={`Before GST · ${formatMoney(form.watch('contractAmount'))}`}>
-              <Input type="number" min={0} step="0.01" {...form.register('contractAmount')} />
+              <Input type="number" min={0} step="0.01" {...form.register('contractAmount')} placeholder={PLACEHOLDERS.AMOUNT} />
             </Field>
             <Controller
               control={form.control}
@@ -165,7 +168,7 @@ export default function AmcFormPage() {
           </Field>
         </FormSection>
         <FormSection step={4} title="Terms & conditions" description="Printed on the contract and its invoice.">
-          <Textarea {...form.register('terms')} maxLength={10000} className="min-h-[120px]" />
+          <Textarea {...form.register('terms')} placeholder={PLACEHOLDERS.CONTRACT_TERMS} maxLength={10000} className="min-h-[120px]" />
         </FormSection>
       </FormCard>
     </form>

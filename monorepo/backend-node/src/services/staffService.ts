@@ -164,6 +164,23 @@ export class StaffService {
     return this.repo.findById(id);
   }
 
+  /**
+   * Soft delete: the login is marked deleted + inactive and signed out everywhere; the staff profile,
+   * job history and audit trail stay intact. Blocked for your own account and while jobs are active.
+   */
+  async remove(actor: AuthUser, id: number, meta: RequestMeta) {
+    const staff = await this.get(actor, id);
+    if (staff.userId === actor.id) throw new ForbiddenError(ErrorMessages.CANNOT_DELETE_SELF);
+    const active = (await this.repo.workload([id], ACTIVE_JOB_STATUSES)).get(id) ?? 0;
+    if (active > 0) throw new ConflictError(ErrorMessages.STAFF_HAS_ACTIVE_JOBS(active));
+    await runInTransaction(async (tx) => {
+      await this.users.update(staff.userId, { deletedAt: new Date(), status: 'INACTIVE' }, tx);
+      await this.repo.update(id, { isAvailable: false }, tx);
+    });
+    await this.auth.revokeUserSessions(staff.userId);
+    await this.settings.audit(actor, AuditActions.DELETE, 'staff', id, null, null, meta);
+  }
+
   async workHistory(actor: AuthUser, id: number, page?: number, pageSize?: number) {
     await this.get(actor, id);
     const p = toPageParams(page, pageSize);
@@ -213,7 +230,11 @@ export class StaffService {
   async deleteRole(actor: AuthUser, id: number, meta: RequestMeta) {
     const role = await this.users.findRoleById(id);
     if (!role) throw new NotFoundError('Role');
-    if (role.isSystem) throw new ForbiddenError(ErrorMessages.SYSTEM_ROLE_LOCKED);
+    // Any role can go except Super Admin — but never while people still hold it, so nobody
+    // silently loses access (user-role links cascade on delete).
+    if (role.code === RoleCodes.SUPER_ADMIN) throw new ForbiddenError(ErrorMessages.SUPER_ADMIN_ROLE_LOCKED);
+    const holders = await this.users.countRoleUsers(id);
+    if (holders > 0) throw new ConflictError(ErrorMessages.ROLE_IN_USE(holders));
     await this.users.deleteRole(id);
     this.auth.invalidateCache();
     await this.settings.audit(actor, AuditActions.DELETE, 'role', id, role, null, meta);

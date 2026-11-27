@@ -11,6 +11,7 @@ import { Badge, EmptyState, Field } from './common';
 import { SlotGrid } from './Pickers';
 import { Button, Input, NativeSelect, Textarea } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
+import { PLACEHOLDERS } from '@/constants/ui';
 
 export const StatusTimeline = ({ history }: { history: NonNullable<Booking['statusHistory']> }) => (
   <ol className="relative space-y-5 pl-1">
@@ -94,7 +95,7 @@ export const AssignDialog = ({
             </button>
           ))}
           <Field label="Notes for technician" counter={{ value: notes.length, max: 1000 }}>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} className="min-h-[64px]" />
+            <Textarea value={notes} placeholder={PLACEHOLDERS.TECHNICIAN_NOTES} onChange={(e) => setNotes(e.target.value)} maxLength={1000} className="min-h-[64px]" />
           </Field>
         </DialogBody>
         <DialogFooter>
@@ -144,7 +145,7 @@ export const RescheduleDialog = ({
             <SlotGrid slots={slots} loading={slotsLoading} value={slotId} onChange={setSlotId} />
           </Field>
           <Field label="Reason / note">
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} className="min-h-[64px]" />
+            <Textarea value={note}  placeholder={PLACEHOLDERS.REASON}onChange={(e) => setNote(e.target.value)} maxLength={1000} className="min-h-[64px]" />
           </Field>
         </DialogBody>
         <DialogFooter>

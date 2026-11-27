@@ -20,6 +20,9 @@ export const formatCompactMoney = (v: unknown): string =>
 
 export const formatNumber = (v: unknown): string => new Intl.NumberFormat(LOCALE).format(toNumber(v));
 
+/** 1-based table serial number that continues across pages (page 2 at 10 per page starts at 11). */
+export const serialNumber = (index: number, page = 1, pageSize = 0): number => (page - 1) * pageSize + index + 1;
+
 const asDate = (d: string | Date): Date => (typeof d === 'string' ? parseISO(d) : d);
 
 export const formatDate = (d?: string | Date | null): string => (d ? format(asDate(d), DATE_FORMATS.DISPLAY) : '—');

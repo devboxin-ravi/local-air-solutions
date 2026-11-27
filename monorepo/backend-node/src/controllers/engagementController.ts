@@ -40,6 +40,30 @@ export const getSettings = asyncHandler(async (_req, res) => {
 export const updateSetting = asyncHandler(async (req, res) => {
   sendOk(res, await services().settings.update(req.params.key as never, req.body, actorOf(req), metaOf(req)));
 });
+export const getRazorpayKeys = asyncHandler(async (_req, res) => {
+  sendOk(res, await services().settings.razorpayStatus());
+});
+export const saveRazorpayKeys = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.saveRazorpayCredentials(req.body, actorOf(req), metaOf(req)));
+});
+export const clearRazorpayKeys = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.clearRazorpayCredentials(actorOf(req), metaOf(req)));
+});
+export const testRazorpayKeys = asyncHandler(async (req, res) => {
+  sendOk(res, await services().payments.testRazorpayKeys(req.body));
+});
+export const getIntegration = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.integration(req.params.name as never));
+});
+export const saveIntegration = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.saveIntegration(req.params.name as never, req.body, actorOf(req), metaOf(req)));
+});
+export const clearIntegration = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.clearIntegration(req.params.name as never, actorOf(req), metaOf(req)));
+});
+export const testIntegration = asyncHandler(async (req, res) => {
+  sendOk(res, await services().settings.testIntegration(req.params.name as never, req.body));
+});
 export const listTemplates = asyncHandler(async (_req, res) => {
   sendOk(res, await services().settings.listTemplates());
 });

@@ -18,8 +18,10 @@ import { DataTable, type Column } from '@/components/DataTable';
 import { AddressFields } from '@/components/AddressFields';
 import { Avatar, Button, Card, Checkbox, Label } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/overlays';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function CustomerDetailPage() {
+  const goBack = useGoBack(ROUTES.CUSTOMERS);
   const id = Number(useParams().id);
   const navigate = useNavigate();
   const { can } = useAuth();
@@ -31,7 +33,7 @@ export default function CustomerDetailPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title={c.fullName}
         breadcrumbs={[{ label: 'Customers', to: ROUTES.CUSTOMERS }, { label: c.customerCode }]}
         actions={

@@ -134,6 +134,10 @@ abstract class HomeDefaults {
 abstract class Messages {
   static const String networkError = 'Can’t reach the server. Check your internet connection.';
   static const String genericError = 'Something went wrong. Please try again.';
+  static const String paymentCancelled = 'Payment cancelled — you can try again any time.';
+  static const String paymentFailed = 'Payment failed. Please try again.';
+  static const String paymentExternalWallet = 'Finish the payment in your wallet app — it will be confirmed automatically.';
+  static const String paymentSuccess = 'Payment successful — thank you!';
   static const String sessionExpired = 'Your session expired. Please sign in again.';
   static const String required = 'This field is required';
   static const String mobile = 'Enter a valid 10-digit mobile number';

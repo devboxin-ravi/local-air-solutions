@@ -44,6 +44,8 @@ import {
   Textarea,
 } from "@/components/ui/primitives";
 import { toast } from "sonner";
+import { PLACEHOLDERS } from "@/constants/ui";
+import { useGoBack } from "@/hooks/useGoBack";
 
 const GST_RATES = [0, 5, 12, 18, 28];
 
@@ -67,6 +69,7 @@ const DEFAULTS: ServiceForm = {
 };
 
 export default function ServiceFormPage() {
+  const goBack = useGoBack(ROUTES.SERVICES);
   const params = useParams();
   const id = params.id ? Number(params.id) : undefined;
   const navigate = useNavigate();
@@ -154,6 +157,7 @@ export default function ServiceFormPage() {
   return (
     <form onSubmit={onSubmit} noValidate>
       <PageHeader
+        onBack={goBack}
         title={id ? `Edit ${existing.data?.name ?? "service"}` : "Add Service"}
         description="Services are fetched by the apps from here — no code changes needed."
         breadcrumbs={[
@@ -167,98 +171,122 @@ export default function ServiceFormPage() {
         <FormSection
           step={1}
           title="Details"
-          description="What customers see first: name, category and how long the job takes."
+          description="What customers see first: name, category, photo and how long the job takes."
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Service name"
-              required
-              error={e.name?.message}
-              className="sm:col-span-2"
-            >
-              <Input
-                {...form.register("name")}
-                maxLength={LIMITS.NAME_MAX}
-                placeholder="e.g. AC General Servicing"
-                aria-invalid={!!e.name}
-              />
-            </Field>
-            <Field
-              label="Service code"
-              required
-              error={e.code?.message}
-              hint="Unique internal code, e.g. AC-GEN-SVC"
-            >
-              <div className="relative">
-                <Input
-                  {...form.register("code")}
-                  className="pr-28 uppercase"
-                  maxLength={SERVICE_CODE_MAX}
-                  placeholder="AC-GEN-SVC"
-                  aria-invalid={!!e.code}
-                />
-                <button
-                  type="button"
-                  disabled={!(v.name ?? "").trim()}
-                  onClick={() =>
-                    form.setValue(
-                      "code",
-                      codeFromName(v.name ?? "", SERVICE_CODE_MAX),
-                      { shouldValidate: true, shouldDirty: true },
-                    )
-                  }
-                  className="absolute inset-y-1 right-1 inline-flex items-center gap-1 rounded-md px-2.5 text-xs font-semibold text-brand-blue hover:bg-brand-blue-50 disabled:text-slate-300 disabled:hover:bg-transparent"
-                >
-                  <Wand2 className="h-3.5 w-3.5" /> Generate
-                </button>
-              </div>
-            </Field>
-            <Field label="Category" required error={e.categoryId?.message}>
-              <NativeSelect
-                {...form.register("categoryId")}
-                aria-invalid={!!e.categoryId}
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid content-start gap-4 sm:grid-cols-2">
+              <Field
+                label="Service name"
+                required
+                error={e.name?.message}
+                className="sm:col-span-2"
               >
-                <option value={0}>Select category</option>
-                {categories?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.isActive ? "" : " (inactive)"}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field
-              label="Estimated duration"
-              required
-              error={e.durationMinutes?.message}
-              className="sm:col-span-2"
-            >
-              <DurationPicker
-                value={Number(v.durationMinutes)}
-                invalid={!!e.durationMinutes}
-                inputProps={form.register("durationMinutes")}
-                onChange={(m) =>
-                  form.setValue("durationMinutes", m, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  })
-                }
-              />
-            </Field>
-            <Field
-              label="Description"
-              className="sm:col-span-2"
-              error={e.description?.message}
-              hint="One or two lines on what is included — shown on the service card."
-              counter={{
-                value: (v.description ?? "").length,
-                max: LIMITS.DESCRIPTION_MAX,
-              }}
-            >
-              <Textarea
-                {...form.register("description")}
-                maxLength={LIMITS.DESCRIPTION_MAX}
-                placeholder="e.g. Filter & coil cleaning, gas pressure check and cooling test."
+                <Input
+                  {...form.register("name")}
+                  maxLength={LIMITS.NAME_MAX}
+                  placeholder="e.g. AC General Servicing"
+                  aria-invalid={!!e.name}
+                />
+              </Field>
+              <Field
+                label="Service code"
+                required
+                error={e.code?.message}
+                hint="Unique internal code, e.g. AC-GEN-SVC"
+              >
+                <div className="relative">
+                  <Input
+                    {...form.register("code")}
+                    className="pr-28 uppercase"
+                    maxLength={SERVICE_CODE_MAX}
+                    placeholder="AC-GEN-SVC"
+                    aria-invalid={!!e.code}
+                  />
+                  <button
+                    type="button"
+                    disabled={!(v.name ?? "").trim()}
+                    onClick={() =>
+                      form.setValue(
+                        "code",
+                        codeFromName(v.name ?? "", SERVICE_CODE_MAX),
+                        { shouldValidate: true, shouldDirty: true },
+                      )
+                    }
+                    className="absolute inset-y-1 right-1 inline-flex items-center gap-1 rounded-md px-2.5 text-xs font-semibold text-brand-blue hover:bg-brand-blue-50 disabled:text-slate-300 disabled:hover:bg-transparent"
+                  >
+                    <Wand2 className="h-3.5 w-3.5" /> Generate
+                  </button>
+                </div>
+              </Field>
+              <Field label="Category" required error={e.categoryId?.message}>
+                <NativeSelect
+                  searchable
+                  {...form.register("categoryId")}
+                  aria-invalid={!!e.categoryId}
+                >
+                  <option value={0}>Select category</option>
+                  {categories?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.isActive ? "" : " (inactive)"}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field
+                label="Estimated duration"
+                required
+                error={e.durationMinutes?.message}
+                className="sm:col-span-2"
+              >
+                <DurationPicker
+                  value={Number(v.durationMinutes)}
+                  invalid={!!e.durationMinutes}
+                  inputProps={form.register("durationMinutes")}
+                  onChange={(m) =>
+                    form.setValue("durationMinutes", m, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    })
+                  }
+                />
+              </Field>
+              <Field
+                label="Description"
+                className="sm:col-span-2"
+                error={e.description?.message}
+                hint="One or two lines on what is included — shown on the service card."
+                counter={{
+                  value: (v.description ?? "").length,
+                  max: LIMITS.DESCRIPTION_MAX,
+                }}
+              >
+                <Textarea
+                  {...form.register("description")}
+                  maxLength={LIMITS.DESCRIPTION_MAX}
+                  placeholder={PLACEHOLDERS.SERVICE_INCLUDES}
+                />
+              </Field>
+            </div>
+            <Field label="Photo" error={e.imageUrl?.message}>
+              <Controller
+                control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <ImageUpload
+                    stacked
+                    previewUrl={assetUrl(field.value)}
+                    uploading={actions.uploadImage.isPending}
+                    invalid={!!e.imageUrl}
+                    onReject={(m) => toast.error(m)}
+                    onSelect={(file) =>
+                      actions.uploadImage.mutate(file, {
+                        onSuccess: (r) => field.onChange(r.path),
+                      })
+                    }
+                    onClear={() => field.onChange("")}
+                  />
+                )}
               />
             </Field>
           </div>
@@ -266,33 +294,6 @@ export default function ServiceFormPage() {
 
         <FormSection
           step={2}
-          title="Photo"
-          description="Shown on the service card in the customer app."
-        >
-          <Field error={e.imageUrl?.message}>
-            <Controller
-              control={form.control}
-              name="imageUrl"
-              render={({ field }) => (
-                <ImageUpload
-                  previewUrl={assetUrl(field.value)}
-                  uploading={actions.uploadImage.isPending}
-                  invalid={!!e.imageUrl}
-                  onReject={(m) => toast.error(m)}
-                  onSelect={(file) =>
-                    actions.uploadImage.mutate(file, {
-                      onSuccess: (r) => field.onChange(r.path),
-                    })
-                  }
-                  onClear={() => field.onChange("")}
-                />
-              )}
-            />
-          </Field>
-        </FormSection>
-
-        <FormSection
-          step={3}
           title="Pricing & tax"
           description="Changing the price never alters existing bookings or invoices."
         >
@@ -319,6 +320,7 @@ export default function ServiceFormPage() {
               >
                 <PrefixInput
                   prefix="₹"
+                  placeholder={PLACEHOLDERS.AMOUNT}
                   type="number"
                   step="0.01"
                   min="0"
@@ -367,7 +369,7 @@ export default function ServiceFormPage() {
         </FormSection>
 
         <FormSection
-          step={4}
+          step={3}
           title="Technician skills"
           description="Used to suggest the right technician."
         >
@@ -386,7 +388,7 @@ export default function ServiceFormPage() {
         </FormSection>
 
         <FormSection
-          step={5}
+          step={4}
           title="Branch availability"
           description="Leave empty to offer this service in every branch."
         >
@@ -405,7 +407,7 @@ export default function ServiceFormPage() {
         </FormSection>
 
         <FormSection
-          step={6}
+          step={5}
           title="Visibility"
           description="Whether customers can book it and if it is featured."
         >
@@ -426,7 +428,7 @@ export default function ServiceFormPage() {
         </FormSection>
 
         <FormSection
-          step={7}
+          step={6}
           title="Service reminders"
           description="Follow-up reminder to the customer after the job."
         >

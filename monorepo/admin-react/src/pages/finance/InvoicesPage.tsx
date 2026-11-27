@@ -9,10 +9,11 @@ import { useListState } from '@/hooks/useListState';
 import { useInvoiceActions, useInvoiceList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { formatDate, formatMoney, humanize } from '@/lib/utils';
+import { ROW_ACTIONS } from '@/constants/ui';
+import { formatDate, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Invoice } from '@/types';
-import { Badge, PageHeader, StatusBadge } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { DateRange, FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button } from '@/components/ui/primitives';
 
@@ -23,6 +24,7 @@ export default function InvoicesPage() {
   const { data, isLoading, error, refetch } = useInvoiceList(list.query);
   const actions = useInvoiceActions();
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  const [toCancel, setToCancel] = useState<Invoice | null>(null);
   const ids = Array.from(selected).map(Number);
 
   const columns: Column<Invoice>[] = [
@@ -34,13 +36,24 @@ export default function InvoicesPage() {
     { key: 'balance', header: 'Balance', align: 'right', cell: (i) => <span className={`num ${Number(i.balanceDue) > 0 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>{formatMoney(i.balanceDue)}</span> },
     { key: 'status', header: 'Status', cell: (i) => <div className="flex flex-wrap gap-1"><StatusBadge status={i.status} />{i.isFreeService && <Badge tone="green">Free service</Badge>}</div> },
     { key: 'pdf', header: '', align: 'right', cell: (i) => <Button variant="ghost" size="icon-sm" aria-label="Download PDF" onClick={(e) => { e.stopPropagation(); void actions.downloadPdf(i.id, i.invoiceNumber); }}><Download /></Button> },
+    {
+      key: 'actions',
+      header: ROW_ACTIONS.HEADER,
+      align: 'right',
+      cell: (i) => (
+        <RowActions
+          onView={() => navigate(ROUTES.INVOICE_DETAIL(i.id))}
+          onCancel={can('invoices.delete') && i.status !== 'CANCELLED' && toNumber(i.amountPaid) === 0 ? () => setToCancel(i) : undefined}
+        />
+      ),
+    },
   ];
 
   return (
     <>
       <PageHeader title="Invoices" description="GST invoices for completed jobs, AMC contracts and manual billing." breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Invoices' }]} actions={can('invoices.create') && <Button onClick={() => navigate(ROUTES.INVOICE_NEW)}><FilePlus2 /> Manual invoice</Button>} />
       {ids.length > 0 && (
-        <div className="sticky top-[77px] lg:top-[97px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-blue-200 bg-brand-blue-50 px-4 py-2.5 shadow-sm animate-slide-down">
+        <div className="sticky top-[77px] lg:top-[81px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-blue-200 bg-brand-blue-50 px-4 py-2.5 shadow-sm animate-slide-down">
           <span className="text-[13px] font-semibold text-brand-blue-800">{ids.length} selected</span>
           <Button size="sm" variant="outline" loading={actions.share.isPending} onClick={() => actions.share.mutate({ invoiceIds: ids, channel: 'EMAIL', toCustomer: true })}><Mail /> Email customers</Button>
           <Button size="sm" variant="outline" onClick={() => actions.share.mutate({ invoiceIds: ids, channel: 'WHATSAPP' })}><MessageCircle className="text-green-600" /> WhatsApp</Button>
@@ -68,6 +81,17 @@ export default function InvoicesPage() {
             <SelectFilter placeholder="All invoices" value={list.state.filters.isFreeService} onChange={(v) => list.setFilter('isFreeService', v)} options={[{ value: 'true', label: 'Free services' }, { value: 'false', label: 'Paid services' }]} className="sm:w-40" />
           </FilterBar>
         }
+      />
+      <ConfirmDialog
+        open={!!toCancel}
+        onOpenChange={(o) => !o && setToCancel(null)}
+        title={`Cancel invoice ${toCancel?.invoiceNumber}?`}
+        description="A cancelled invoice stays on record (GST audit trail) but no longer counts as due."
+        confirmLabel="Cancel invoice"
+        destructive
+        requireReason
+        loading={actions.cancel.isPending}
+        onConfirm={(reason) => toCancel && actions.cancel.mutate({ id: toCancel.id, reason }, { onSuccess: () => setToCancel(null) })}
       />
     </>
   );

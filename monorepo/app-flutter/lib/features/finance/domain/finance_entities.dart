@@ -107,3 +107,14 @@ class Reminder {
   final String status;
   final String? fromBooking;
 }
+
+/// A Razorpay order created on the server for the exact amount due.
+class RazorpayOrder {
+  const RazorpayOrder({required this.orderId, required this.amount, required this.currency, required this.keyId});
+  final String orderId;
+  final double amount;
+  final String currency;
+
+  /// Public key id — safe to hold in the app; the secret never leaves the server.
+  final String keyId;
+}

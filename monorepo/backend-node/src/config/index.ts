@@ -65,6 +65,8 @@ const EnvSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  /** Master key that encrypts integration secrets saved from the admin panel (≥ 32 chars). */
+  SECRETS_ENCRYPTION_KEY: z.string().min(32, 'SECRETS_ENCRYPTION_KEY must be at least 32 chars').optional(),
 
   WHATSAPP_CLOUD_ENABLED: bool(false),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
@@ -114,6 +116,7 @@ export interface AppConfig {
   upload: { dir: string; maxBytes: number };
   smtp: { host?: string; port: number; secure: boolean; user?: string; password?: string; from: string; enabled: boolean };
   razorpay: { keyId?: string; keySecret?: string; webhookSecret?: string; enabled: boolean };
+  secrets: { encryptionKey?: string };
   whatsapp: { cloudEnabled: boolean; phoneNumberId?: string; accessToken?: string };
   fcm: { projectId?: string; clientEmail?: string; privateKey?: string; enabled: boolean };
   jobs: { enabled: boolean; reminderCron: string; notificationCron: string };
@@ -163,6 +166,7 @@ export const config: AppConfig = {
     webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
     enabled: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
   },
+  secrets: { encryptionKey: env.SECRETS_ENCRYPTION_KEY },
   whatsapp: {
     cloudEnabled: env.WHATSAPP_CLOUD_ENABLED && Boolean(env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_ACCESS_TOKEN),
     phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,

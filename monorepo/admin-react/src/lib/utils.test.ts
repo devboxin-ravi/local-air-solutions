@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, humanize, initials, mapsDirectionsUrl, priceLabel } from './utils';
+import { formatMoney, humanize, initials, mapsDirectionsUrl, priceLabel, serialNumber } from './utils';
 import { customerSchema, paymentSchema, serviceSchema } from './validation';
 import { NAVIGATION, SETTINGS_MENU } from '@/constants/navigation';
 
@@ -52,5 +52,17 @@ describe('top navigation', () => {
       expect(m.permission).toBeTruthy();
       expect(m.children.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('table serial numbers', () => {
+  it('starts at 1 for unpaginated tables', () => {
+    expect(serialNumber(0)).toBe(1);
+    expect(serialNumber(4)).toBe(5);
+  });
+
+  it('continues across pages', () => {
+    expect(serialNumber(0, 2, 10)).toBe(11);
+    expect(serialNumber(9, 3, 20)).toBe(50);
   });
 });

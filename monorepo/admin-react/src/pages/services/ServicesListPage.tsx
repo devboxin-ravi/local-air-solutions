@@ -4,17 +4,17 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { Plus, Star } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
 import { useServiceActions, useServiceList } from '@/hooks/useCatalog';
 import { useCategories } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { PRICING_TYPES } from '@/constants/ui';
-import { assetUrl, humanize, priceLabel } from '@/lib/utils';
+import { PRICING_TYPES, ROW_ACTIONS } from '@/constants/ui';
+import { assetUrl, priceLabel } from '@/lib/utils';
 import type { Service } from '@/types';
 import { Badge, ConfirmDialog, PageHeader } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button, Switch } from '@/components/ui/primitives';
 
@@ -58,13 +58,13 @@ export default function ServicesListPage() {
     },
     {
       key: 'actions',
-      header: '',
+      header: ROW_ACTIONS.HEADER,
       align: 'right',
       cell: (s) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {can('services.edit') && <Button variant="ghost" size="icon-sm" aria-label="Edit" onClick={() => navigate(ROUTES.SERVICE_EDIT(s.id))}><Pencil /></Button>}
-          {can('services.delete') && <Button variant="ghost" size="icon-sm" aria-label="Delete" onClick={() => setToDelete(s)}><Trash2 className="text-red-500" /></Button>}
-        </div>
+        <RowActions
+          onEdit={can('services.edit') ? () => navigate(ROUTES.SERVICE_EDIT(s.id)) : undefined}
+          onDelete={can('services.delete') && s.isActive ? () => setToDelete(s) : undefined}
+        />
       ),
     },
   ];
@@ -94,7 +94,7 @@ export default function ServicesListPage() {
         toolbar={
           <FilterBar>
             <SearchInput value={list.state.search} onChange={list.setSearch} placeholder="Name, code or description…" />
-            <SelectFilter placeholder="All categories" value={list.state.filters.categoryId} onChange={(v) => list.setFilter('categoryId', v)} options={(categories ?? []).map((c) => ({ value: c.id, label: c.name }))} />
+            <SelectFilter searchable placeholder="All categories" value={list.state.filters.categoryId} onChange={(v) => list.setFilter('categoryId', v)} options={(categories ?? []).map((c) => ({ value: c.id, label: c.name }))} />
             <SelectFilter placeholder="All pricing" value={list.state.filters.pricingType} onChange={(v) => list.setFilter('pricingType', v)} options={PRICING_TYPES.map((p) => ({ value: p.value, label: p.label }))} />
             <SelectFilter placeholder="Any status" value={list.state.filters.isActive} onChange={(v) => list.setFilter('isActive', v)} options={[{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }]} className="sm:w-36" />
           </FilterBar>
@@ -104,7 +104,7 @@ export default function ServicesListPage() {
         open={!!toDelete}
         onOpenChange={(o) => !o && setToDelete(null)}
         title={`Delete ${toDelete?.name}?`}
-        description={`Only services never used in a booking can be deleted. Otherwise, deactivate it (${humanize('keeps history')}).`}
+        description={ROW_ACTIONS.DEACTIVATE_NOTE}
         confirmLabel="Delete"
         destructive
         loading={actions.remove.isPending}

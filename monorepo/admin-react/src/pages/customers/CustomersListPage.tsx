@@ -2,24 +2,28 @@
  * Customer directory with search (name, mobile, ID, address) and filters.
  */
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { useCustomerList } from '@/hooks/usePeople';
+import { useCustomerActions, useCustomerList } from '@/hooks/usePeople';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
 import { formatDate, humanize, initials } from '@/lib/utils';
 import type { Customer } from '@/types';
-import { Badge, PageHeader, StatusBadge } from '@/components/common';
-import { DataTable, type Column } from '@/components/DataTable';
+import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
+import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Avatar, Button } from '@/components/ui/primitives';
+import { ROW_ACTIONS } from '@/constants/ui';
 
 export default function CustomersListPage() {
   const navigate = useNavigate();
   const { can } = useAuth();
   const list = useListState({ sortBy: 'createdAt' });
   const { data, isLoading, error, refetch } = useCustomerList(list.query);
+  const actions = useCustomerActions();
+  const [toDelete, setToDelete] = useState<Customer | null>(null);
 
   const columns: Column<Customer>[] = [
     {
@@ -43,6 +47,18 @@ export default function CustomersListPage() {
     { key: 'counts', header: 'Bookings / AMC', cell: (c) => <span className="num">{c._count?.bookings ?? 0} / {c._count?.amcContracts ?? 0}</span> },
     { key: 'createdAt', header: 'Since', sortable: true, cell: (c) => formatDate(c.createdAt) },
     { key: 'status', header: 'Status', cell: (c) => <div className="flex flex-col items-start gap-1"><StatusBadge status={c.status} />{c.user && <Badge tone="cyan">App user</Badge>}</div> },
+    {
+      key: 'actions',
+      header: ROW_ACTIONS.HEADER,
+      align: 'right',
+      cell: (c) => (
+        <RowActions
+          onView={() => navigate(ROUTES.CUSTOMER_DETAIL(c.id))}
+          onEdit={can('customers.edit') ? () => navigate(ROUTES.CUSTOMER_EDIT(c.id)) : undefined}
+          onDelete={can('customers.delete') ? () => setToDelete(c) : undefined}
+        />
+      ),
+    },
   ];
 
   return (
@@ -69,6 +85,16 @@ export default function CustomersListPage() {
             <SelectFilter placeholder="Any status" value={list.state.filters.status} onChange={(v) => list.setFilter('status', v)} options={['ACTIVE', 'INACTIVE', 'SUSPENDED'].map((s) => ({ value: s, label: humanize(s) }))} className="sm:w-36" />
           </FilterBar>
         }
+      />
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={`Delete ${toDelete?.fullName}?`}
+        description={ROW_ACTIONS.ARCHIVE_NOTE}
+        confirmLabel={ROW_ACTIONS.DELETE}
+        destructive
+        loading={actions.remove.isPending}
+        onConfirm={() => toDelete && actions.remove.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })}
       />
     </>
   );

@@ -34,6 +34,7 @@ export const ROUTES = {
   CUSTOMERS: '/customers',
   CUSTOMER_NEW: '/customers/new',
   CUSTOMER_DETAIL: (id: number | string) => `/customers/${id}`,
+  CUSTOMER_EDIT: (id: number | string) => `/customers/${id}/edit`,
   CUSTOMER_ADDRESSES: '/customers/addresses',
   CUSTOMER_HISTORY: '/customers/history',
   CUSTOMER_LEDGER: '/customers/ledger',

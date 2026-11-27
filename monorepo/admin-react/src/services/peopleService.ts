@@ -33,4 +33,6 @@ export const staffService = {
   createRole: (body: unknown) => http.post<Role>(API.ROLES, body),
   updateRole: (id: number, body: unknown) => http.patch<Role>(API.ROLE(id), body),
   deleteRole: (id: number) => http.del(API.ROLE(id)),
+  /** Soft delete: login disabled and hidden; history kept. */
+  remove: (id: number) => http.del(API.STAFF_ONE(id)),
 };

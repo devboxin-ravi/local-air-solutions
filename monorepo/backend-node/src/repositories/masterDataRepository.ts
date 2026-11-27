@@ -19,10 +19,6 @@ export class MasterDataRepository {
   updateState(id: number, data: Prisma.StateUpdateInput, db: Db = prisma) {
     return db.state.update({ where: { id }, data });
   }
-  deleteState(id: number, db: Db = prisma) {
-    return db.state.delete({ where: { id } });
-  }
-
   // ─── Cities ───
   listCities(where: Prisma.CityWhereInput, db: Db = prisma) {
     return db.city.findMany({
@@ -40,10 +36,6 @@ export class MasterDataRepository {
   updateCity(id: number, data: Prisma.CityUncheckedUpdateInput, db: Db = prisma) {
     return db.city.update({ where: { id }, data });
   }
-  deleteCity(id: number, db: Db = prisma) {
-    return db.city.delete({ where: { id } });
-  }
-
   // ─── Branches ───
   listBranches(where: Prisma.BranchWhereInput, db: Db = prisma) {
     return db.branch.findMany({
@@ -64,10 +56,6 @@ export class MasterDataRepository {
   updateBranch(id: number, data: Prisma.BranchUncheckedUpdateInput, db: Db = prisma) {
     return db.branch.update({ where: { id }, data });
   }
-  deleteBranch(id: number, db: Db = prisma) {
-    return db.branch.delete({ where: { id } });
-  }
-
   // ─── Service areas ───
   listServiceAreas(where: Prisma.ServiceAreaWhereInput, db: Db = prisma) {
     return db.serviceArea.findMany({
@@ -98,10 +86,6 @@ export class MasterDataRepository {
   updateServiceArea(id: number, data: Prisma.ServiceAreaUncheckedUpdateInput, db: Db = prisma) {
     return db.serviceArea.update({ where: { id }, data });
   }
-  deleteServiceArea(id: number, db: Db = prisma) {
-    return db.serviceArea.delete({ where: { id } });
-  }
-
   // ─── Skills ───
   listSkills(where: Prisma.SkillWhereInput, db: Db = prisma) {
     return db.skill.findMany({ where, orderBy: { name: 'asc' } });
@@ -112,10 +96,6 @@ export class MasterDataRepository {
   updateSkill(id: number, data: Prisma.SkillUpdateInput, db: Db = prisma) {
     return db.skill.update({ where: { id }, data });
   }
-  deleteSkill(id: number, db: Db = prisma) {
-    return db.skill.delete({ where: { id } });
-  }
-
   // ─── Products ───
   listProducts(where: Prisma.ProductWhereInput, db: Db = prisma) {
     return db.product.findMany({ where, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] });
@@ -125,8 +105,5 @@ export class MasterDataRepository {
   }
   updateProduct(id: number, data: Prisma.ProductUpdateInput, db: Db = prisma) {
     return db.product.update({ where: { id }, data });
-  }
-  deleteProduct(id: number, db: Db = prisma) {
-    return db.product.delete({ where: { id } });
   }
 }

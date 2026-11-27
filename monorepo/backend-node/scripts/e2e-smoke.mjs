@@ -45,7 +45,8 @@ ok(r.status === 200 && r.json.data.length === 36, `public services (${r.json.dat
 const svc = r.json.data.find((s) => s.code === 'AC-GEN-SVC');
 
 r = await call('GET', '/branches', admin);
-const branch = r.json.data[0];
+// The fixtures below use an Indore (MP) address, which the IDR-01 service area routes to.
+const branch = r.json.data.find((b) => b.code === 'IDR-01') ?? r.json.data[0];
 r = await call('GET', '/states', null);
 const mp = r.json.data.find((s) => s.code === 'MP');
 r = await call('GET', `/cities?stateId=${mp.id}`, null);

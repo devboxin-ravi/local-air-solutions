@@ -25,7 +25,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border bg-white shadow-elevated data-[state=open]:animate-zoom-in focus:outline-none',
+        'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border bg-white shadow-elevated data-[state=open]:animate-zoom-in focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
         { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size],
         className,
       )}
@@ -64,7 +64,7 @@ export const DrawerContent = React.forwardRef<React.ElementRef<typeof DialogPrim
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-brand-navy/30 data-[state=open]:animate-fade-in" />
       <DialogPrimitive.Content
         ref={ref}
-        className={cn('fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-elevated transition-transform duration-modal data-[state=open]:animate-fade-in focus:outline-none', className)}
+        className={cn('fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-elevated transition-transform duration-modal data-[state=open]:animate-fade-in focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0', className)}
         {...props}
       >
         {children}
@@ -86,7 +86,7 @@ export const DropdownMenuContent = React.forwardRef<React.ElementRef<typeof Drop
       <DropdownPrimitive.Content
         ref={ref}
         sideOffset={sideOffset}
-        className={cn('z-50 min-w-[12rem] overflow-hidden rounded-xl border bg-white p-1.5 shadow-elevated data-[state=open]:animate-slide-down', className)}
+        className={cn('z-50 min-w-[12rem] overflow-hidden rounded-xl border bg-white p-1.5 shadow-elevated outline-none data-[state=open]:animate-slide-down focus-visible:ring-0 focus-visible:ring-offset-0', className)}
         {...props}
       />
     </DropdownPrimitive.Portal>
@@ -136,7 +136,7 @@ export const DropdownMenuSubContent = React.forwardRef<React.ElementRef<typeof D
         ref={ref}
         sideOffset={sideOffset}
         collisionPadding={8}
-        className={cn('scrollbar-thin z-50 max-h-[min(70vh,var(--radix-dropdown-menu-content-available-height))] min-w-[13rem] overflow-y-auto rounded-xl border bg-white p-1.5 shadow-elevated data-[state=open]:animate-fade-in', className)}
+        className={cn('scrollbar-thin z-50 max-h-[min(70vh,var(--radix-dropdown-menu-content-available-height))] min-w-[13rem] overflow-y-auto rounded-xl border bg-white p-1.5 shadow-elevated outline-none data-[state=open]:animate-fade-in focus-visible:ring-0 focus-visible:ring-offset-0', className)}
         {...props}
       />
     </DropdownPrimitive.Portal>
@@ -146,11 +146,22 @@ DropdownMenuSubContent.displayName = 'DropdownMenuSubContent';
 
 // ─── Tooltip ───
 export const TooltipProvider = TooltipPrimitive.Provider;
-export const Tooltip = ({ content, children }: { content: React.ReactNode; children: React.ReactNode }) => (
-  <TooltipPrimitive.Root delayDuration={250}>
+export const Tooltip = ({
+  content,
+  children,
+  side,
+  delayDuration = 250,
+}: {
+  content: React.ReactNode;
+  children: React.ReactNode;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  /** 0 = show immediately on hover (e.g. icon-only navigation). */
+  delayDuration?: number;
+}) => (
+  <TooltipPrimitive.Root delayDuration={delayDuration}>
     <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
     <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content sideOffset={6} className="z-50 rounded-md bg-brand-navy px-2.5 py-1.5 text-xs font-medium text-white shadow-md data-[state=delayed-open]:animate-fade-in">
+      <TooltipPrimitive.Content side={side} sideOffset={6} className="z-50 rounded-md bg-brand-navy px-2.5 py-1.5 text-xs font-medium text-white shadow-md data-[state=delayed-open]:animate-fade-in">
         {content}
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
@@ -168,7 +179,7 @@ export const PopoverContent = React.forwardRef<React.ElementRef<typeof PopoverPr
         ref={ref}
         align={align}
         sideOffset={sideOffset}
-        className={cn('z-50 rounded-xl border bg-white shadow-elevated outline-none data-[state=open]:animate-slide-down', className)}
+        className={cn('z-50 rounded-xl border bg-white shadow-elevated outline-none data-[state=open]:animate-slide-down focus-visible:ring-0 focus-visible:ring-offset-0', className)}
         {...props}
       />
     </PopoverPrimitive.Portal>

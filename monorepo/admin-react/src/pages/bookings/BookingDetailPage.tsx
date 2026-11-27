@@ -8,15 +8,17 @@ import { ArrowRightLeft, CalendarClock, ChevronDown, Download, FileText, HardHat
 import { useBookingDetail } from '@/hooks/useBookingDetail';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { ADMIN_TRANSITIONS, ASSIGNABLE_STATUSES, CANCELLABLE_STATUSES, LIMITS, RESCHEDULABLE_STATUSES } from '@/constants/ui';
-import { formatDate, formatDateTime, formatMoney, humanize, mapsDirectionsUrl, toNumber } from '@/lib/utils';
+import { ADMIN_TRANSITIONS, ASSIGNABLE_STATUSES, CANCELLABLE_STATUSES, LIMITS, RESCHEDULABLE_STATUSES, SERIAL_COLUMN } from '@/constants/ui';
+import { cn, formatDate, formatDateTime, formatMoney, humanize, mapsDirectionsUrl, serialNumber, toNumber } from '@/lib/utils';
 import { Badge, ConfirmDialog, EmptyState, ErrorState, KeyValue, LoadingBlock, PageHeader, SectionCard, StatusBadge } from '@/components/common';
 import { AssignDialog, AttachmentGallery, RescheduleDialog, StatusTimeline } from '@/components/BookingWidgets';
 import { GenerateInvoiceDialog, RecordPaymentDialog } from '@/components/FinanceWidgets';
 import { Button, Card, Textarea } from '@/components/ui/primitives';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/overlays';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function BookingDetailPage() {
+  const goBack = useGoBack(ROUTES.BOOKINGS);
   const id = Number(useParams().id);
   const d = useBookingDetail(id);
   const { can } = useAuth();
@@ -35,7 +37,7 @@ export default function BookingDetailPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title={b.bookingNumber}
         description={`${b.bookingType === 'REPAIR' ? 'Repair' : 'Service'} booking · created ${formatDateTime(b.createdAt)} · ${humanize(b.source)}`}
         breadcrumbs={[{ label: 'Bookings', to: ROUTES.BOOKINGS }, { label: b.bookingNumber }]}
@@ -158,6 +160,7 @@ export default function BookingDetailPage() {
               <table className="w-full text-[13.5px]">
                 <thead className="bg-slate-50 text-left text-[11.5px] font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
+                    <th className={cn('px-5 py-2.5', SERIAL_COLUMN.CLASS)}>{SERIAL_COLUMN.HEADER}</th>
                     <th className="px-5 py-2.5">Service</th>
                     <th className="px-5 py-2.5 text-right">Qty</th>
                     <th className="px-5 py-2.5 text-right">Rate</th>
@@ -165,8 +168,9 @@ export default function BookingDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {b.items.map((i) => (
+                  {b.items.map((i, index) => (
                     <tr key={i.id}>
+                      <td className={cn('px-5 py-3', SERIAL_COLUMN.CLASS, SERIAL_COLUMN.CELL_TEXT)}>{serialNumber(index)}</td>
                       <td className="px-5 py-3">
                         <p className="font-semibold text-brand-navy">{i.serviceName}</p>
                         <p className="text-xs text-muted-foreground">

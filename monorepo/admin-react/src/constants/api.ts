@@ -22,6 +22,10 @@ export const API = {
   SETTINGS: '/settings',
   SETTING: (key: string) => `/settings/${key}`,
   PUBLIC_SETTINGS: '/settings/public',
+  RAZORPAY_KEYS: '/settings/integrations/razorpay',
+  RAZORPAY_KEYS_TEST: '/settings/integrations/razorpay/test',
+  INTEGRATION: (name: string) => `/settings/integrations/${name}`,
+  INTEGRATION_TEST: (name: string) => `/settings/integrations/${name}/test`,
   TEMPLATES: '/notification-templates',
   TEMPLATE: (id: number) => `/notification-templates/${id}`,
   AUDIT_LOGS: '/audit-logs',
@@ -128,4 +132,6 @@ export const QUERY = {
 export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'las.admin.rt',
   BRANCH: 'las.admin.branch',
+  /** "1" when the settings sidebar is collapsed to icons. */
+  SETTINGS_SIDEBAR_COLLAPSED: 'las.admin.settingsSidebarCollapsed',
 } as const;

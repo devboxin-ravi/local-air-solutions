@@ -8,12 +8,14 @@ import { useBookingForm } from '@/hooks/useBookingForm';
 import { useBranches, useProducts } from '@/hooks/useApi';
 import { ROUTES } from '@/constants/routes';
 import { cn, formatMoney, toYmd } from '@/lib/utils';
-import { LIMITS } from '@/constants/ui';
+import { LIMITS, PLACEHOLDERS } from '@/constants/ui';
 import { Badge, Field, FormCard, FormSection, PageHeader } from '@/components/common';
 import { CustomerPicker, SearchSelect, SlotGrid } from '@/components/Pickers';
 import { Button, Card, Input, NativeSelect, Textarea } from '@/components/ui/primitives';
+import { useGoBack } from '@/hooks/useGoBack';
 
 export default function BookingFormPage() {
+  const goBack = useGoBack(ROUTES.BOOKINGS);
   const [params] = useSearchParams();
   const f = useBookingForm(params.get('customerId') ? Number(params.get('customerId')) : undefined);
   const { state: s, set } = f;
@@ -23,7 +25,7 @@ export default function BookingFormPage() {
 
   return (
     <>
-      <PageHeader title="New Booking" description="Create a service or repair booking on behalf of a customer." breadcrumbs={[{ label: 'Bookings', to: ROUTES.BOOKINGS }, { label: 'New Booking' }]} />
+      <PageHeader onBack={goBack} title="New Booking" description="Create a service or repair booking on behalf of a customer." breadcrumbs={[{ label: 'Bookings', to: ROUTES.BOOKINGS }, { label: 'New Booking' }]} />
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <FormCard>
           <FormSection step={1} title="Booking type" description="A routine service visit or a repair job.">
@@ -125,7 +127,7 @@ export default function BookingFormPage() {
                     )}
                   </Field>
                   <Field label="Branch" required error={s.errors.branchId} hint={s.address?.serviceArea ? 'Auto-selected from service area' : undefined}>
-                    <NativeSelect value={s.branchId ?? ''} onChange={(e) => set.setBranchOverride(e.target.value ? Number(e.target.value) : null)}>
+                    <NativeSelect searchable value={s.branchId ?? ''} onChange={(e) => set.setBranchOverride(e.target.value ? Number(e.target.value) : null)}>
                       <option value="">Select branch</option>
                       {branches?.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -147,7 +149,7 @@ export default function BookingFormPage() {
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Product type">
-                  <NativeSelect value={s.productId ?? ''} onChange={(e) => set.setProductId(e.target.value ? Number(e.target.value) : null)}>
+                  <NativeSelect searchable value={s.productId ?? ''} onChange={(e) => set.setProductId(e.target.value ? Number(e.target.value) : null)}>
                     <option value="">Select product</option>
                     {products?.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -185,7 +187,6 @@ export default function BookingFormPage() {
                   id="booking-add-service"
                   resetOnSelect
                   placeholder="Search and add a service…"
-                  searchPlaceholder="Type a service name or code…"
                   emptyText="No services match"
                   loading={f.services.isLoading}
                   disabled={!s.branchId && !f.services.data}
@@ -245,14 +246,14 @@ export default function BookingFormPage() {
                   max: LIMITS.NOTES_MAX,
                 }}
               >
-                <Textarea value={s.instructions} onChange={(e) => set.setInstructions(e.target.value)} maxLength={LIMITS.NOTES_MAX} placeholder="Gate code, parking, preferred contact time…" />
+                <Textarea value={s.instructions} onChange={(e) => set.setInstructions(e.target.value)} maxLength={LIMITS.NOTES_MAX} placeholder={PLACEHOLDERS.BOOKING_INSTRUCTIONS} />
               </Field>
             </div>
           </FormSection>
         </FormCard>
 
         {/* Summary */}
-        <div className="xl:sticky xl:top-[113px] xl:self-start">
+        <div className="xl:sticky xl:top-[97px] xl:self-start">
           <Card className="overflow-hidden">
             <div className="bg-gradient-to-br from-brand-blue to-brand-blue-500 px-5 py-4 text-white">
               <p className="text-xs font-semibold uppercase tracking-wider text-blue-100">Booking summary</p>

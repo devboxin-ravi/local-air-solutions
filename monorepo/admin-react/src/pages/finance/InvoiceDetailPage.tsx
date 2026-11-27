@@ -9,12 +9,14 @@ import { useInvoice, useInvoiceActions, usePaymentActions } from '@/hooks/useFin
 import { useTechnicians } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { formatDate, formatMoney, humanize, toNumber } from '@/lib/utils';
+import { SERIAL_COLUMN } from '@/constants/ui';
+import { cn, formatDate, formatMoney, humanize, serialNumber, toNumber } from '@/lib/utils';
 import { Badge, BrandLogo, ConfirmDialog, ErrorState, LoadingBlock, PageHeader, SectionCard, StatusBadge } from '@/components/common';
 import { RecordPaymentDialog, TotalsSummary } from '@/components/FinanceWidgets';
 import { ChipMultiSelect } from '@/components/Pickers';
 import { Button, Card } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
+import { useGoBack } from '@/hooks/useGoBack';
 
 interface Snapshot {
   company?: { name?: string; address?: string; phone?: string; email?: string; gstin?: string; tagline?: string };
@@ -23,6 +25,7 @@ interface Snapshot {
 }
 
 export default function InvoiceDetailPage() {
+  const goBack = useGoBack(ROUTES.INVOICES);
   const id = Number(useParams().id);
   const { can } = useAuth();
   const { data: inv, isLoading, error, refetch } = useInvoice(id);
@@ -43,7 +46,7 @@ export default function InvoiceDetailPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title={inv.invoiceNumber}
         description={`${inv.customer.fullName} · ${formatDate(inv.invoiceDate)}`}
         breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Invoices', to: ROUTES.INVOICES }, { label: inv.invoiceNumber }]}
@@ -91,7 +94,8 @@ export default function InvoiceDetailPage() {
               <table className="w-full min-w-[560px] text-[13px]">
                 <thead>
                   <tr className="bg-brand-blue text-left text-[11.5px] font-semibold uppercase tracking-wide text-white">
-                    <th className="rounded-l-lg px-3 py-2.5">Description</th>
+                    <th className={cn('rounded-l-lg px-3 py-2.5', SERIAL_COLUMN.CLASS)}>{SERIAL_COLUMN.HEADER}</th>
+                    <th className="px-3 py-2.5">Description</th>
                     <th className="px-3 py-2.5">SAC</th>
                     <th className="px-3 py-2.5 text-right">Qty</th>
                     <th className="px-3 py-2.5 text-right">Rate</th>
@@ -101,8 +105,9 @@ export default function InvoiceDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {inv.items?.map((it) => (
+                  {inv.items?.map((it, index) => (
                     <tr key={it.id}>
+                      <td className={cn('px-3 py-3', SERIAL_COLUMN.CLASS, SERIAL_COLUMN.CELL_TEXT)}>{serialNumber(index)}</td>
                       <td className="px-3 py-3 font-medium text-brand-navy">{it.description}</td>
                       <td className="px-3 py-3 text-slate-500">{it.hsnSac ?? '—'}</td>
                       <td className="num px-3 py-3 text-right">{it.quantity}</td>

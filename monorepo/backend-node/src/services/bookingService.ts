@@ -24,6 +24,7 @@ import { formatDisplayDate, formatDocNumber, moneyNumber, parseDateOnly, round2,
 import type { BookingCreateInput, BookingListQuery } from '../validations/operations';
 import { assertBranchAccess, resolveBranchScope } from './accessControl';
 import { CatalogService } from './catalogService';
+import { CustomerService } from './customerService';
 import { NotificationService } from './notificationService';
 import { SettingsService } from './settingsService';
 import { SlotService } from './slotService';
@@ -47,6 +48,7 @@ export class BookingService {
     private readonly slots: SlotService,
     private readonly notifications: NotificationService,
     private readonly settings: SettingsService,
+    private readonly customerService: CustomerService,
   ) {}
 
   // ─── Read ───
@@ -125,7 +127,8 @@ export class BookingService {
     const address = await this.customers.findAddress(input.addressId);
     if (!address || address.customerId !== customerId || !address.isActive) throw new ValidationError(ErrorMessages.ADDRESS_MISMATCH);
 
-    const branchId = input.branchId ?? address.serviceArea?.branchId ?? customer.branchId ?? (isCustomer ? null : actor.branchId);
+    const branchId =
+      input.branchId ?? (await this.customerService.resolveAddressBranch(address)) ?? customer.branchId ?? (isCustomer ? null : actor.branchId);
     if (!branchId) throw new ValidationError(ErrorMessages.VALIDATION_FAILED, { branchId: 'Branch could not be determined for this address. Select a branch.' });
     if (!isCustomer) assertBranchAccess(actor, branchId);
 

@@ -17,7 +17,7 @@ import { useBranches } from '@/hooks/useApi';
 import { useNotifications, useSettingsItems } from '@/hooks/useHeader';
 import { BrandLogo } from '@/components/common';
 import { Avatar, Button, NativeSelect } from '@/components/ui/primitives';
-import { Dialog, DrawerContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays';
+import { Dialog, DrawerContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@/components/ui/overlays';
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
@@ -34,7 +34,7 @@ const useVisibleNav = () => {
 };
 
 const NAV_ITEM =
-  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] xl:px-2.5 xl:text-[14px] 2xl:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-ring';
+  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] xl:px-2.5 xl:text-[14px] 2xl:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
 const NAV_ACTIVE = 'text-brand-blue';
 const NAV_IDLE = 'text-slate-600 hover:bg-slate-100 hover:text-brand-navy';
 const NAV_OPEN = 'bg-slate-100 text-brand-navy';
@@ -61,17 +61,27 @@ const NavItemBody = ({ module, chevron, open }: { module: NavModule; chevron: bo
 const useHoverIntent = () => {
   const [open, setOpen] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout>>();
+  /** True while the menu was last opened/used with the mouse — then closing must not refocus the trigger. */
+  const viaPointer = React.useRef(false);
   const schedule = (next: boolean, ms: number) => (e: React.PointerEvent) => {
     if (e.pointerType !== 'mouse') return;
+    viaPointer.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setOpen(next), ms);
   };
-  return { open, setOpen, onPointerEnter: schedule(true, 80), onPointerLeave: schedule(false, 150), keepOpen: () => clearTimeout(timer.current) };
+  const onKeyDown = () => {
+    viaPointer.current = false;
+  };
+  /** Skip Radix's focus-return after mouse use so no focus ring is left on the trigger. */
+  const onCloseAutoFocus = (e: Event) => {
+    if (viaPointer.current) e.preventDefault();
+  };
+  return { open, setOpen, onPointerEnter: schedule(true, 80), onPointerLeave: schedule(false, 150), keepOpen: () => clearTimeout(timer.current), onKeyDown, onCloseAutoFocus };
 };
 
 /** Desktop module entry: direct link for single-page modules, dropdown otherwise. */
 const ModuleMenu = ({ module, active }: { module: NavModule; active: boolean }) => {
-  const { open, setOpen, onPointerEnter, onPointerLeave, keepOpen } = useHoverIntent();
+  const { open, setOpen, onPointerEnter, onPointerLeave, keepOpen, onKeyDown, onCloseAutoFocus } = useHoverIntent();
   const navigate = useNavigate();
 
   if (module.children.length === 1) {
@@ -85,13 +95,12 @@ const ModuleMenu = ({ module, active }: { module: NavModule; active: boolean }) 
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-      <div onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} className="relative">
+      <div onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onKeyDownCapture={onKeyDown} className="relative">
         <DropdownMenuTrigger className={cn(NAV_ITEM, active ? NAV_ACTIVE : open ? NAV_OPEN : NAV_IDLE)}>
           <NavItemBody module={module} chevron open={open} />
           {active && <ActivePill />}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" sideOffset={10} className="w-60" onPointerEnter={keepOpen}>
-          <DropdownMenuLabel>{module.label}</DropdownMenuLabel>
+        <DropdownMenuContent align="start" sideOffset={10} className="w-60" onPointerEnter={keepOpen} onKeyDownCapture={onKeyDown} onCloseAutoFocus={onCloseAutoFocus}>
           {module.children.map((c) => (
             <DropdownMenuItem key={c.to} onSelect={() => navigate(c.to)}>
               {c.label}
@@ -170,7 +179,7 @@ const BranchSelector = ({ className }: { className?: string }) => {
       <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-brand-green-50 text-brand-green-700">
         <Building2 className="h-3 w-3" />
       </span>
-      <NativeSelect aria-label="Branch" value={branchId ?? ''} onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : undefined)} className="h-9 w-[150px] truncate rounded-full border-slate-200 bg-slate-50 bg-[right_0.55rem_center] pl-9 pr-7 text-[12.5px] font-semibold text-brand-navy shadow-none hover:border-slate-300">
+      <NativeSelect searchable aria-label="Branch" value={branchId ?? ''} onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : undefined)} className="h-9 w-[180px] gap-1.5 rounded-full border-slate-200 bg-slate-50 pl-9 pr-3 text-[12.5px] font-semibold text-brand-navy shadow-none hover:border-slate-300">
         <option value="">All branches</option>
         {branches?.map((b) => (
           <option key={b.id} value={b.id}>
@@ -284,17 +293,17 @@ export const TopHeader = () => {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 border-b bg-white/95 backdrop-blur transition-shadow duration-page supports-[backdrop-filter]:bg-white/85',
-        scrolled ? 'border-slate-200 shadow-header' : 'border-slate-200/70',
+        'sticky top-0 z-40 border-b bg-white',
+        scrolled ? 'border-slate-200' : 'border-slate-200/70',
       )}
     >
       {/* One row: brand · modules · utilities */}
-      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[88px] lg:gap-4 2xl:gap-6')}>
+      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[72px] lg:gap-4 2xl:gap-6')}>
         <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
           {mobileOpen ? <X /> : <Menu />}
         </Button>
         <Link to={ROUTES.DASHBOARD} className="flex shrink-0 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring" aria-label="Local Air Solutions — Dashboard">
-          <BrandLogo variant="header" className="h-12 lg:h-14 2xl:h-16" />
+          <BrandLogo variant="header" className="h-11 lg:h-12 2xl:h-[52px]" />
         </Link>
 
         <MainNav nav={nav} className="hidden flex-1 lg:flex lg:justify-center" />

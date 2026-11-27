@@ -41,8 +41,8 @@ export const useStates = () => useQuery({ queryKey: ['states', 'active'], queryF
 export const useCities = (stateId?: number | string) =>
   useQuery({ queryKey: ['cities', stateId], queryFn: () => masterService.cities({ stateId: Number(stateId), activeOnly: true }), enabled: !!stateId, staleTime: LOOKUP_STALE });
 export const useServiceAreas = (branchId?: number | string) =>
-  useQuery({ queryKey: ['service-areas', branchId], queryFn: () => masterService.serviceAreas(branchId ? { branchId: Number(branchId) } : undefined), staleTime: LOOKUP_STALE });
-export const useSkills = () => useQuery({ queryKey: ['skills'], queryFn: () => masterService.skills(), staleTime: LOOKUP_STALE });
+  useQuery({ queryKey: ['service-areas', branchId, 'active'], queryFn: () => masterService.serviceAreas({ ...(branchId ? { branchId: Number(branchId) } : {}), activeOnly: true }), staleTime: LOOKUP_STALE });
+export const useSkills = () => useQuery({ queryKey: ['skills', 'active'], queryFn: () => masterService.skills({ activeOnly: true }), staleTime: LOOKUP_STALE });
 export const useProducts = () => useQuery({ queryKey: ['products'], queryFn: () => masterService.products({ activeOnly: true }), staleTime: LOOKUP_STALE });
 export const useCategories = () => useQuery({ queryKey: ['categories'], queryFn: () => catalogService.categories(), staleTime: LOOKUP_STALE });
 export const useServiceLookup = (branchId?: number) =>

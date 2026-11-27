@@ -10,6 +10,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/config/app_config.dart';
 import 'core/config/app_router.dart';
 import 'core/constants/app_constants.dart';
+import 'features/notifications/presentation/push_providers.dart';
 import 'shared/themes/app_theme.dart';
 
 Future<void> main() async {
@@ -26,7 +27,9 @@ class AppRoot extends ConsumerWidget {
   const AppRoot({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(pushRegistrationProvider); // registers this device for push while signed in
+    return MaterialApp.router(
         title: AppConfig.appName,
         theme: AppTheme.light,
         themeMode: ThemeMode.light,
@@ -38,4 +41,5 @@ class AppRoot extends ConsumerWidget {
           child: child!,
         ),
       );
+  }
 }

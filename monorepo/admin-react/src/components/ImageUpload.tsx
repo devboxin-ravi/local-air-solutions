@@ -19,11 +19,13 @@ export interface ImageUploadProps {
   onClear: () => void;
   /** Called when the picked file fails the type/size check. */
   onReject?: (message: string) => void;
+  /** Narrow column layout: full-width drop zone with the help text underneath. */
+  stacked?: boolean;
 }
 
 const MAX_MB = Math.round(IMAGE_UPLOAD.MAX_BYTES / 1048576);
 
-export function ImageUpload({ previewUrl, uploading, disabled, invalid, onSelect, onClear, onReject }: ImageUploadProps) {
+export function ImageUpload({ previewUrl, uploading, disabled, invalid, onSelect, onClear, onReject, stacked }: ImageUploadProps) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const busy = disabled || uploading;
@@ -37,7 +39,7 @@ export function ImageUpload({ previewUrl, uploading, disabled, invalid, onSelect
   const browse = () => !busy && input.current?.click();
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+    <div className={cn('flex flex-col', stacked ? 'gap-3' : 'gap-4 sm:flex-row sm:items-center')}>
       <div
         role="button"
         tabIndex={0}
@@ -55,7 +57,8 @@ export function ImageUpload({ previewUrl, uploading, disabled, invalid, onSelect
           if (!busy) pick(e.dataTransfer.files?.[0]);
         }}
         className={cn(
-          'group relative flex aspect-[16/10] w-full shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors sm:w-64',
+          'group relative flex aspect-[16/10] w-full shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors',
+          !stacked && 'sm:w-64',
           previewUrl ? 'border-transparent bg-slate-100' : 'bg-slate-50 hover:border-brand-blue-200 hover:bg-brand-blue-50/40',
           dragging && 'border-brand-blue bg-brand-blue-50',
           invalid && 'border-destructive',
@@ -85,9 +88,9 @@ export function ImageUpload({ previewUrl, uploading, disabled, invalid, onSelect
         )}
       </div>
 
-      <div className="space-y-2 text-sm">
-        <p className="font-medium text-brand-navy">{previewUrl ? 'Photo added' : 'No photo yet'}</p>
-        <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
+      <div className={cn('text-sm', stacked ? 'space-y-1.5' : 'space-y-2')}>
+        {!stacked && <p className="font-medium text-brand-navy">{previewUrl ? 'Photo added' : 'No photo yet'}</p>}
+        <p className={cn('text-xs leading-relaxed text-muted-foreground', !stacked && 'max-w-xs')}>
           Use a clear landscape photo (about 1200 × 750). It appears on the service card in the customer app; without one the app shows its built-in photo.
         </p>
         {previewUrl && (

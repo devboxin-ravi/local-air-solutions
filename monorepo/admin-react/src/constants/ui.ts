@@ -7,6 +7,226 @@ export const LOCALE = 'en-IN';
 /** Shared page container: header, page content and footer use the same width and side padding. */
 export const PAGE_CONTAINER = 'mx-auto w-full max-w-[1680px] px-4 sm:px-6';
 
+/** Serial-number column shown as the first column of every admin table. */
+export const SERIAL_COLUMN = {
+  HEADER: 'S.No.',
+  /** Applied to both the <th> and <td> so the column stays narrow and the numbers line up. */
+  CLASS: 'w-16 whitespace-nowrap text-center',
+  CELL_TEXT: 'num font-semibold text-slate-500',
+} as const;
+
+/** Short input placeholders: an example value or a hint of the expected format, never the label repeated. */
+export const PLACEHOLDERS = {
+  // People & contact
+  FULL_NAME: 'e.g. Ravi Kumar',
+  MOBILE: '10-digit mobile',
+  EMAIL: 'name@example.com',
+  USERNAME: 'e.g. ravi.k',
+  LOGIN_ID: 'Email or mobile',
+  DESIGNATION: 'e.g. Senior Technician',
+  EXPERIENCE_YEARS: 'e.g. 5',
+  // Passwords & codes
+  PASSWORD: 'Enter password',
+  CURRENT_PASSWORD: 'Current password',
+  NEW_PASSWORD: 'Min 8 characters',
+  CONFIRM_PASSWORD: 'Re-enter password',
+  OTP: '6-digit code',
+  // Address & location
+  ADDRESS_LABEL: 'e.g. Home',
+  PINCODE: '6-digit PIN',
+  LANDMARK: 'e.g. Near City Mall',
+  ADDRESS: 'Full address',
+  AREA_NAME: 'e.g. Civil Lines',
+  PINCODES: 'e.g. 492001, 492004',
+  LATITUDE: 'e.g. 21.2514',
+  LONGITUDE: 'e.g. 81.6296',
+  RADIUS_KM: 'e.g. 10',
+  STATE_CODE: 'e.g. CG',
+  BRANCH_CODE: 'e.g. RPR-01',
+  GST_STATE_CODE: 'e.g. 22',
+  TIMEZONE: 'e.g. Asia/Kolkata',
+  // Money & numbers
+  AMOUNT: '0.00',
+  QUANTITY: '1',
+  MONTHS: 'e.g. 6',
+  DAYS: 'e.g. 7',
+  HOURS: 'e.g. 4',
+  MINUTES: 'e.g. 60',
+  CAPACITY: 'e.g. 3',
+  VISITS: 'e.g. 4',
+  SORT_ORDER: '0',
+  SAC_CODE: 'e.g. 998719',
+  // Free text
+  NAME: 'Enter name',
+  NOTE: 'Add a note…',
+  REASON: 'Enter reason…',
+  DESCRIPTION: 'Short description…',
+  INTERNAL_NOTES: 'Visible to staff only…',
+  TECHNICIAN_NOTES: 'Instructions for the technician…',
+  INVOICE_NOTES: 'Printed on the invoice',
+  PAYMENT_REFERENCE: 'UTR / transaction ID',
+  RECEIPT_NO: 'Receipt no.',
+  LEDGER_DESCRIPTION: 'e.g. Opening balance',
+  PRODUCT_DETAILS: 'e.g. 2 × Split AC 1.5 Ton',
+  CONTRACT_TERMS: 'Contract terms & conditions…',
+  SERVICE_INCLUDES: 'e.g. Coil cleaning, gas check',
+  BOOKING_INSTRUCTIONS: 'Gate code, parking, best time…',
+  CATEGORY_NAME: 'e.g. AC Repairing',
+  PRODUCT_CATEGORY: 'e.g. Air Conditioner',
+  ICON_NAME: 'e.g. air-vent',
+  ROLE_NAME: 'e.g. Accountant',
+  ROLE_CODE: 'e.g. ACCOUNTANT',
+  TEMPLATE_SUBJECT: 'e.g. Booking confirmed',
+  TEMPLATE_BODY: 'Hi, your booking {{bookingNumber}}…',
+  TRACKER_LABEL: 'e.g. On the way',
+  TRACKER_TITLE: 'e.g. Technician is on the way',
+  TRACKER_HINT: 'Short message for the customer',
+  COMPANY_NAME: 'e.g. Local Air Solutions',
+  LEGAL_NAME: 'Registered company name',
+  TAGLINE: 'e.g. Cool Comfort Care',
+  UPI_PAYEE: 'Name shown on UPI',
+} as const;
+
+/** Customer search field (bookings, invoices, AMC, ledger). */
+export const CUSTOMER_PICKER = {
+  PLACEHOLDER: 'Search customer by name, mobile or ID…',
+  EMPTY_TEXT: 'No customers found.',
+} as const;
+
+/** Developer credit shown in the footer of every admin page. */
+export const DEVELOPER_CREDIT = {
+  PREFIX: 'Developed by -',
+  NAME: 'DeveloperBox AI Factory',
+} as const;
+
+/** Roles & permissions grid. */
+export const PERMISSION_MATRIX = {
+  SELECT_ALL: 'Select all',
+  ALL: 'All',
+  MODULE: 'Module',
+  UNSAVED: 'Unsaved changes',
+  SELECTED: 'selected',
+  READ_ONLY_SUPER: 'Super Admin always has full access — these permissions cannot be restricted.',
+  READ_ONLY_NO_RIGHTS: 'You can view these permissions. Roles → Manage is needed to change them.',
+  READ_ONLY_VIEW: 'Read-only view — use Edit to change permissions.',
+  APP_ROLE_NOTE: 'Uses the mobile app — admin-panel permissions are not required.',
+} as const;
+
+/** Show/hide eye on password inputs. */
+export const PASSWORD_TOGGLE = {
+  SHOW: 'Show password',
+  HIDE: 'Hide password',
+} as const;
+
+/** Payment settings: method cards and Razorpay keys dialog. */
+export const PAYMENT_METHODS_UI = {
+  SHOWN_IN_APP: 'Shown in app',
+  HIDDEN_IN_APP: 'Hidden',
+  UPI_DESCRIPTION: 'Customer pays to your UPI ID and shares the reference; staff verify it.',
+  RAZORPAY_DESCRIPTION: 'Customer pays online in the app (cards, UPI, net banking). Confirmed automatically.',
+  CASH_DESCRIPTION: 'Customer pays the technician after the job (cash or UPI on the spot).',
+  RAZORPAY_NEEDS_KEYS: 'Add your Razorpay keys to turn this on.',
+  RAZORPAY_ON_WITHOUT_KEYS: 'Razorpay is switched on but has no keys — the app will not show it until keys are added.',
+  NONE_ENABLED: 'All payment methods are off — customers will not see any way to pay in the app.',
+  NO_ENCRYPTION_KEY: 'The server has no SECRETS_ENCRYPTION_KEY, so keys cannot be saved from here. Ask the developer to add it to the backend .env and restart.',
+  SECURITY_NOTE: 'The Key Secret and webhook secret are encrypted on the server and never shown again — not in this panel, not in the apps. Only the Key ID is shared with the app to open checkout.',
+} as const;
+
+/** Field layout of each integration's credentials dialog (secret fields are write-only). */
+export interface IntegrationFieldDef {
+  key: string;
+  label: string;
+  type?: 'text' | 'number' | 'password' | 'textarea' | 'switch' | 'choice';
+  /** Width on the 6-column grid (default 3 = half). */
+  span?: 2 | 3 | 4 | 6;
+  /** For type 'choice': the buttons; picking one can also fill other fields (e.g. the port). */
+  options?: Array<{ value: boolean | string; label: string; patch?: Record<string, string> }>;
+  placeholder?: string;
+  hint?: string;
+  required?: boolean;
+  secret?: boolean;
+}
+export const INTEGRATION_FORMS: Record<'smtp' | 'fcm' | 'whatsappCloud', { title: string; description: string; fields: IntegrationFieldDef[]; jsonImport?: { label: string; hint: string; map: Record<string, string> } }> = {
+  smtp: {
+    title: 'SMTP email',
+    description: 'Sends invoices, OTPs and notifications by email. Gmail / Google Workspace: smtp.gmail.com, port 587, and an App Password.',
+    fields: [
+      { key: 'host', label: 'SMTP host', placeholder: 'smtp.gmail.com', required: true, span: 4 },
+      { key: 'port', label: 'Port', type: 'number', placeholder: '587', required: true, span: 2 },
+      {
+        key: 'secure',
+        label: 'Encryption',
+        type: 'choice',
+        span: 6,
+        options: [
+          { value: false, label: 'STARTTLS · port 587', patch: { port: '587' } },
+          { value: true, label: 'SSL · port 465', patch: { port: '465' } },
+        ],
+      },
+      { key: 'user', label: 'Username', placeholder: 'billing@yourcompany.com', required: true },
+      { key: 'password', label: 'Password / app password', type: 'password', secret: true, required: true },
+      { key: 'from', label: 'From address', placeholder: 'Local Air Solutions <billing@yourcompany.com>', required: true, span: 6, hint: 'Name and email customers see as the sender' },
+    ],
+  },
+  fcm: {
+    title: 'Firebase push (FCM)',
+    description: 'Sends push notifications to the customer and technician apps. Firebase console → Project settings → Service accounts → Generate new private key.',
+    jsonImport: {
+      label: 'Paste service-account JSON (optional)',
+      hint: 'Paste the whole downloaded .json file — the fields below fill in automatically.',
+      map: { project_id: 'projectId', client_email: 'clientEmail', private_key: 'privateKey' },
+    },
+    fields: [
+      { key: 'projectId', label: 'Project ID', placeholder: 'local-air-solutions', required: true, span: 2 },
+      { key: 'clientEmail', label: 'Client email', placeholder: 'firebase-adminsdk-xxx@project.iam.gserviceaccount.com', required: true, span: 4 },
+      { key: 'privateKey', label: 'Private key', type: 'textarea', secret: true, required: true, span: 6, placeholder: '-----BEGIN PRIVATE KEY-----' },
+    ],
+  },
+  whatsappCloud: {
+    title: 'WhatsApp Cloud API',
+    description: 'Sends WhatsApp messages automatically. Meta for Developers → your app → WhatsApp → API Setup. Use a permanent (system user) token.',
+    fields: [
+      { key: 'phoneNumberId', label: 'Phone number ID', placeholder: '1234567890123', required: true, span: 6, hint: 'Digits only — not the phone number itself' },
+      { key: 'accessToken', label: 'Access token', type: 'password', secret: true, required: true, span: 6 },
+    ],
+  },
+};
+
+/** Label of the back arrow on detail and form pages. */
+export const BACK_LABEL = 'Back';
+
+/** Row action buttons in list tables. */
+export const ROW_ACTIONS = {
+  HEADER: 'Actions',
+  VIEW: 'View',
+  EDIT: 'Edit',
+  CANCEL: 'Cancel',
+  DELETE: 'Delete',
+  /** Shown in delete confirmations for records that are deactivated rather than erased. */
+  DEACTIVATE_NOTE: 'It is marked Inactive and hidden from customers and new bookings. History is kept, and you can restore it any time with the Active switch.',
+  ARCHIVE_NOTE: 'The record is archived (soft delete): it disappears from lists and pickers, but past bookings, invoices and the audit log stay intact.',
+} as const;
+
+/** Drag-to-resize table columns. */
+export const COLUMN_RESIZE = {
+  /** Narrowest a column can be dragged to (px). */
+  MIN_WIDTH: 56,
+  /** Pixels moved per arrow-key press on a focused resize handle. */
+  KEY_STEP: 16,
+  HANDLE_LABEL: 'Resize column (drag, or use arrow keys; double-click to reset)',
+} as const;
+
+/** Dropdowns with at least this many choices (placeholder excluded) get a type-to-search box. */
+export const SEARCHABLE_SELECT = {
+  MIN_OPTIONS: 8,
+  /** Placeholder of the search box inside every dropdown / picker. */
+  SEARCH_PLACEHOLDER: 'Search…',
+  /** Trigger text when a dropdown has no value and no placeholder option. */
+  SELECT_PLACEHOLDER: 'Select…',
+  EMPTY_TEXT: 'No matches',
+  LOADING_TEXT: 'Searching…',
+} as const;
+
 export const DATE_FORMATS = {
   DISPLAY: 'dd MMM yyyy',
   DISPLAY_TIME: 'dd MMM yyyy, hh:mm a',

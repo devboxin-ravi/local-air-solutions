@@ -17,10 +17,12 @@ import { SlotGrid } from '@/components/Pickers';
 import { RecordPaymentDialog } from '@/components/FinanceWidgets';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
+import { useGoBack } from '@/hooks/useGoBack';
 
 const STEPS = ['DRAFT', 'PENDING_PAYMENT', 'ACTIVE'];
 
 export default function AmcDetailPage() {
+  const goBack = useGoBack(ROUTES.AMC);
   const id = Number(useParams().id);
   const { can } = useAuth();
   const { data: a, isLoading, error, refetch } = useAmc(id);
@@ -43,7 +45,7 @@ export default function AmcDetailPage() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader onBack={goBack}
         title={a.amcNumber}
         description={`${a.customer.fullName} · ${a.productDetails}`}
         breadcrumbs={[{ label: 'AMC', to: ROUTES.AMC }, { label: a.amcNumber }]}
@@ -152,7 +154,7 @@ export default function AmcDetailPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Date" required error={visitDate && visitDate < toYmd(new Date()) ? 'Date cannot be in the past' : undefined}><Input type="date" value={visitDate} min={toYmd(new Date())} onChange={(e) => { setVisitDate(e.target.value); setSlotId(null); }} /></Field>
               <Field label="Technician (optional)">
-                <NativeSelect value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+                <NativeSelect searchable value={staffId} onChange={(e) => setStaffId(e.target.value)}>
                   <option value="">Assign later</option>
                   {techs?.map((t) => <option key={t.id} value={t.id}>{t.user.name}</option>)}
                 </NativeSelect>

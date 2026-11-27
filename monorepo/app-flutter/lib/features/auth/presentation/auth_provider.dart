@@ -10,6 +10,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_entity.dart';
+import '../../notifications/presentation/push_providers.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((_) => AuthRepository());
 
@@ -56,6 +57,7 @@ class AuthController extends Notifier<AuthState> {
       _apply(await _repo.register(fullName: fullName, mobile: mobile, email: email, password: password, address: address));
 
   Future<void> logout() async {
+    await ref.read(pushRegistrationProvider).unregister();
     await _repo.logout();
     state = AuthState.signedOut;
   }

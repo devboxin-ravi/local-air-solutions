@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+import { INTEGRATION_NAMES, Razorpay as RazorpayConst, type IntegrationName } from '../constants/integrations';
 import { Limits, Patterns, ValidationMessages } from '../constants';
 import { AppContentLimits as AL, PaymentPolicies, PROMO_ACTIONS, PROMO_STYLES, SettingKeys, TRACKER_REQUIRED_STEPS, TRACKER_STEP_STATUSES, TrackerLimits, type SettingKey } from '../constants/settings';
 import { boolish, dateOnly, email, gstRate, hhmm, id, listQuery, mobile, money, notes, optionalTrimmed, trimmed } from './common';
@@ -90,6 +91,42 @@ export const paymentListQuery = listQuery.extend({
 });
 
 export const razorpayOrderSchema = z.object({ invoiceId: id.optional().nullable(), bookingId: id.optional().nullable(), amcContractId: id.optional().nullable() });
+/** Admin-entered Razorpay keys. Secrets are optional on update (blank keeps the saved one). */
+export const razorpayCredentialsSchema = z.object({
+  keyId: z.string().trim().regex(RazorpayConst.KEY_ID_PATTERN, 'Key ID looks like rzp_test_… or rzp_live_…'),
+  keySecret: z.string().trim().min(8).max(200).optional().or(z.literal('').transform(() => undefined)),
+  webhookSecret: z.string().trim().min(6).max(200).optional().or(z.literal('').transform(() => undefined)),
+});
+export const razorpayTestSchema = z.object({
+  keyId: z.string().trim().regex(RazorpayConst.KEY_ID_PATTERN, 'Key ID looks like rzp_test_… or rzp_live_…').optional(),
+  keySecret: z.string().trim().max(200).optional(),
+});
+
+/** Admin-entered integration credentials. Secrets may be blank on update (keeps the saved one). */
+const optSecret = (max: number) => z.string().max(max).optional().or(z.literal('').transform(() => undefined));
+export const integrationNameParams = z.object({ name: z.enum(INTEGRATION_NAMES as [IntegrationName, ...IntegrationName[]]) });
+export const integrationCredentialSchemas = {
+  smtp: z.object({
+    host: z.string().trim().min(3).max(200),
+    port: z.coerce.number().int().min(1).max(65535),
+    secure: z.boolean().default(false),
+    user: z.string().trim().min(1).max(200),
+    password: optSecret(500),
+    from: z.string().trim().min(3).max(200),
+  }),
+  fcm: z.object({
+    projectId: z.string().trim().min(3).max(100),
+    clientEmail: z.string().trim().email().max(254),
+    privateKey: optSecret(5000),
+  }),
+  whatsappCloud: z.object({
+    phoneNumberId: z.string().trim().regex(/^\d{6,20}$/, 'Phone number ID is digits only'),
+    accessToken: optSecret(2000),
+  }),
+} as const;
+/** Test accepts partial input: blanks are filled from what is saved. */
+export const integrationTestSchema = z.record(z.unknown()).refine((v) => JSON.stringify(v).length < 10000, 'Payload too large');
+
 export const razorpayVerifySchema = z.object({
   razorpay_order_id: z.string().max(100),
   razorpay_payment_id: z.string().max(100),

@@ -5,9 +5,9 @@
 
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ArrowUpRight, ChevronRight, Inbox, RefreshCw, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowLeft, ArrowUpRight, ChevronRight, Inbox, RefreshCw, TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import { cn, humanize } from '@/lib/utils';
-import { GENERIC_STATUS_TONE, type Tone } from '@/constants/ui';
+import { BACK_LABEL, GENERIC_STATUS_TONE, PLACEHOLDERS, type Tone } from '@/constants/ui';
 import { Button, Card, Label, Textarea } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
 import logoUrl from '@/assets/logo.png';
@@ -42,11 +42,12 @@ export interface Crumb {
   to?: string;
 }
 
-export const PageHeader = ({ title, description, breadcrumbs, actions }: { title: string; description?: string; breadcrumbs?: Crumb[]; actions?: React.ReactNode }) => (
-  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+/** Page title block. `onBack` adds a back arrow before the title (detail and form pages). */
+export const PageHeader = ({ title, description, breadcrumbs, actions, onBack }: { title: string; description?: string; breadcrumbs?: Crumb[]; actions?: React.ReactNode; onBack?: () => void }) => (
+  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div className="min-w-0">
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1 text-xs font-medium text-muted-foreground">
+        <nav aria-label="Breadcrumb" className="mb-1 flex flex-wrap items-center gap-1 text-xs font-medium text-muted-foreground">
           {breadcrumbs.map((c, i) => (
             <React.Fragment key={`${c.label}-${i}`}>
               {i > 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
@@ -61,8 +62,15 @@ export const PageHeader = ({ title, description, breadcrumbs, actions }: { title
           ))}
         </nav>
       )}
-      <h1 className="truncate text-2xl font-extrabold sm:text-[26px]">{title}</h1>
-      {description && <p className="mt-1 max-w-2xl text-[13.5px] text-muted-foreground">{description}</p>}
+      <div className="flex min-w-0 items-center gap-2.5">
+        {onBack && (
+          <Button type="button" variant="outline" size="icon-sm" aria-label={BACK_LABEL} title={BACK_LABEL} onClick={onBack} className="shrink-0 rounded-full bg-white">
+            <ArrowLeft />
+          </Button>
+        )}
+        <h1 className="truncate text-2xl font-extrabold sm:text-[26px]">{title}</h1>
+      </div>
+      {description && <p className="mt-0.5 max-w-2xl text-[13.5px] text-muted-foreground">{description}</p>}
     </div>
     {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
   </div>
@@ -234,18 +242,17 @@ export const FormSection = ({
   children: React.ReactNode;
   className?: string;
 }) => (
-  <section className={cn('grid gap-5 px-5 py-6 sm:px-6 xl:grid-cols-[230px_minmax(0,1fr)] xl:gap-10', className)}>
-    <div className="min-w-0">
-      <div className="flex items-start gap-3">
+  // Header row on top (step · title · description · actions) so the fields below use the full width.
+  <section className={cn('px-5 py-5 sm:px-6', className)}>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex min-w-0 items-center gap-2.5">
         {step !== undefined && (
           <span className="num flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-blue-50 text-[12px] font-bold text-brand-blue ring-1 ring-brand-blue-100">{step}</span>
         )}
-        <div className="min-w-0 pt-0.5">
-          <h3 className="font-display text-[15px] font-bold leading-tight text-brand-navy">{title}</h3>
-          {description && <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">{description}</p>}
-        </div>
+        <h3 className="shrink-0 font-display text-[15px] font-bold leading-tight text-brand-navy">{title}</h3>
+        {description && <p className="hidden min-w-0 truncate border-l border-slate-200 pl-2.5 text-[12.5px] text-muted-foreground sm:block" title={description}>{description}</p>}
       </div>
-      {actions && <div className={cn('mt-3 flex flex-wrap gap-2', step !== undefined && 'pl-10')}>{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
     <div className="min-w-0">{children}</div>
   </section>
@@ -339,7 +346,7 @@ export const ConfirmDialog = ({
         {requireReason && (
           <DialogBody>
             <Field label={reasonLabel} required hint="At least 3 characters" counter={{ value: reason.length, max: 1000 }}>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={1000} autoFocus />
+              <Textarea value={reason} placeholder={PLACEHOLDERS.REASON} onChange={(e) => setReason(e.target.value)} maxLength={1000} autoFocus />
             </Field>
           </DialogBody>
         )}
