@@ -600,3 +600,17 @@ export interface IntegrationStatus {
   secretsSet: Record<string, boolean>;
   canStoreSecrets: boolean;
 }
+
+/** One row of the Customer Ledger list: a customer and their current ledger position. */
+export interface LedgerCustomerRow {
+  customerId: number;
+  customerCode: string;
+  fullName: string;
+  mobile: string;
+  branchName: string | null;
+  /** Latest running balance; positive = customer owes. 0 when there are no entries. */
+  balance: number;
+  totalDebit: number;
+  totalCredit: number;
+  lastEntry: string | null;
+}

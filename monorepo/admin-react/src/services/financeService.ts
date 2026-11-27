@@ -3,7 +3,7 @@
  */
 
 import { API, HTTP } from '@/constants/api';
-import type { AmcContract, AmcVisit, FinanceSummary, Invoice, InvoiceTotals, Payment, QueryParams, ShareLink } from '@/types';
+import type { AmcContract, AmcVisit, FinanceSummary, Invoice, InvoiceTotals, LedgerCustomerRow, Payment, QueryParams, ShareLink } from '@/types';
 import { http } from './apiClient';
 
 export const invoiceService = {
@@ -24,6 +24,8 @@ export const paymentService = {
   verify: (id: number, approve: boolean, note?: string) => http.post<Payment>(API.PAYMENT_VERIFY(id), { approve, note }),
   refund: (id: number, amount: number, reason: string) => http.post<Payment>(API.PAYMENT_REFUND(id), { amount, reason }),
   adjustLedger: (body: unknown) => http.post(API.LEDGER_ADJUST, body),
+  /** Every customer with their current ledger balance (Customer Ledger list). */
+  ledgerCustomers: (params?: QueryParams) => http.page<LedgerCustomerRow>(API.LEDGER_CUSTOMERS, params),
   outstanding: (params?: QueryParams) =>
     http.page<{ customerId: number; customerCode: string; fullName: string; mobile: string; balance: number; lastEntry: string }>(API.OUTSTANDING, params),
   summary: (params?: QueryParams) => http.get<FinanceSummary>(API.FINANCE_SUMMARY, params),

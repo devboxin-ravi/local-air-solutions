@@ -10,6 +10,17 @@ import { config } from '../config';
 import { InvoiceDetail } from '../repositories/financeRepository';
 import { formatDisplayDate, formatInr, moneyNumber } from '../utils/helpers';
 
+/** Invoice item table sizing: rows shrink between these bounds so the invoice stays on one A4 page. */
+const ITEM_TABLE = {
+  /** Space kept free below the items for totals, notes and the footer (pt). */
+  BOTTOM_RESERVE: 200,
+  FONT_MAX: 9,
+  FONT_MIN: 6.5,
+  FONT_STEP: 0.5,
+  PAD_MAX: 10,
+  PAD_MIN: 4,
+} as const;
+
 const BRAND = {
   blue: '#0048A8',
   green: '#7AB83A',
@@ -40,7 +51,7 @@ export class DocumentService {
   /** Renders a branded A4 invoice PDF from the invoice's stored snapshot. */
   invoicePdf(inv: InvoiceDetail): Promise<Buffer> {
     const snap = inv.snapshot as {
-      company?: { name?: string; tagline?: string; address?: string; phone?: string; email?: string; gstin?: string; website?: string };
+      company?: { name?: string; legalName?: string; tagline?: string; address?: string; phone?: string; email?: string; gstin?: string; stateCode?: string; website?: string };
       branch?: { name?: string; address?: string; phone?: string; gstin?: string } | null;
       customer?: { name?: string; code?: string; mobile?: string; email?: string; address?: string };
       bookingNumber?: string;
@@ -55,7 +66,7 @@ export class DocumentService {
     const W = doc.page.width - 80;
     const logo = this.logoPath();
     if (logo) doc.image(logo, 40, 34, { fit: [190, 56] });
-    else doc.fillColor(BRAND.blue).font('Helvetica-Bold').fontSize(20).text(snap.company?.name ?? 'Local Air Solutions', 40, 40);
+    else doc.fillColor(BRAND.blue).font('Helvetica-Bold').fontSize(20).text(snap.company?.name || 'Local Air Solutions', 40, 40);
 
     doc.fillColor(BRAND.navy).font('Helvetica-Bold').fontSize(22).text(inv.isFreeService ? 'FREE SERVICE INVOICE' : 'TAX INVOICE', 40, 40, { width: W, align: 'right' });
     doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate)
@@ -67,14 +78,21 @@ export class DocumentService {
 
     // From / Bill to
     const top = 124;
+    // FROM = Settings → Company Profile; the branch only adds its name (and its own GSTIN when separately registered).
     const company = snap.company ?? {};
+    const branch = snap.branch ?? null;
     doc.fillColor(BRAND.slate).fontSize(8).font('Helvetica-Bold').text('FROM', 40, top);
-    doc.fillColor(BRAND.navy).fontSize(10).font('Helvetica-Bold').text(company.name ?? '', 40, top + 12, { width: W / 2 - 10 });
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate)
-      .text([snap.branch?.name, snap.branch?.address ?? company.address].filter(Boolean).join('\n'), { width: W / 2 - 10 })
-      .text([company.phone || snap.branch?.phone, company.email].filter(Boolean).join(' · '), { width: W / 2 - 10 });
-    const gstin = snap.branch?.gstin || company.gstin;
-    if (gstin) doc.text(`GSTIN: ${gstin}`, { width: W / 2 - 10 });
+    doc.fillColor(BRAND.navy).fontSize(10).font('Helvetica-Bold').text(company.legalName || company.name || '', 40, top + 12, { width: W / 2 - 10 });
+    const fromLines = [
+      company.address || branch?.address,
+      branch?.name ? `Branch: ${branch.name}` : '',
+      [company.phone || branch?.phone, company.email].filter(Boolean).join(' · '),
+      company.website,
+    ].filter(Boolean);
+    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate).text(fromLines.join('\n'), { width: W / 2 - 10 });
+    const gstin = branch?.gstin || company.gstin;
+    const stateCode = branch?.gstin ? '' : company.stateCode;
+    if (gstin) doc.text(`GSTIN: ${gstin}${stateCode ? ` · State code: ${stateCode}` : ''}`, { width: W / 2 - 10 });
 
     const cx = 40 + W / 2 + 10;
     doc.fillColor(BRAND.slate).fontSize(8).font('Helvetica-Bold').text('BILL TO', cx, top);
@@ -104,18 +122,41 @@ export class DocumentService {
       x += c.w;
     }
     y += 22;
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.navy);
+    // One-page invoice: shrink the item rows (font, padding, then one-line descriptions) until they fit
+    // above the totals block. A second page is only a last resort for very long invoices.
+    const itemsBottom = doc.page.height - ITEM_TABLE.BOTTOM_RESERVE;
+    const descWidth = cols[1].w - 8;
+    const rowHeights = (fs: number, pad: number, oneLine: boolean) => {
+      doc.font('Helvetica').fontSize(fs);
+      return inv.items.map((it) => (oneLine ? fs + pad : Math.max(fs + 11, doc.heightOfString(it.description, { width: descWidth }) + pad)));
+    };
+    const total = (hs: number[]) => hs.reduce((s, h) => s + h, 0);
+    let fontSize: number = ITEM_TABLE.FONT_MAX;
+    let pad: number = ITEM_TABLE.PAD_MAX;
+    let oneLine = false;
+    let heights = rowHeights(fontSize, pad, oneLine);
+    while (y + total(heights) > itemsBottom && fontSize > ITEM_TABLE.FONT_MIN) {
+      fontSize -= ITEM_TABLE.FONT_STEP;
+      pad = Math.max(ITEM_TABLE.PAD_MIN, pad - 1);
+      heights = rowHeights(fontSize, pad, oneLine);
+    }
+    if (y + total(heights) > itemsBottom) {
+      oneLine = true;
+      heights = rowHeights(fontSize, pad, oneLine);
+    }
+    doc.font('Helvetica').fontSize(fontSize).fillColor(BRAND.navy);
     inv.items.forEach((it, i) => {
       const vals = [String(i + 1), it.description, it.hsnSac ?? snap.sacCode ?? '', String(it.quantity), formatInr(it.rate), formatInr(it.discount), `${moneyNumber(it.gstRate)}`, formatInr(it.amount)];
-      const h = Math.max(20, doc.heightOfString(it.description, { width: cols[1].w - 8 }) + 10);
-      if (y + h > doc.page.height - 200) {
+      const h = heights[i];
+      if (y + h > itemsBottom) {
         doc.addPage();
         y = 40;
       }
       if (i % 2 === 1) doc.rect(40, y, W, h).fill(BRAND.soft).fillColor(BRAND.navy);
       x = 40;
       vals.forEach((v, ci) => {
-        doc.fillColor(BRAND.navy).text(v, x + 4, y + 5, { width: cols[ci].w - 8, align: cols[ci].a });
+        const clamp = oneLine && ci === 1 ? { height: fontSize + 2, ellipsis: true } : {};
+        doc.fillColor(BRAND.navy).text(v, x + 4, y + pad / 2, { width: cols[ci].w - 8, align: cols[ci].a, ...clamp });
         x += cols[ci].w;
       });
       y += h;
@@ -154,13 +195,18 @@ export class DocumentService {
     if (inv.notes) {
       y += 8;
       doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.slate).text('Notes', 40, y);
-      doc.font('Helvetica').fillColor(BRAND.navy).text(inv.notes, 40, doc.y + 2, { width: W });
+      // Notes never run into the footer (keeps the invoice on one page).
+      const notesTop = doc.y + 2;
+      const notesRoom = doc.page.height - 70 - 8 - notesTop;
+      if (notesRoom > 10) doc.font('Helvetica').fillColor(BRAND.navy).text(inv.notes, 40, notesTop, { width: W, height: notesRoom, ellipsis: true });
     }
 
     // Footer
     const fy = doc.page.height - 70;
+    // The footer sits inside the bottom margin on purpose; without this PDFKit starts an empty extra page.
+    doc.page.margins.bottom = 0;
     doc.moveTo(40, fy).lineTo(40 + W, fy).lineWidth(0.5).strokeColor(BRAND.line).stroke();
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor(BRAND.green).text(company.tagline ?? 'Cool Comfort Care', 40, fy + 10, { width: W, align: 'center' });
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor(BRAND.green).text(company.tagline || 'Cool Comfort Care', 40, fy + 10, { width: W, align: 'center' });
     doc.font('Helvetica').fontSize(8).fillColor(BRAND.slate).text('This is a computer-generated invoice and does not require a signature.', 40, fy + 24, { width: W, align: 'center' });
 
     doc.end();

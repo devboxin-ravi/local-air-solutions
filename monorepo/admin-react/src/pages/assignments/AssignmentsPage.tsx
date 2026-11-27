@@ -37,7 +37,8 @@ const Progress = ({ status }: { status: string }) => {
 export default function AssignmentsPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
   const list = useListState();
-  const { data: techs } = useTechnicians();
+  // Technicians of the branch selected in the header (all branches when none is selected).
+  const { data: techs } = useTechnicians(list.query.branchId as number | undefined);
   const isBookingMode = mode !== 'all';
   const bookingStatus = mode === 'tracking' ? 'ASSIGNED,ACCEPTED,ON_THE_WAY,ARRIVED,IN_PROGRESS' : 'COMPLETED';
   const bookings = useBookingList({ ...list.query, status: bookingStatus, dateField: 'scheduledDate', sortBy: mode === 'tracking' ? 'scheduledDate' : 'createdAt', sortOrder: mode === 'tracking' ? 'asc' : 'desc' }, isBookingMode);

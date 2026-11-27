@@ -1,19 +1,23 @@
 /**
- * Customer ledger: pick a customer, view the running-balance statement, post adjustments.
+ * Customer ledger: list of all customers with their balance → click one to view the
+ * running-balance statement and post adjustments.
  */
 
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, PlusCircle } from 'lucide-react';
-import { useCustomer, useCustomerSearch } from '@/hooks/usePeople';
-import { usePaymentActions } from '@/hooks/useFinance';
+import { ArrowLeft, BookOpen, PlusCircle } from 'lucide-react';
+import { useCustomer } from '@/hooks/usePeople';
+import { useLedgerCustomers, usePaymentActions } from '@/hooks/useFinance';
+import { useListState } from '@/hooks/useListState';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import type { Customer } from '@/types';
-import { EmptyState, Field, PageHeader } from '@/components/common';
+import { cn, formatDate, formatMoney } from '@/lib/utils';
+import type { LedgerCustomerRow } from '@/types';
+import { Field, LoadingBlock, PageHeader } from '@/components/common';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { ledgerAdjustmentSchema } from '@/lib/validation';
-import { CustomerPicker } from '@/components/Pickers';
+import { DataTable, type Column } from '@/components/DataTable';
+import { FilterBar, SearchInput } from '@/components/Filters';
 import { Button, Card, Input, NativeSelect } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
 import { LedgerTab } from './CustomerDetailPage';
@@ -24,10 +28,9 @@ export default function LedgerPage() {
   const [params, setParams] = useSearchParams();
   const customerId = params.get('customerId') ? Number(params.get('customerId')) : undefined;
   const preset = useCustomer(customerId);
-  const [search, setSearch] = useState('');
-  const results = useCustomerSearch(search);
-  const [selected, setSelected] = useState<Customer | null>(null);
-  const customer = selected ?? preset.data ?? null;
+  const customer = customerId ? preset.data ?? null : null;
+  const list = useListState();
+  const customers = useLedgerCustomers(list.query);
   const pay = usePaymentActions();
   const [open, setOpen] = useState(false);
   const [adj, setAdj] = useState({ entryType: 'ADJUSTMENT', direction: 'CREDIT', amount: '', description: '' });
@@ -48,10 +51,24 @@ export default function LedgerPage() {
     );
   };
 
-  const pick = (c: Customer) => {
-    setSelected(c);
-    setParams({ customerId: String(c.id) }, { replace: true });
-  };
+  const openLedger = (r: LedgerCustomerRow) => setParams({ customerId: String(r.customerId) });
+  const backToList = () => setParams({});
+
+  const columns: Column<LedgerCustomerRow>[] = [
+    { key: 'customer', header: 'Customer', cell: (r) => <div><p className="font-semibold text-brand-navy">{r.fullName}</p><p className="text-xs text-muted-foreground">{r.customerCode}</p></div> },
+    { key: 'mobile', header: 'Mobile', cell: (r) => r.mobile },
+    { key: 'branch', header: 'Branch', cell: (r) => r.branchName ?? <span className="text-muted-foreground">Not assigned</span> },
+    { key: 'debit', header: 'Total billed', align: 'right', cell: (r) => <span className="num">{formatMoney(r.totalDebit)}</span> },
+    { key: 'credit', header: 'Total paid', align: 'right', cell: (r) => <span className="num">{formatMoney(r.totalCredit)}</span> },
+    {
+      key: 'balance',
+      header: 'Balance',
+      align: 'right',
+      cell: (r) => <span className={cn('num font-bold', r.balance > 0 ? 'text-red-600' : r.balance < 0 ? 'text-emerald-600' : 'text-slate-500')}>{formatMoney(r.balance)}</span>,
+    },
+    { key: 'last', header: 'Last entry', cell: (r) => (r.lastEntry ? formatDate(r.lastEntry) : '—') },
+    { key: 'go', header: '', align: 'right', cell: (r) => <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); openLedger(r); }}><BookOpen /> Ledger</Button> },
+  ];
 
   return (
     <>
@@ -61,12 +78,42 @@ export default function LedgerPage() {
         breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Customer Ledger' }]}
         actions={customer && can('ledger.create') && <Button variant="outline" onClick={() => setOpen(true)}><PlusCircle /> Post adjustment</Button>}
       />
-      <Card className="mb-6 p-4">
-        <div className="max-w-xl">
-          <CustomerPicker value={customer} options={results.data ?? []} loading={results.isFetching} search={search} onSearchChange={setSearch} onSelect={pick} />
-        </div>
-      </Card>
-      {customer ? <LedgerTab customerId={customer.id} /> : <Card><EmptyState icon={BookOpen} title="Select a customer" description="Search by name, mobile or customer ID to view their ledger." /></Card>}
+      {customerId ? (
+        <>
+          <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
+            {customer ? (
+              <div>
+                <p className="font-display text-lg font-bold text-brand-navy">{customer.fullName}</p>
+                <p className="text-sm text-muted-foreground">{customer.customerCode} · {customer.mobile}</p>
+              </div>
+            ) : (
+              <LoadingBlock rows={1} className="w-64" />
+            )}
+            <Button variant="outline" onClick={backToList}><ArrowLeft /> All customers</Button>
+          </Card>
+          <LedgerTab customerId={customerId} />
+        </>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={customers.data?.items}
+          rowKey={(r) => r.customerId}
+          loading={customers.isLoading}
+          error={customers.error ? (customers.error as Error).message : null}
+          onRetry={customers.refetch}
+          meta={customers.data?.meta}
+          onPageChange={list.setPage}
+          onPageSizeChange={list.setPageSize}
+          onRowClick={openLedger}
+          emptyTitle="No customers found"
+          emptyDescription="Try adjusting the search."
+          toolbar={
+            <FilterBar>
+              <SearchInput value={list.state.search} onChange={list.setSearch} placeholder="Name, mobile, customer ID…" />
+            </FilterBar>
+          }
+        />
+      )}
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
         <DialogContent>

@@ -37,6 +37,15 @@ export const invoicePdf = asyncHandler(async (req, res) => {
   res.setHeader('Content-Disposition', `${disposition}; filename="${inv.invoiceNumber}.pdf"`);
   res.send(pdf);
 });
+/** Public (no login) invoice PDF behind a signed, expiring token — the link sent on WhatsApp. */
+export const publicInvoicePdf = asyncHandler(async (req, res) => {
+  const { invoiceNumber, pdf } = await services().share.publicInvoicePdf(String(req.params.token));
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${invoiceNumber}.pdf"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.send(pdf);
+});
 export const shareInvoices = asyncHandler(async (req, res) => {
   const { invoiceIds, channel, toCustomer, staffUserIds } = req.body;
   if (channel === 'WHATSAPP') sendOk(res, await services().share.whatsappInvoices(actorOf(req), invoiceIds));
@@ -86,6 +95,9 @@ export const razorpayWebhook = asyncHandler(async (req, res) => {
 // ─── Ledger ───
 export const ledgerAdjust = asyncHandler(async (req, res) => {
   sendCreated(res, await services().ledger.adjust(actorOf(req), req.body, metaOf(req)));
+});
+export const ledgerCustomers = asyncHandler(async (req, res) => {
+  sendPage(res, await services().ledger.customerBalances(actorOf(req), req.query as never));
 });
 export const outstanding = asyncHandler(async (req, res) => {
   sendPage(res, await services().ledger.outstanding(actorOf(req), req.query as never));

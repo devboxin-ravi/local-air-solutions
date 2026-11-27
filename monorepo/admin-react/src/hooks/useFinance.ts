@@ -2,13 +2,17 @@
  * Invoice, payment, ledger and AMC logic for pages.
  */
 
+import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { amcService, invoiceService, paymentService } from '@/services/financeService';
 import { settingsService } from '@/services/engagementService';
-import { downloadBlob } from '@/lib/utils';
-import type { QueryParams, ShareLink } from '@/types';
+import { INVOICE_SHARE, MANUAL_PAYMENT } from '@/constants/ui';
+import { downloadBlob, toNumber } from '@/lib/utils';
+import type { PaymentForm } from '@/lib/validation';
+import type { Customer, QueryParams, ShareLink } from '@/types';
 import { errorMessage, useAction } from './useApi';
+import { useCustomerSearch } from './usePeople';
 
 const FIN_KEYS = [['invoices'], ['invoice'], ['payments'], ['ledger'], ['outstanding'], ['booking'], ['bookings'], ['amc'], ['dashboard'], ['finance']];
 
@@ -48,6 +52,32 @@ export function useInvoiceActions() {
         toast.error(errorMessage(e));
       }
     },
+    /**
+     * WhatsApp share of one invoice — the PDF always goes along with the message:
+     * - browsers that can share files (phones, Chrome/Edge on Windows with WhatsApp installed): the share
+     *   sheet opens with the PDF attached + the message;
+     * - otherwise: the PDF is downloaded and the customer's chat opens with the message (attach the file there).
+     */
+    whatsapp: useAction(async (v: { id: number; invoiceNumber: string }) => {
+      // Fetch both at once so the share sheet still opens inside the click's user-activation window.
+      const [links, blob] = await Promise.all([invoiceService.share({ invoiceIds: [v.id], channel: 'WHATSAPP' }) as Promise<ShareLink[]>, invoiceService.pdf(v.id)]);
+      const [link] = links;
+      const fileName = `${v.invoiceNumber}.pdf`;
+      const file = new File([blob], fileName, { type: INVOICE_SHARE.PDF_MIME });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (nav.share && nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], text: link.message });
+          return;
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') return; // user closed the share sheet
+          // e.g. NotAllowedError — fall through to download + chat.
+        }
+      }
+      downloadBlob(blob, fileName);
+      window.open(link.url, '_blank', 'noopener,noreferrer');
+      toast.info(INVOICE_SHARE.ATTACH_HINT(fileName));
+    }),
     paymentReminder: useAction((id: number) => settingsService.whatsappLink('paymentReminder', id), { onSuccess: (r) => window.open(r.url, '_blank', 'noopener,noreferrer') }),
   };
 }
@@ -63,6 +93,77 @@ export function usePaymentActions() {
     adjust: useAction((body: unknown) => paymentService.adjustLedger(body), { success: 'Ledger entry posted', invalidate: FIN_KEYS }),
   };
 }
+
+/**
+ * Manual "Record payment" from the Payment In page: pick a customer, optionally one of their
+ * unpaid invoices (amount defaults to and is capped at its balance), then record the payment.
+ */
+export function useManualPayment() {
+  const [open, setOpenState] = useState(false);
+  const [search, setSearch] = useState('');
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [customerError, setCustomerError] = useState(false);
+  const customers = useCustomerSearch(search);
+  const invoices = useQuery({
+    queryKey: ['invoices', 'outstanding-for', customer?.id],
+    queryFn: () => invoiceService.list({ customerId: customer?.id, outstandingOnly: true, pageSize: MANUAL_PAYMENT.INVOICE_PAGE_SIZE }).then((p) => p.items),
+    enabled: !!customer,
+  });
+  const { record } = usePaymentActions();
+  const invoice = invoices.data?.find((i) => i.id === invoiceId) ?? null;
+  const balance = invoice ? toNumber(invoice.balanceDue) : undefined;
+
+  const setOpen = (o: boolean) => {
+    setOpenState(o);
+    if (o) {
+      setSearch('');
+      setCustomer(null);
+      setInvoiceId(null);
+      setCustomerError(false);
+    }
+  };
+  const selectCustomer = (c: Customer) => {
+    setCustomer(c);
+    setInvoiceId(null);
+    setCustomerError(false);
+  };
+  const submit = (v: PaymentForm) => {
+    if (!customer) {
+      setCustomerError(true);
+      return;
+    }
+    record.mutate(
+      {
+        key: crypto.randomUUID(),
+        body: { customerId: customer.id, invoiceId: invoice?.id ?? null, method: v.method, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null },
+      },
+      { onSuccess: () => setOpenState(false) },
+    );
+  };
+
+  return {
+    open,
+    setOpen,
+    search,
+    setSearch,
+    customer,
+    selectCustomer,
+    customerError,
+    customers: customers.data ?? [],
+    customersLoading: customers.isFetching,
+    invoices: invoices.data ?? [],
+    invoicesLoading: invoices.isFetching,
+    invoiceId,
+    setInvoiceId,
+    balance,
+    submitting: record.isPending,
+    submit,
+  };
+}
+
+export const useLedgerCustomers = (params: QueryParams) =>
+  useQuery({ queryKey: ['ledger', 'customers', params], queryFn: () => paymentService.ledgerCustomers(params), placeholderData: keepPreviousData });
 
 export const useOutstanding = (params: QueryParams) =>
   useQuery({ queryKey: ['outstanding', params], queryFn: () => paymentService.outstanding(params), placeholderData: keepPreviousData });

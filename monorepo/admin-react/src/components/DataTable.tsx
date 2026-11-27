@@ -148,7 +148,14 @@ export function DataTable<T>({
     <Card className={cn('overflow-hidden', className)}>
       {toolbar && <div className="border-b px-4 py-3">{toolbar}</div>}
       <div className="scrollbar-thin relative overflow-x-auto">
-        <table ref={resize.tableRef} style={resize.tableStyle} className={cn('w-full min-w-[720px] border-collapse text-[13.5px]', resize.widths && '[&_td]:overflow-hidden [&_td]:text-ellipsis')}>
+        <table ref={resize.tableRef} style={resize.tableStyle} className={cn(
+            'w-full min-w-[720px] border-collapse text-[13.5px]',
+            resize.widths
+              ? '[&_td]:overflow-hidden [&_td]:text-ellipsis'
+              : // Phones/tablets: columns take their natural width and the table scrolls sideways, instead of
+                // squeezing every column and wrapping text into tall rows.
+                'max-lg:w-max max-lg:min-w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap',
+          )}>
           <thead>
             <tr className="border-b bg-slate-50/80">
               {selectable && (

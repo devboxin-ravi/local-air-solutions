@@ -3,13 +3,13 @@
  */
 
 import { Prisma } from '@prisma/client';
-import { ACTIVE_JOB_STATUSES, AuditActions, ErrorMessages, NumberPrefixes, RoleCodes } from '../constants';
+import { ACTIVE_JOB_STATUSES, AuditActions, ErrorMessages, NumberPrefixes, RoleCodeRules, RoleCodes } from '../constants';
 import { StaffRepository } from '../repositories/staffRepository';
 import { UserRepository } from '../repositories/userRepository';
 import { nextSequence, runInTransaction } from '../repositories/db';
 import type { AuthUser, RequestMeta } from '../models';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../utils/errors';
-import { compact, formatCode, randomToken, toPageMeta, toPageParams } from '../utils/helpers';
+import { compact, formatCode, randomToken, toPageMeta, toPageParams, toRoleCode } from '../utils/helpers';
 import { assertBranchAccess, resolveBranchScope } from './accessControl';
 import { AuthService } from './authService';
 import { SettingsService } from './settingsService';
@@ -197,17 +197,29 @@ export class StaffService {
     return this.users.listPermissions();
   }
 
-  async createRole(actor: AuthUser, input: { code: string; name: string; description?: string | null; permissionCodes: string[] }, meta: RequestMeta) {
+  /** Role names are unique, ignoring case and extra spaces ("Accountant" = " accountant "). */
+  private async assertRoleNameAvailable(name: string, exceptId?: number): Promise<void> {
+    const normalize = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+    const wanted = normalize(name);
+    const roles = await this.users.listRoleNames();
+    if (roles.some((r) => r.id !== exceptId && normalize(r.name) === wanted)) {
+      throw new ValidationError(ErrorMessages.ROLE_NAME_TAKEN, { name: ErrorMessages.ROLE_NAME_TAKEN });
+    }
+  }
+
+  async createRole(actor: AuthUser, input: { code?: string; name: string; description?: string | null; permissionCodes: string[] }, meta: RequestMeta) {
+    await this.assertRoleNameAvailable(input.name);
+    const code = input.code || toRoleCode(input.name, RoleCodeRules.MAX_LENGTH, RoleCodeRules.FALLBACK, RoleCodeRules.MIN_LENGTH);
     const perms = await this.users.findPermissionsByCodes(input.permissionCodes);
     const role = await runInTransaction(async (tx) => {
-      const r = await this.users.createRole({ code: input.code, name: input.name, description: input.description ?? null }, tx).catch((e) => {
+      const r = await this.users.createRole({ code, name: input.name, description: input.description ?? null }, tx).catch((e) => {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ConflictError(ErrorMessages.ALREADY_EXISTS('Role'));
         throw e;
       });
       await this.users.setRolePermissions(r.id, perms.map((p) => p.id), tx);
       return r;
     });
-    await this.settings.audit(actor, AuditActions.CREATE, 'role', role.id, null, input, meta);
+    await this.settings.audit(actor, AuditActions.CREATE, 'role', role.id, null, { ...input, code }, meta);
     return this.users.findRoleById(role.id);
   }
 
@@ -215,6 +227,7 @@ export class StaffService {
     const role = await this.users.findRoleById(id);
     if (!role) throw new NotFoundError('Role');
     if (role.code === RoleCodes.SUPER_ADMIN && input.permissionCodes) throw new ForbiddenError(ErrorMessages.SYSTEM_ROLE_LOCKED);
+    if (input.name !== undefined) await this.assertRoleNameAvailable(input.name, id);
     await runInTransaction(async (tx) => {
       await this.users.updateRole(id, compact({ name: input.name, description: input.description }), tx);
       if (input.permissionCodes) {

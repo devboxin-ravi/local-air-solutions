@@ -21,21 +21,24 @@ export const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { size?: 'sm' | 'md' | 'lg' | 'xl' }
 >(({ className, children, size = 'md', ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-brand-navy/40 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border bg-white shadow-elevated data-[state=open]:animate-zoom-in focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
-        { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size],
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close">
-        <X className="h-4 w-4" />
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
+    {/* The overlay centres the dialog with grid (no translate on the dialog itself), so the open
+        animation can never shift it sideways. */}
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-brand-navy/40 p-4 backdrop-blur-[2px] data-[state=open]:animate-fade-in">
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          'relative flex max-h-[90vh] w-full flex-col rounded-2xl border bg-white shadow-elevated data-[state=open]:animate-zoom-in [&>form]:flex [&>form]:min-h-0 [&>form]:flex-1 [&>form]:flex-col focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0',
+          { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }[size],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close">
+          <X className="h-4 w-4" />
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Overlay>
   </DialogPrimitive.Portal>
 ));
 DialogContent.displayName = 'DialogContent';
@@ -51,7 +54,8 @@ export const DialogHeader = ({ title, description }: { title: string; descriptio
   </div>
 );
 export const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('scrollbar-thin flex-1 overflow-y-auto px-6 py-5', className)} {...props} />
+  // min-h-0 lets the body shrink and scroll so the footer always stays inside the dialog on short screens.
+  <div className={cn('scrollbar-thin min-h-0 flex-1 overflow-y-auto px-6 py-5', className)} {...props} />
 );
 export const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('flex flex-col-reverse gap-2 border-t bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end rounded-b-2xl', className)} {...props} />

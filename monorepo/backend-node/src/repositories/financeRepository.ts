@@ -169,6 +169,34 @@ export class FinanceRepository {
     return { items: rows, total: Number(count[0]?.total ?? 0) };
   }
 
+  /**
+   * Every (non-deleted) customer with their ledger position: current balance (latest balance_after,
+   * 0 when no entries), total debit / credit and last entry date. Branch filter also includes customers
+   * not yet assigned to a branch. Sorted by balance (highest first), then name.
+   */
+  async customerBalances(q: { branchId?: number; search?: string }, skip: number, take: number, db: Db = prisma) {
+    const branchFilter = q.branchId ? Prisma.sql`AND (c.branch_id = ${q.branchId} OR c.branch_id IS NULL)` : Prisma.empty;
+    const like = q.search ? `%${q.search}%` : null;
+    const searchFilter = like
+      ? Prisma.sql`AND (c.full_name LIKE ${like} OR c.mobile LIKE ${like} OR c.customer_code LIKE ${like} OR c.email LIKE ${like})`
+      : Prisma.empty;
+    const rows = await db.$queryRaw<
+      Array<{ id: number; customer_code: string; full_name: string; mobile: string; branch_name: string | null; balance: Prisma.Decimal | null; total_debit: Prisma.Decimal | null; total_credit: Prisma.Decimal | null; last_entry: Date | null }>
+    >`
+      SELECT c.id, c.customer_code, c.full_name, c.mobile, b.name AS branch_name,
+             latest.balance_after AS balance, t.total_debit, t.total_credit, latest.entry_date AS last_entry
+        FROM customers c
+        LEFT JOIN branches b ON b.id = c.branch_id
+        LEFT JOIN customer_ledger latest ON latest.id = (SELECT MAX(id) FROM customer_ledger WHERE customer_id = c.id)
+        LEFT JOIN (SELECT customer_id, SUM(debit) AS total_debit, SUM(credit) AS total_credit FROM customer_ledger GROUP BY customer_id) t ON t.customer_id = c.id
+       WHERE c.deleted_at IS NULL ${branchFilter} ${searchFilter}
+       ORDER BY COALESCE(latest.balance_after, 0) DESC, c.full_name ASC, c.id ASC
+       LIMIT ${take} OFFSET ${skip}`;
+    const count = await db.$queryRaw<Array<{ total: bigint }>>`
+      SELECT COUNT(*) AS total FROM customers c WHERE c.deleted_at IS NULL ${branchFilter} ${searchFilter}`;
+    return { items: rows, total: Number(count[0]?.total ?? 0) };
+  }
+
   /** Verified payments not yet attached to an invoice (prepaid against a booking/AMC). */
   findUnappliedVerifiedPayments(where: { bookingId?: number | null; amcContractId?: number | null }, db: Db = prisma) {
     if (!where.bookingId && !where.amcContractId) return Promise.resolve([]);

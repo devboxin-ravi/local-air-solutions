@@ -11,7 +11,7 @@ import { Db, prisma } from '../repositories/db';
 import type { AuthUser } from '../models';
 import { NotFoundError } from '../utils/errors';
 import { addDays, addMonths, formatDisplayDate, parseDateOnly, todayDateOnly, toDateOnlyString, toPageMeta, toPageParams } from '../utils/helpers';
-import { resolveBranchScope } from './accessControl';
+import { customerBranchWhere, resolveBranchScope } from './accessControl';
 import { NotificationService } from './notificationService';
 import { SettingsService } from './settingsService';
 
@@ -75,7 +75,7 @@ export class ReminderService {
       ...(q.type ? { type: q.type } : {}),
       ...(actor.userType === 'CUSTOMER' ? { customerId: actor.customerId ?? -1 } : q.customerId ? { customerId: q.customerId } : {}),
       customer: {
-        ...(branchId ? { branchId } : {}),
+        ...customerBranchWhere(branchId),
         ...(q.search ? { OR: [{ fullName: { contains: q.search } }, { mobile: { contains: q.search } }] } : {}),
       },
     };
@@ -85,7 +85,7 @@ export class ReminderService {
 
   async summary(actor: AuthUser, branchId?: number) {
     const scoped = resolveBranchScope(actor, branchId);
-    const customer = scoped ? { customer: { branchId: scoped } } : {};
+    const customer = scoped ? { customer: customerBranchWhere(scoped) } : {};
     const [upcoming, dueToday, overdue, completed] = await Promise.all(
       ['upcoming', 'dueToday', 'overdue', 'completed'].map((b) =>
         this.repo.listReminders({ ...this.bucketWhere(b), ...customer }, 0, 0).then((r) => r.total),

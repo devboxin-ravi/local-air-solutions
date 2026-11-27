@@ -108,6 +108,27 @@ export class LedgerService {
     return entry;
   }
 
+  /** All customers with their current ledger balance (Customer Ledger page list). */
+  async customerBalances(actor: AuthUser, q: { page?: number; pageSize?: number; branchId?: number; search?: string }) {
+    const branchId = resolveBranchScope(actor, q.branchId);
+    const p = toPageParams(q.page, q.pageSize);
+    const { items, total } = await this.repo.customerBalances({ branchId, search: q.search || undefined }, p.skip, p.take);
+    return {
+      items: items.map((r) => ({
+        customerId: r.id,
+        customerCode: r.customer_code,
+        fullName: r.full_name,
+        mobile: r.mobile,
+        branchName: r.branch_name,
+        balance: moneyNumber(r.balance),
+        totalDebit: moneyNumber(r.total_debit),
+        totalCredit: moneyNumber(r.total_credit),
+        lastEntry: r.last_entry,
+      })),
+      meta: toPageMeta(p, total),
+    };
+  }
+
   async outstanding(actor: AuthUser, q: { page?: number; pageSize?: number; branchId?: number }) {
     const branchId = resolveBranchScope(actor, q.branchId);
     const p = toPageParams(q.page, q.pageSize);

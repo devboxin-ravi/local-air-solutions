@@ -8,7 +8,7 @@ import { http } from './apiClient';
 
 export const reportService = {
   dashboard: (params?: QueryParams) => http.get<DashboardData>(API.DASHBOARD, params),
-  search: (q: string) => http.get<SearchResults>(API.SEARCH, { q }),
+  search: (q: string, branchId?: number) => http.get<SearchResults>(API.SEARCH, { q, branchId }),
   report: (key: string, params?: QueryParams) => http.get<ReportResult>(API.REPORT(key), params),
   exportReport: (key: string, format: 'csv' | 'xlsx' | 'pdf', params?: QueryParams) => http.blob(API.REPORT(key), { ...params, format }),
 };

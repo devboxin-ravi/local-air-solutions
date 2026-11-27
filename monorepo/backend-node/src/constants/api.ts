@@ -52,3 +52,12 @@ export const HeaderNames = {
   IDEMPOTENCY_KEY: 'idempotency-key',
   RAZORPAY_SIGNATURE: 'x-razorpay-signature',
 } as const;
+
+/** Signed, expiring public links (no login) — e.g. the invoice PDF link sent on WhatsApp. */
+export const SharedLinks = {
+  INVOICE_PDF_PURPOSE: 'invoice-pdf',
+  INVOICE_PDF_TTL_DAYS: 30,
+  /** Route (under API_PREFIX) that serves the PDF for a signed token. */
+  INVOICE_PDF_ROUTE: '/public/invoices/:token/pdf',
+  INVOICE_PDF_PATH: (token: string) => `${API_PREFIX}/public/invoices/${token}/pdf`,
+} as const;

@@ -35,7 +35,7 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
 
   const list = useListState({ sortBy: 'createdAt' });
   const { data, isLoading, isFetching, error, refetch } = useBookingList({ ...lockedFilters, ...list.query });
-  const { data: services } = useServiceLookup();
+  const { data: services } = useServiceLookup(list.query.branchId as number | undefined);
   const actions = useBookingListActions();
   const [toCancel, setToCancel] = useState<Booking | null>(null);
 

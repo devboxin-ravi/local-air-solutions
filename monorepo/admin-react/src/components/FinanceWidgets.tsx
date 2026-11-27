@@ -22,6 +22,7 @@ export const RecordPaymentDialog = ({
   context,
   submitting,
   onSubmit,
+  children,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -30,10 +31,17 @@ export const RecordPaymentDialog = ({
   context: string;
   submitting?: boolean;
   onSubmit: (v: PaymentForm) => void;
+  /** Extra fields rendered above the payment fields (e.g. customer / invoice pickers). */
+  children?: React.ReactNode;
 }) => {
   const form = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema), defaultValues: { method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), note: '' } });
+  // Reset the whole form only when the dialog opens (defaultAmount deliberately not a dependency)…
   React.useEffect(() => {
     if (open) form.reset({ method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), note: '' });
+  }, [open, form]);
+  // …and only the amount when the suggested amount changes (e.g. another invoice picked), keeping typed fields.
+  React.useEffect(() => {
+    if (open) form.setValue('amount', defaultAmount ?? 0);
   }, [open, defaultAmount, form]);
   const method = form.watch('method');
   const e = form.formState.errors;
@@ -52,6 +60,7 @@ export const RecordPaymentDialog = ({
           noValidate
         >
           <DialogBody className="grid gap-4 sm:grid-cols-2">
+            {children && <div className="grid gap-4 sm:col-span-2">{children}</div>}
             <Field label="Method" required>
               <NativeSelect {...form.register('method')}>
                 {PAYMENT_METHODS.filter((m) => m.value !== 'RAZORPAY').map((m) => (

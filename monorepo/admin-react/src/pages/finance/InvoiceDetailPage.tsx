@@ -19,8 +19,8 @@ import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@
 import { useGoBack } from '@/hooks/useGoBack';
 
 interface Snapshot {
-  company?: { name?: string; address?: string; phone?: string; email?: string; gstin?: string; tagline?: string };
-  branch?: { name?: string; address?: string; gstin?: string } | null;
+  company?: { name?: string; legalName?: string; address?: string; phone?: string; email?: string; website?: string; gstin?: string; stateCode?: string; tagline?: string };
+  branch?: { name?: string; address?: string; phone?: string; gstin?: string } | null;
   customer?: { name?: string; code?: string; mobile?: string; email?: string; address?: string };
 }
 
@@ -31,7 +31,8 @@ export default function InvoiceDetailPage() {
   const { data: inv, isLoading, error, refetch } = useInvoice(id);
   const actions = useInvoiceActions();
   const pay = usePaymentActions();
-  const { data: staff } = useTechnicians();
+  // Staff of the invoice's own branch.
+  const { data: staff } = useTechnicians(inv?.branchId);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -54,7 +55,7 @@ export default function InvoiceDetailPage() {
           <>
             <Button variant="outline" onClick={() => actions.downloadPdf(inv.id, inv.invoiceNumber)}><Download /> PDF</Button>
             <Button variant="outline" onClick={() => actions.downloadPdf(inv.id, inv.invoiceNumber, true)}><Printer /> Print</Button>
-            <Button variant="outline" onClick={() => actions.share.mutate({ invoiceIds: [inv.id], channel: 'WHATSAPP' })}><MessageCircle className="text-green-600" /> WhatsApp</Button>
+            <Button variant="outline" loading={actions.whatsapp.isPending} onClick={() => actions.whatsapp.mutate({ id: inv.id, invoiceNumber: inv.invoiceNumber })}><MessageCircle className="text-green-600" /> WhatsApp</Button>
             <Button variant="outline" onClick={() => setShareOpen(true)}><Mail /> Email</Button>
             {!cancelled && balance > 0 && <Button variant="outline" onClick={() => actions.paymentReminder.mutate(inv.id)}><BellRing /> Payment reminder</Button>}
             {!cancelled && balance > 0 && can('payments.create') && <Button onClick={() => setPayOpen(true)}><IndianRupee /> Record payment</Button>}
@@ -78,10 +79,20 @@ export default function InvoiceDetailPage() {
             <div className="mt-8 grid gap-6 border-t border-brand-green-200 pt-6 sm:grid-cols-2">
               <div className="text-[13px]">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">From</p>
-                <p className="mt-1 font-semibold text-brand-navy">{snap.company?.name}</p>
-                <p className="text-slate-600">{snap.branch?.name}</p>
-                <p className="whitespace-pre-line text-slate-600">{snap.branch?.address ?? snap.company?.address}</p>
-                {(snap.branch?.gstin || snap.company?.gstin) && <p className="text-slate-600">GSTIN: {snap.branch?.gstin || snap.company?.gstin}</p>}
+                {/* Settings → Company Profile (same as the PDF); the branch adds its name and, if separately registered, its GSTIN. */}
+                <p className="mt-1 font-semibold text-brand-navy">{snap.company?.legalName || snap.company?.name}</p>
+                {(snap.company?.address || snap.branch?.address) && <p className="whitespace-pre-line text-slate-600">{snap.company?.address || snap.branch?.address}</p>}
+                {snap.branch?.name && <p className="text-slate-600">Branch: {snap.branch.name}</p>}
+                {(snap.company?.phone || snap.branch?.phone || snap.company?.email) && (
+                  <p className="text-slate-600">{[snap.company?.phone || snap.branch?.phone, snap.company?.email].filter(Boolean).join(' · ')}</p>
+                )}
+                {snap.company?.website && <p className="text-slate-600">{snap.company.website}</p>}
+                {(snap.branch?.gstin || snap.company?.gstin) && (
+                  <p className="text-slate-600">
+                    GSTIN: {snap.branch?.gstin || snap.company?.gstin}
+                    {!snap.branch?.gstin && snap.company?.stateCode ? ` · State code: ${snap.company.stateCode}` : ''}
+                  </p>
+                )}
               </div>
               <div className="text-[13px]">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Bill to</p>
@@ -128,7 +139,7 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
             {inv.notes && <p className="mt-6 whitespace-pre-line rounded-lg bg-slate-50 p-3 text-[12.5px] text-slate-600">{inv.notes}</p>}
-            <p className="mt-10 text-center font-display text-sm font-semibold italic text-brand-green-600">{snap.company?.tagline ?? 'Cool Comfort Care'}</p>
+            <p className="mt-10 text-center font-display text-sm font-semibold italic text-brand-green-600">{snap.company?.tagline || 'Cool Comfort Care'}</p>
           </div>
         </Card>
 

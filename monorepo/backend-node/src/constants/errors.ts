@@ -88,6 +88,7 @@ export const ErrorMessages = {
   PASSWORD_MISMATCH: 'Current password is incorrect.',
   SYSTEM_ROLE_LOCKED: 'System roles cannot be deleted.',
   SUPER_ADMIN_ROLE_LOCKED: 'The Super Admin role cannot be deleted.',
+  ROLE_NAME_TAKEN: 'A role with this name already exists. Choose a different name.',
   ROLE_IN_USE: (count: number) => `${count} user(s) still have this role. Move them to another role first.`,
   NO_CUSTOMER_PROFILE: 'Customer profile not found for this account.',
   NO_STAFF_PROFILE: 'Staff profile not found for this account.',

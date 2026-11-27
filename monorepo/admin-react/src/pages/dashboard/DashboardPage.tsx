@@ -215,7 +215,8 @@ export default function DashboardPage() {
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-brand-green-200 transition-colors group-hover:bg-brand-green-500 group-hover:text-white">
                       <a.icon className="h-4 w-4" />
                     </span>
-                    <span className="truncate">{a.label}</span>
+                    {/* Wraps to two lines on phones instead of cutting the label off. */}
+                    <span className="min-w-0 leading-tight sm:truncate">{a.label}</span>
                   </Link>
                 ))}
               </div>

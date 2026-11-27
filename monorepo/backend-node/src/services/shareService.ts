@@ -3,11 +3,13 @@
  * of invoices (single + bulk) to customers and selected staff.
  */
 
-import { ErrorMessages } from '../constants';
+import { config } from '../config';
+import { ErrorMessages, SharedLinks } from '../constants';
 import { IntegrationUrls } from '../constants/integrations';
 import type { AuthUser, ShareLink } from '../models';
-import { BusinessRuleError } from '../utils/errors';
-import { buildWhatsAppLink, formatDisplayDate, formatInr, moneyNumber } from '../utils/helpers';
+import { BusinessRuleError, NotFoundError } from '../utils/errors';
+import { addDays, buildWhatsAppLink, formatDisplayDate, formatInr, moneyNumber } from '../utils/helpers';
+import { createSignedToken, verifySignedToken } from '../utils/signedToken';
 import { BookingService } from './bookingService';
 import { EmailProvider } from './deliveryProviders';
 import { DocumentService } from './documentService';
@@ -49,11 +51,12 @@ export class ShareService {
 
     if (type === 'invoice' || type === 'paymentReminder') {
       const inv = await this.invoices.get(actor, id);
+      const pdfUrl = type === 'invoice' ? this.invoicePdfLink(inv.id) : undefined;
       const message =
         type === 'invoice'
-          ? `Hello ${inv.customer.fullName},\n\nInvoice *${inv.invoiceNumber}* dated ${formatDisplayDate(inv.invoiceDate)}\nTotal: ₹${formatInr(inv.grandTotal)}\nPaid: ₹${formatInr(inv.amountPaid)}\nBalance: ₹${formatInr(inv.balanceDue)}${sign}`
+          ? `Hello ${inv.customer.fullName},\n\nInvoice *${inv.invoiceNumber}* dated ${formatDisplayDate(inv.invoiceDate)}\nTotal: ₹${formatInr(inv.grandTotal)}\nPaid: ₹${formatInr(inv.amountPaid)}\nBalance: ₹${formatInr(inv.balanceDue)}\n\nInvoice PDF: ${pdfUrl}${sign}`
           : `Hello ${inv.customer.fullName},\n\nThis is a gentle reminder that ₹${formatInr(inv.balanceDue)} is pending on invoice *${inv.invoiceNumber}*.${company.supportPhone ? `\nFor queries call ${company.supportPhone}.` : ''}${sign}`;
-      return { channel: 'WHATSAPP', message, url: buildWhatsAppLink(inv.customer.countryCode, inv.customer.mobile, message) };
+      return { channel: 'WHATSAPP', message, url: buildWhatsAppLink(inv.customer.countryCode, inv.customer.mobile, message), ...(pdfUrl ? { pdfUrl } : {}) };
     }
 
     const reminder = await this.engagement.findReminder(id);
@@ -93,6 +96,21 @@ export class ShareService {
   }
 
   /** Bulk WhatsApp: returns a link per invoice (manual sharing opens each). */
+  /** Signed public link to an invoice PDF, valid for SharedLinks.INVOICE_PDF_TTL_DAYS (no login needed). */
+  invoicePdfLink(invoiceId: number): string {
+    const expiresAt = addDays(new Date(), SharedLinks.INVOICE_PDF_TTL_DAYS);
+    const token = createSignedToken(SharedLinks.INVOICE_PDF_PURPOSE, invoiceId, expiresAt, config.jwt.accessSecret);
+    return `${config.publicBaseUrl.replace(/\/+$/, '')}${SharedLinks.INVOICE_PDF_PATH(token)}`;
+  }
+
+  /** Renders the PDF for a signed public link; tampered, expired or cancelled → not found. */
+  async publicInvoicePdf(token: string): Promise<{ invoiceNumber: string; pdf: Buffer }> {
+    const id = verifySignedToken(SharedLinks.INVOICE_PDF_PURPOSE, token, config.jwt.accessSecret);
+    if (!id) throw new NotFoundError('Invoice');
+    const inv = await this.invoices.getForShareLink(id);
+    return { invoiceNumber: inv.invoiceNumber, pdf: await this.documents.invoicePdf(inv) };
+  }
+
   async whatsappInvoices(actor: AuthUser, invoiceIds: number[]) {
     return Promise.all(invoiceIds.map(async (id) => ({ invoiceId: id, ...(await this.whatsapp(actor, 'invoice', id)) })));
   }

@@ -94,6 +94,7 @@ export const API = {
   PAYMENT_VERIFY: (id: number) => `/payments/${id}/verify`,
   PAYMENT_REFUND: (id: number) => `/payments/${id}/refund`,
   LEDGER_ADJUST: '/ledger/adjustments',
+  LEDGER_CUSTOMERS: '/ledger/customers',
   OUTSTANDING: '/ledger/outstanding',
   FINANCE_SUMMARY: '/finance/summary',
 

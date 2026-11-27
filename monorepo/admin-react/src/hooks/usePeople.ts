@@ -4,8 +4,10 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { customerService, staffService } from '@/services/peopleService';
+import { CUSTOMER_PICKER } from '@/constants/ui';
 import type { QueryParams } from '@/types';
 import { useAction } from './useApi';
+import { useBranchScope } from './useBranchScope';
 
 export const useCustomerList = (params: QueryParams) =>
   useQuery({ queryKey: ['customers', params], queryFn: () => customerService.list(params), placeholderData: keepPreviousData });
@@ -24,8 +26,18 @@ export const useCustomerBookings = (customerId?: number, params?: QueryParams) =
   useQuery({ queryKey: ['bookings', 'customer', customerId, params], queryFn: () => customerService.bookings(customerId as number, params), enabled: !!customerId });
 
 /** Async customer picker search (used by booking/invoice/AMC forms). */
-export const useCustomerSearch = (search: string) =>
-  useQuery({ queryKey: ['customers', 'picker', search], queryFn: () => customerService.list({ search, pageSize: 8 }).then((p) => p.items), placeholderData: keepPreviousData });
+/**
+ * Customer picker options: every matching customer (A–Z) in the branch selected in the header — the same
+ * set the Customers list shows (incl. customers not yet assigned to a branch). "All branches" → everyone.
+ */
+export const useCustomerSearch = (search: string) => {
+  const { branchId } = useBranchScope();
+  return useQuery({
+    queryKey: ['customers', 'picker', search, branchId],
+    queryFn: () => customerService.listAll({ search, branchId, sortBy: CUSTOMER_PICKER.SORT_BY, sortOrder: 'asc' }, CUSTOMER_PICKER.PAGE_SIZE),
+    placeholderData: keepPreviousData,
+  });
+};
 
 export function useCustomerActions() {
   const invalidate = [['customers'], ['customer'], ['addresses']];

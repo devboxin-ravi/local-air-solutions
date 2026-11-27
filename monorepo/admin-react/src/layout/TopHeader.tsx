@@ -34,7 +34,7 @@ const useVisibleNav = () => {
 };
 
 const NAV_ITEM =
-  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] xl:px-2.5 xl:text-[14px] 2xl:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
+  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] 2xl:px-2.5 2xl:text-[14px] min-[1680px]:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
 const NAV_ACTIVE = 'text-brand-blue';
 const NAV_IDLE = 'text-slate-600 hover:bg-slate-100 hover:text-brand-navy';
 const NAV_OPEN = 'bg-slate-100 text-brand-navy';
@@ -45,7 +45,7 @@ const ActivePill = () => (
   <motion.span
     layoutId="nav-active-pill"
     transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-    className="absolute inset-0 -z-10 rounded-lg bg-brand-blue-50 ring-1 ring-inset ring-brand-blue-100"
+    className="absolute inset-0 -z-10 rounded-lg bg-brand-blue-50"
   />
 );
 
@@ -53,7 +53,8 @@ const ActivePill = () => (
 const NavItemBody = ({ module, chevron, open }: { module: NavModule; chevron: boolean; open?: boolean }) => (
   <>
     {module.label}
-    {chevron && <ChevronDown className={cn('h-3.5 w-3.5 opacity-50 transition-transform duration-dropdown', open && 'rotate-180')} />}
+    {/* Arrows only on wide screens, so all modules fit in one row on laptops (menus still open on hover/click). */}
+    {chevron && <ChevronDown className={cn('hidden h-3.5 w-3.5 opacity-50 transition-transform duration-dropdown 2xl:block', open && 'rotate-180')} />}
   </>
 );
 
@@ -239,16 +240,27 @@ const MobileNav = ({ nav, open, onOpenChange }: { nav: NavModule[]; open: boolea
   const { pathname } = useLocation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-w-sm" aria-describedby={undefined}>
+      {/* No auto-focus on open: it drew a focus ring around the first item on touch devices. */}
+      <DrawerContent className="max-w-sm" aria-describedby={undefined} onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="flex h-header items-center border-b px-5">
           <BrandLogo variant="header" className="h-10" />
         </div>
         <div className="border-b p-4">
-          <BranchSelector className="[&_select]:w-full" />
+          {/* Branch-scoped users get their (otherwise desktop-only) branch label here; company-wide users the switcher. */}
+          <BranchSelector className="flex w-full max-w-none [&_select]:w-full" />
         </div>
         <nav className="scrollbar-thin flex-1 overflow-y-auto p-3" aria-label="Main">
           {nav.map((m) => {
             const isOpen = expanded === m.key || (expanded === null && pathname.startsWith(m.basePath));
+            // Single-page modules (e.g. Dashboard) are a direct link, like the desktop menu — no empty dropdown.
+            if (m.children.length === 1) {
+              return (
+                <NavLink key={m.key} to={m.children[0].to} onClick={() => onOpenChange(false)} className={cn('mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', pathname.startsWith(m.basePath) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
+                  <m.icon className="h-4 w-4" />
+                  <span className="flex-1 text-left">{m.label}</span>
+                </NavLink>
+              );
+            }
             return (
               <div key={m.key} className="mb-1">
                 <button type="button" onClick={() => setExpanded(isOpen ? '' : m.key)} className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', pathname.startsWith(m.basePath) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
@@ -303,10 +315,12 @@ export const TopHeader = () => {
           {mobileOpen ? <X /> : <Menu />}
         </Button>
         <Link to={ROUTES.DASHBOARD} className="flex shrink-0 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring" aria-label="Local Air Solutions — Dashboard">
-          <BrandLogo variant="header" className="h-11 lg:h-12 2xl:h-[52px]" />
+          {/* The wordmark sits at ~61% of the image height (leaf above it); lift by 11% so it lines up with the menu text. */}
+          <BrandLogo variant="header" className="h-12 -translate-y-[11%] lg:h-14 2xl:h-[60px]" />
         </Link>
 
-        <MainNav nav={nav} className="hidden flex-1 lg:flex lg:justify-center" />
+        {/* "safe center": centred when it fits, start-aligned when it overflows — the first module is never cut off. */}
+        <MainNav nav={nav} className="hidden flex-1 lg:flex lg:[justify-content:safe_center]" />
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2 lg:ml-0">
           <BranchSelector className="hidden sm:block" />
