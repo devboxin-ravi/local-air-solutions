@@ -188,7 +188,7 @@ export default function MasterDataPage() {
   return (
     <>
       <PageHeader
-        title={param === 'skills-products' ? 'Skills & Products' : cfg.title}
+        title={param === 'skills-products' ? 'Staff Skills & Products' : cfg.title}
         description={cfg.description}
         breadcrumbs={[{ label: 'Master Data', to: ROUTES.STATES }, { label: cfg.title }]}
         actions={can('masterData.create') && <Button onClick={() => setEditing('new')}><Plus /> Add {cfg.singular}</Button>}

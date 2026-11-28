@@ -19,7 +19,18 @@ export const apiLimiter = rateLimit({
   message: limitedResponse,
 });
 
-/** Stricter limiter for login / OTP / password reset endpoints. */
+/** Password / OTP sign-in: only failed attempts count, so normal sign-ins never lock a user out. */
+export const loginLimiter = rateLimit({
+  windowMs: config.rateLimit.windowMinutes * 60_000,
+  limit: config.rateLimit.authMax,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  statusCode: StatusCodes.TOO_MANY_REQUESTS,
+  message: limitedResponse,
+});
+
+/** Stricter limiter for registration and password reset: every request counts. */
 export const authLimiter = rateLimit({
   windowMs: config.rateLimit.windowMinutes * 60_000,
   limit: config.rateLimit.authMax,

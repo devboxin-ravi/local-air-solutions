@@ -38,6 +38,9 @@ export const API = {
   SERVICE_AREAS: '/service-areas',
   SKILLS: '/skills',
   PRODUCTS: '/products',
+  STOCK_ITEMS: '/stock-items',
+  STOCK_ITEM: (id: number) => `/stock-items/${id}`,
+  STOCK_ADJUST: (id: number) => `/stock-items/${id}/adjust`,
   MASTER: (resource: string, id?: number) => (id ? `/${resource}/${id}` : `/${resource}`),
 
   CATEGORIES: '/categories',

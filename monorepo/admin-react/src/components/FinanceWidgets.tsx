@@ -5,14 +5,16 @@
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { Trash2 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { cn, formatMoney, toYmd } from '@/lib/utils';
 import { PAYMENT_METHODS, PLACEHOLDERS } from '@/constants/ui';
 import { paymentSchema, type PaymentForm } from '@/lib/validation';
-import type { InvoiceTotals } from '@/types';
+import type { InvoiceTotals, StockItem } from '@/types';
 import { Field } from './common';
 import { Button, Checkbox, Input, Label, NativeSelect, Textarea } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
+import { SearchSelect } from './Pickers';
 
 export const RecordPaymentDialog = ({
   open,
@@ -168,6 +170,7 @@ export const GenerateInvoiceDialog = ({
   onOptionsChange,
   totals,
   lines,
+  parts,
   submitting,
   onSubmit,
 }: {
@@ -177,12 +180,20 @@ export const GenerateInvoiceDialog = ({
   onOptionsChange: (v: InvoiceOptionsValue) => void;
   totals?: InvoiceTotals;
   lines: Array<{ description: string; quantity: number; rate: number }>;
+  /** Stock items that can be added to the booking's services. */
+  parts: {
+    items: StockItem[];
+    lines: Array<{ stockItemId: number; description: string; quantity: number }>;
+    add: (id: number) => void;
+    setQuantity: (id: number, quantity: number) => void;
+    remove: (id: number) => void;
+  };
   submitting?: boolean;
   onSubmit: () => void;
 }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent size="lg">
-      <DialogHeader title="Generate invoice" description="Line items are taken from the booking’s locked prices." />
+      <DialogHeader title="Generate invoice" description="Services use the booking’s locked prices. Add any stock items used on the job." />
       <DialogBody className="space-y-5">
         <ul className="divide-y rounded-xl border text-[13px]">
           {lines.map((l, i) => (
@@ -194,6 +205,26 @@ export const GenerateInvoiceDialog = ({
             </li>
           ))}
         </ul>
+        <div className="space-y-2">
+          <Field label="Add stock item (optional)">
+            <SearchSelect
+              id="invoice-add-part"
+              resetOnSelect
+              placeholder="Search stock by name or code"
+              options={parts.items.map((p) => ({ value: p.id, label: p.name, hint: `${p.code} · ${p.quantity} ${p.unit} left`, meta: formatMoney(p.salePrice) }))}
+              onChange={(id) => id && parts.add(id)}
+            />
+          </Field>
+          {parts.lines.map((l) => (
+            <div key={l.stockItemId} className="flex items-center gap-3 text-[13px]">
+              <span className="min-w-0 flex-1 truncate font-medium text-brand-navy">{l.description}</span>
+              <Input type="number" min={1} className="w-20" aria-label={`Quantity of ${l.description}`} value={l.quantity} onChange={(e) => parts.setQuantity(l.stockItemId, Number(e.target.value))} />
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${l.description}`} onClick={() => parts.remove(l.stockItemId)}>
+                <Trash2 className="text-red-500" />
+              </Button>
+            </div>
+          ))}
+        </div>
         <InvoiceOptions value={options} onChange={onOptionsChange} />
         <div className="rounded-xl bg-slate-50 p-4">
           <TotalsSummary totals={totals} applyGst={options.applyGst} isInterState={options.isInterState} />

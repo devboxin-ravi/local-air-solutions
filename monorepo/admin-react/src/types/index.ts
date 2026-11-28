@@ -108,6 +108,21 @@ export interface Product {
   isActive: boolean;
 }
 
+export interface StockItem {
+  id: number;
+  branchId: number;
+  code: string;
+  name: string;
+  unit: string;
+  hsnCode: string | null;
+  salePrice: Money;
+  gstRate: Money;
+  quantity: number;
+  lowStockLevel: number;
+  isActive: boolean;
+  branch: { id: number; name: string };
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -335,6 +350,7 @@ export interface TechAvailability {
 export interface InvoiceItem {
   id: number;
   serviceId: number | null;
+  stockItemId: number | null;
   description: string;
   hsnSac: string | null;
   quantity: number;

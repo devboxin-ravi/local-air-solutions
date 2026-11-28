@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Patterns, ValidationMessages } from '../constants';
-import { boolish, email, hhmm, id, latitude, longitude, mobile, name, optionalTrimmed, trimmed } from './common';
+import { StockRules } from '../constants/domain';
+import { boolish, email, gstRate, hhmm, id, latitude, longitude, mobile, money, name, notes, optionalTrimmed, trimmed } from './common';
 
 export const stateSchema = z.object({ name, code: trimmed(2, 10).toUpperCase(), isActive: z.boolean().default(true) });
 export const citySchema = z.object({ stateId: id, name, isActive: z.boolean().default(true) });
@@ -44,6 +45,37 @@ export const productSchema = z.object({
   category: optionalTrimmed(100),
   sortOrder: z.coerce.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
+});
+
+const stockQuantity = z.coerce.number().int().min(0).max(StockRules.MAX_QUANTITY);
+
+export const stockItemSchema = z.object({
+  branchId: id,
+  code: trimmed(1, 30).toUpperCase(),
+  name,
+  unit: z.enum(StockRules.UNITS),
+  hsnCode: optionalTrimmed(20),
+  salePrice: money,
+  gstRate,
+  quantity: stockQuantity.default(0),
+  lowStockLevel: stockQuantity.default(0),
+  isActive: z.boolean().default(true),
+});
+/** Branch and quantity are fixed after creation; quantity changes only through an adjustment. */
+export const stockItemUpdateSchema = stockItemSchema.omit({ branchId: true, quantity: true }).partial();
+export const stockAdjustSchema = z.object({
+  change: z.coerce
+    .number()
+    .int()
+    .min(-StockRules.MAX_QUANTITY)
+    .max(StockRules.MAX_QUANTITY)
+    .refine((v) => v !== 0, 'Quantity must not be zero'),
+  note: notes,
+});
+export const stockListQuery = z.object({
+  branchId: z.coerce.number().int().positive().optional(),
+  activeOnly: boolish.optional(),
+  search: z.string().trim().max(100).optional(),
 });
 
 export const masterListQuery = z.object({

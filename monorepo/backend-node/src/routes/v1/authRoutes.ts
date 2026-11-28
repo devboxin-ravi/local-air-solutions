@@ -6,7 +6,7 @@ import { Router } from 'express';
 import * as c from '../../controllers/authController';
 import { authenticate, optionalAuthenticate } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
-import { authLimiter } from '../../middleware/security';
+import { authLimiter, loginLimiter } from '../../middleware/security';
 import { uploadFiles } from '../../middleware/upload';
 import { UploadRules } from '../../constants';
 import {
@@ -24,11 +24,12 @@ import {
 
 const r = Router();
 
-r.post('/admin/login', authLimiter, validate({ body: loginSchema }), c.adminLogin);
-r.post('/login', authLimiter, validate({ body: loginSchema }), c.appLogin);
-r.post('/otp/verify', authLimiter, validate({ body: otpVerifySchema }), c.verifyOtp);
+r.post('/admin/login', loginLimiter, validate({ body: loginSchema }), c.adminLogin);
+r.post('/login', loginLimiter, validate({ body: loginSchema }), c.appLogin);
+r.post('/otp/verify', loginLimiter, validate({ body: otpVerifySchema }), c.verifyOtp);
 r.post('/register', authLimiter, validate({ body: registerCustomerSchema }), c.register);
-r.post('/refresh', authLimiter, validate({ body: refreshSchema }), c.refresh);
+// Session refresh runs on every page load and needs a valid token, so only the general API limit applies.
+r.post('/refresh', validate({ body: refreshSchema }), c.refresh);
 r.post('/forgot-password', authLimiter, validate({ body: forgotPasswordSchema }), c.forgotPassword);
 r.post('/reset-password', authLimiter, validate({ body: resetPasswordSchema }), c.resetPassword);
 

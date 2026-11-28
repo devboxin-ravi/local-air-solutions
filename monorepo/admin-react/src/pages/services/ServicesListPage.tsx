@@ -47,7 +47,7 @@ export default function ServicesListPage() {
       ),
     },
     { key: 'category', header: 'Category', cell: (s) => <Badge tone="blue">{s.category.name}</Badge> },
-    { key: 'basePrice', header: 'Price', sortable: true, cell: (s) => <span className="num font-semibold">{priceLabel(s)}</span> },
+    { key: 'basePrice', header: 'Service Price', sortable: true, cell: (s) => <span className="num font-semibold">{priceLabel(s)}</span> },
     { key: 'durationMinutes', header: 'Duration', sortable: true, cell: (s) => `${s.durationMinutes} min` },
     { key: 'gst', header: 'GST', cell: (s) => (s.gstApplicable ? `${s.gstRate}%` : 'Exempt') },
     { key: 'reminder', header: 'Reminder', cell: (s) => (s.reminderEligible ? <Badge tone="green">{s.reminderIntervalMonths ?? 'Default'} {s.reminderIntervalMonths ? 'mo' : ''}</Badge> : <span className="text-muted-foreground">—</span>) },

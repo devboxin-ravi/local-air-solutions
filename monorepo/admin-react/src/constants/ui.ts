@@ -490,3 +490,11 @@ export const SETTING_SECTIONS: Record<string, { title: string; description: stri
   appHome: { title: 'Customer App Content', description: 'Home banners, sections, “Need a service today” card and the welcome screens of the customer app.' },
   bookingTracker: { title: 'Booking Tracker', description: 'Steps, names and messages customers see while tracking a booking in the app.' },
 };
+
+/** Stock items (units mirror the backend StockRules). */
+export const STOCK = {
+  UNITS: ['PCS', 'MTR', 'KG', 'LTR', 'SET', 'BOX'],
+  GST_RATES: [0, 5, 12, 18, 28],
+  DEFAULT_GST_RATE: 18,
+  MAX_QUANTITY: 1_000_000,
+} as const;

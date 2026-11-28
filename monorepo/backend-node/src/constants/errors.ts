@@ -55,6 +55,8 @@ export const ErrorMessages = {
   BOOKING_NOT_ASSIGNABLE: 'Booking must be confirmed before assigning a technician.',
   JOB_NOT_YOURS: 'This job is not assigned to you.',
   COMPLETION_OTP_INVALID: 'Customer confirmation OTP is incorrect.',
+  STOCK_UNAVAILABLE: (name: string, available: number) => `Not enough stock for ${name} (available: ${available}).`,
+  STOCK_ITEM_INVALID: 'Stock item is not available in this branch.',
   INVOICE_EXISTS: 'An active invoice already exists for this booking.',
   BOOKING_NOT_COMPLETED: 'Invoice can only be generated for completed bookings.',
   INVOICE_CANCELLED: 'Invoice is cancelled.',

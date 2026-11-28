@@ -76,6 +76,8 @@ export interface TechnicianSuggestion {
 
 export interface InvoiceLineInput {
   serviceId?: number | null;
+  /** Set when the line bills a stock item; its quantity is deducted from stock. */
+  stockItemId?: number | null;
   description: string;
   quantity: number;
   rate: number;

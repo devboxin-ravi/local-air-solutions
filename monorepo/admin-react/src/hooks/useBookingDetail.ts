@@ -9,6 +9,7 @@ import type { InvoiceOptionsValue } from '@/components/FinanceWidgets';
 import type { PaymentForm } from '@/lib/validation';
 import { useAvailableSlots, useBooking, useBookingActions, useSuggestions } from './useOperations';
 import { useInvoiceActions, useInvoicePreview, usePaymentActions } from './useFinance';
+import { useInvoiceParts } from './useStock';
 
 export type BookingDialog = 'assign' | 'reschedule' | 'cancel' | 'invoice' | 'payment' | 'status' | null;
 
@@ -26,10 +27,12 @@ export function useBookingDetail(id: number) {
   const suggestions = useSuggestions(dialog === 'assign' ? id : undefined);
   const slots = useAvailableSlots(dialog === 'reschedule' ? b?.branchId : undefined, rescheduleDate);
 
-  const invoiceLines = useMemo(
+  const parts = useInvoiceParts(dialog === 'invoice' ? b?.branchId : undefined);
+  const serviceLines = useMemo(
     () => (b?.items ?? []).map((i) => ({ serviceId: i.serviceId, description: i.serviceName, quantity: i.quantity, rate: toNumber(i.unitPrice), gstRate: toNumber(i.gstRate), discount: 0 })),
     [b?.items],
   );
+  const invoiceLines = useMemo(() => [...serviceLines, ...parts.lines], [serviceLines, parts.lines]);
   const previewBody = useMemo(() => ({ lines: invoiceLines, ...invoiceOptions }), [invoiceLines, invoiceOptions]);
   const preview = useInvoicePreview(previewBody, dialog === 'invoice' && invoiceLines.length > 0);
 
@@ -53,6 +56,7 @@ export function useBookingDetail(id: number) {
     invoiceOptions,
     setInvoiceOptions,
     invoiceLines,
+    parts,
     preview,
     activeInvoice,
     actions,
@@ -62,8 +66,13 @@ export function useBookingDetail(id: number) {
     cancel: (reason: string) => actions.cancel.mutate(reason, { onSuccess: close }),
     generateInvoice: () =>
       invoices.fromBooking.mutate(
-        { bookingId: id, applyGst: invoiceOptions.applyGst, isInterState: invoiceOptions.isInterState, discount: invoiceOptions.discount, isFreeService: invoiceOptions.isFreeService, notes: invoiceOptions.notes || null },
-        { onSuccess: close },
+        { bookingId: id, applyGst: invoiceOptions.applyGst, isInterState: invoiceOptions.isInterState, discount: invoiceOptions.discount, isFreeService: invoiceOptions.isFreeService, notes: invoiceOptions.notes || null, ...(parts.lines.length ? { lines: invoiceLines } : {}) },
+        {
+          onSuccess: () => {
+            parts.reset();
+            close();
+          },
+        },
       ),
     generating: invoices.fromBooking.isPending,
     recordPayment: (v: PaymentForm) =>
