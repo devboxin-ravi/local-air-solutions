@@ -342,7 +342,8 @@ export default function BookingDetailPage() {
         options={d.invoiceOptions}
         onOptionsChange={d.setInvoiceOptions}
         totals={d.preview.data}
-        lines={d.invoiceLines}
+        lines={d.invoiceLines.filter((l) => !('stockItemId' in l))}
+        parts={d.parts}
         submitting={d.generating}
         onSubmit={d.generateInvoice}
       />

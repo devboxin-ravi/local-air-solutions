@@ -14,7 +14,7 @@ import type { Customer, QueryParams, ShareLink } from '@/types';
 import { errorMessage, useAction } from './useApi';
 import { useCustomerSearch } from './usePeople';
 
-const FIN_KEYS = [['invoices'], ['invoice'], ['payments'], ['ledger'], ['outstanding'], ['booking'], ['bookings'], ['amc'], ['dashboard'], ['finance']];
+const FIN_KEYS = [['invoices'], ['invoice'], ['payments'], ['ledger'], ['outstanding'], ['booking'], ['bookings'], ['amc'], ['dashboard'], ['finance'], ['stock-items']];
 
 export const useInvoiceList = (params: QueryParams) =>
   useQuery({ queryKey: ['invoices', params], queryFn: () => invoiceService.list(params), placeholderData: keepPreviousData });

@@ -128,3 +128,9 @@ export const AuditActions = {
   REJECT: 'REJECT',
   ASSIGN: 'ASSIGN',
 } as const;
+
+/** Stock (spare parts / material) rules. */
+export const StockRules = {
+  UNITS: ['PCS', 'MTR', 'KG', 'LTR', 'SET', 'BOX'],
+  MAX_QUANTITY: 1_000_000,
+} as const;

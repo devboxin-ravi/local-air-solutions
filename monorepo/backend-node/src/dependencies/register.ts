@@ -15,6 +15,8 @@ import { FinanceRepository } from '../repositories/financeRepository';
 import { AmcRepository } from '../repositories/amcRepository';
 import { EngagementRepository } from '../repositories/engagementRepository';
 import { ReportRepository } from '../repositories/reportRepository';
+import { StockRepository } from '../repositories/stockRepository';
+import { StockService } from '../services/stockService';
 import { SettingsService } from '../services/settingsService';
 import { EmailProvider, PushProvider, WhatsAppCloudProvider } from '../services/deliveryProviders';
 import { NotificationService } from '../services/notificationService';
@@ -50,6 +52,7 @@ export function buildContainer() {
     amc: new AmcRepository(),
     engagement: new EngagementRepository(),
     reports: new ReportRepository(),
+    stock: new StockRepository(),
   };
 
   // Admin-entered integration credentials (loaded once at startup, refreshed on save).
@@ -71,7 +74,8 @@ export function buildContainer() {
   const reminders = new ReminderService(repos.engagement, repos.bookings, notifications, settings);
   const assignments = new AssignmentService(repos.bookings, repos.staff, bookings, catalog, reminders, notifications, settings);
   const ledger = new LedgerService(repos.finance, repos.customers, settings);
-  const invoices = new InvoiceService(repos.finance, repos.bookings, repos.customers, repos.master, ledger, notifications, settings);
+  const stock = new StockService(repos.stock, settings);
+  const invoices = new InvoiceService(repos.finance, repos.bookings, repos.customers, repos.master, ledger, notifications, settings, stock);
   const amc = new AmcService(repos.amc, repos.customers, repos.bookings, invoices, bookings, assignments, notifications, settings);
   const payments = new PaymentService(repos.finance, repos.bookings, repos.customers, repos.amc, invoices, ledger, bookings, amc, notifications, settings);
   const reports = new ReportService(repos.reports);
@@ -97,6 +101,7 @@ export function buildContainer() {
     reports,
     documents,
     share,
+    stock,
   };
 }
 

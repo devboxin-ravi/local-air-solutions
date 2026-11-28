@@ -17,6 +17,7 @@ import { assertBranchAccess, resolveBranchScope } from './accessControl';
 import { LedgerService } from './ledgerService';
 import { NotificationService } from './notificationService';
 import { SettingsService } from './settingsService';
+import { StockService } from './stockService';
 
 export interface InvoiceOptions {
   applyGst: boolean;
@@ -50,7 +51,7 @@ export function calculateInvoice(lines: InvoiceLineInput[], opts: { applyGst: bo
     allocated = r2(allocated + share);
     const taxable = r2(l.net - share);
     gstTotal = r2(gstTotal + r2((taxable * l.gstRate) / 100));
-    return { serviceId: l.serviceId, description: l.description, quantity: l.quantity, rate: l.rate, discount: r2(l.lineDiscount + share), gstRate: l.gstRate, amount: l.gross };
+    return { serviceId: l.serviceId, stockItemId: l.stockItemId, description: l.description, quantity: l.quantity, rate: l.rate, discount: r2(l.lineDiscount + share), gstRate: l.gstRate, amount: l.gross };
   });
 
   const discount = r2(lineDiscounts + invoiceDiscount);
@@ -70,6 +71,7 @@ export class InvoiceService {
     private readonly ledger: LedgerService,
     private readonly notifications: NotificationService,
     private readonly settings: SettingsService,
+    private readonly stock: StockService,
   ) {}
 
   async list(actor: AuthUser, q: { page?: number; pageSize?: number; search?: string; sortOrder?: 'asc' | 'desc'; branchId?: number; status?: 'DRAFT' | 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED'; customerId?: number; from?: string; to?: string; isFreeService?: boolean; outstandingOnly?: boolean }) {
@@ -146,6 +148,8 @@ export class InvoiceService {
     actor: AuthUser,
     args: { customerId: number; branchId: number; bookingId?: number | null; amcContractId?: number | null; lines: InvoiceLineInput[]; opts: InvoiceOptions; snapshotExtra?: Record<string, unknown> },
   ) {
+    await this.stock.consume(tx, args.branchId, args.lines);
+    const hsnCodes = await this.stock.hsnCodes(tx, args.lines);
     const gst = await this.settings.gst(tx);
     const totals = calculateInvoice(args.lines, { ...args.opts, applyGst: args.opts.applyGst && gst.enabled });
     const year = new Date().getFullYear();
@@ -184,7 +188,7 @@ export class InvoiceService {
         notes: args.opts.notes ?? null,
         createdById: actor.id,
       },
-      totals.lines.map((l) => ({ serviceId: l.serviceId ?? null, description: l.description, hsnSac: gst.sacCode, quantity: l.quantity, rate: round2(l.rate), discount: round2(l.discount), gstRate: round2(l.gstRate), amount: round2(l.amount) })),
+      totals.lines.map((l) => ({ serviceId: l.serviceId ?? null, stockItemId: l.stockItemId ?? null, description: l.description, hsnSac: (l.stockItemId ? hsnCodes.get(l.stockItemId) : null) ?? gst.sacCode, quantity: l.quantity, rate: round2(l.rate), discount: round2(l.discount), gstRate: round2(l.gstRate), amount: round2(l.amount) })),
       tx,
     );
     if (prepaid.length) await this.repo.attachPaymentsToInvoice(prepaid.map((p) => p.id), invoice.id, tx);
@@ -261,6 +265,7 @@ export class InvoiceService {
       if (!locked || locked.status === 'CANCELLED') throw new BusinessRuleError(ErrorMessages.INVOICE_CANCELLED);
       if (Number(locked.amountPaid) > 0) throw new BusinessRuleError(ErrorMessages.INVOICE_HAS_PAYMENTS);
       await this.repo.updateInvoice(id, { status: 'CANCELLED', cancelledAt: new Date(), balanceDue: 0, notes: `${locked.notes ? `${locked.notes}\n` : ''}Cancelled: ${reason}` }, tx);
+      await this.stock.restore(tx, inv.items);
       await this.ledger.post(tx, {
         customerId: locked.customerId,
         entryType: 'REVERSAL',

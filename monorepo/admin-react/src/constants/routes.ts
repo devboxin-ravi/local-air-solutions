@@ -63,6 +63,7 @@ export const ROUTES = {
   BRANCHES: '/master/branches',
   SERVICE_AREAS: '/master/service-areas',
   SKILLS_PRODUCTS: '/master/skills-products',
+  STOCK: '/master/stock',
   STAFF: '/master/staff',
   ROLES: '/master/roles',
 

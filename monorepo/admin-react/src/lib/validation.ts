@@ -367,6 +367,21 @@ export const slotGenerateSchema = z
     }
   });
 
+// ─── Stock ───
+export const stockItemSchema = z.object({
+  branchId: z.coerce.number({ invalid_type_error: 'Select a branch' }).int().positive('Select a branch'),
+  code: t(1, 30, 'Code'),
+  name: nameField,
+  unit: z.string().min(1, 'Select a unit'),
+  hsnCode: opt(20),
+  salePrice: amountField,
+  gstRate: z.coerce.number().min(0).max(28),
+  quantity: requiredNumber(0, 1_000_000, { int: true }),
+  lowStockLevel: requiredNumber(0, 1_000_000, { int: true }),
+  isActive: z.boolean(),
+});
+export const stockAdjustSchema = z.object({ quantity: requiredNumber(1, 1_000_000, { int: true }), note: opt(1000) });
+
 // ─── Finance ───
 export const invoiceLineSchema = z.object({
   description: t(2, 500, 'Description'),

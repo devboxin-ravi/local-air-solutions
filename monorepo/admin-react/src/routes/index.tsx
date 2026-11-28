@@ -45,6 +45,7 @@ const OutstandingPage = lazy(() => import('@/pages/finance/OutstandingPage'));
 const GstPage = lazy(() => import('@/pages/finance/GstPage'));
 const ReportPage = lazy(() => import('@/pages/reports/ReportPage'));
 const MasterDataPage = lazy(() => import('@/pages/master/MasterDataPage'));
+const StockPage = lazy(() => import('@/pages/master/StockPage'));
 const StaffPage = lazy(() => import('@/pages/master/StaffPage'));
 const RolesPage = lazy(() => import('@/pages/master/RolesPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -165,6 +166,7 @@ export const AppRoutes = () => {
           {P('payments.approve', <Route path={ROUTES.PAYMENT_VERIFICATION} element={<PaymentsPage verification />} />)}
 
           {P('masterData.view', <Route path="/master/:resource" element={<MasterDataPage />} />)}
+          {P('masterData.view', <Route path={ROUTES.STOCK} element={<StockPage />} />)}
           {P('staff.view', <Route path={ROUTES.STAFF} element={<StaffPage />} />)}
           {P('roles.view', <Route path={ROUTES.ROLES} element={<RolesPage />} />)}
 

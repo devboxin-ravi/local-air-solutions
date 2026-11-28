@@ -8,6 +8,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useInvoiceActions, useInvoicePreview } from '@/hooks/useFinance';
 import { useCustomerSearch } from '@/hooks/usePeople';
 import { useBranches, useServiceLookup } from '@/hooks/useApi';
+import { stockInvoiceLine, useStockLookup } from '@/hooks/useStock';
 import { ROUTES } from '@/constants/routes';
 import { useFormErrors } from '@/hooks/useFormErrors';
 import { useBranchScope } from '@/hooks/useBranchScope';
@@ -24,6 +25,7 @@ import { useGoBack } from '@/hooks/useGoBack';
 interface Line {
   key: number;
   serviceId: number | null;
+  stockItemId: number | null;
   description: string;
   quantity: number;
   rate: number;
@@ -34,6 +36,7 @@ let seq = 1;
 const blank = (): Line => ({
   key: seq++,
   serviceId: null,
+  stockItemId: null,
   description: '',
   quantity: 1,
   rate: 0,
@@ -51,7 +54,15 @@ export default function InvoiceFormPage() {
   const { data: branches } = useBranches({ activeOnly: true });
   // Services offered in (and priced for) the invoice's branch.
   const { data: services } = useServiceLookup(branchId === '' ? undefined : branchId);
+  const { data: stockItems } = useStockLookup(branchId === '' ? undefined : branchId);
   const [lines, setLines] = useState<Line[]>([blank()]);
+  /** Stock belongs to a branch, so switching branch unlinks stock items already picked. */
+  const changeBranch = (next: number | '') => {
+    if (next === branchId) return;
+    setBranchId(next);
+    setLines((ls) => ls.map((l) => (l.stockItemId ? { ...blank(), key: l.key } : l)));
+    clear('branchId');
+  };
   const [opts, setOpts] = useState<InvoiceOptionsValue>({
     applyGst: true,
     isInterState: false,
@@ -120,10 +131,7 @@ export default function InvoiceFormPage() {
                   onSelect={(c) => {
                     setCustomer(c);
                     clear('customerId');
-                    if (c.branchId) {
-                      setBranchId(c.branchId);
-                      clear('branchId');
-                    }
+                    if (c.branchId) changeBranch(c.branchId);
                   }}
                 />
               </Field>
@@ -131,10 +139,7 @@ export default function InvoiceFormPage() {
                 <NativeSelect searchable
                   id="invoice-branch"
                   value={branchId}
-                  onChange={(e) => {
-                    setBranchId(e.target.value ? Number(e.target.value) : '');
-                    clear('branchId');
-                  }}
+                  onChange={(e) => changeBranch(e.target.value ? Number(e.target.value) : '')}
                 >
                   <option value="">Select branch</option>
                   {branches?.map((b) => (
@@ -149,7 +154,7 @@ export default function InvoiceFormPage() {
           <FormSection
             step={2}
             title="Line items"
-            description="Services, parts or charges. Pick a service or type a custom item."
+            description="Services, stock items or charges. Pick a service or stock item, or type a custom item."
             actions={
               <Button size="sm" variant="soft" onClick={() => setLines((l) => [...l, blank()])}>
                 <Plus /> Add line
@@ -164,29 +169,45 @@ export default function InvoiceFormPage() {
               )}
               {lines.map((l, i) => (
                 <div key={l.key} className="grid gap-3 rounded-xl border bg-slate-50/40 p-3.5 md:grid-cols-[1.4fr_2fr_80px_120px_90px_40px] md:items-start">
-                  <Field label="Service (optional)">
+                  <Field label="Service / stock (optional)">
+                    {/* One list for both: stock items carry negative values so they never clash with service ids. */}
                     <SearchSelect
-                      id={`invoice-line-${l.key}-service`}
+                      id={`invoice-line-${l.key}-item`}
                       noneLabel="Custom item"
-                      value={l.serviceId}
-                      options={(services ?? []).map((s) => ({
-                        value: s.id,
-                        label: s.name,
-                        hint: s.code,
-                        meta: formatMoney(s.effectivePrice),
-                      }))}
-                      onChange={(id) => {
-                        const s = services?.find((x) => x.id === id);
+                      value={l.stockItemId ? -l.stockItemId : l.serviceId}
+                      options={[
+                        ...(services ?? []).map((s) => ({
+                          value: s.id,
+                          label: s.name,
+                          hint: `Service · ${s.code}`,
+                          meta: formatMoney(s.effectivePrice),
+                        })),
+                        ...(stockItems ?? []).map((p) => ({
+                          value: -p.id,
+                          label: p.name,
+                          hint: `Stock · ${p.code} · ${p.quantity} ${p.unit} left`,
+                          meta: formatMoney(p.salePrice),
+                        })),
+                      ]}
+                      onChange={(value) => {
+                        const part = stockItems?.find((x) => -x.id === value);
+                        if (part) {
+                          const { discount: _d, quantity: _q, ...patch } = stockInvoiceLine(part);
+                          update(l.key, patch);
+                          return;
+                        }
+                        const s = services?.find((x) => x.id === value);
                         update(
                           l.key,
                           s
                             ? {
                                 serviceId: s.id,
+                                stockItemId: null,
                                 description: s.name,
                                 rate: s.effectivePrice,
                                 gstRate: s.gstApplicable ? s.gstRate : 0,
                               }
-                            : { serviceId: null },
+                            : { serviceId: null, stockItemId: null },
                         );
                       }}
                     />

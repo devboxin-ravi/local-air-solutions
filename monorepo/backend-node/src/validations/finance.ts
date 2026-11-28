@@ -11,6 +11,7 @@ import { boolish, dateOnly, email, gstRate, hhmm, id, listQuery, mobile, money, 
 // ─── Invoices ───
 export const invoiceLineSchema = z.object({
   serviceId: id.optional().nullable(),
+  stockItemId: id.optional().nullable(),
   description: trimmed(2, 500),
   quantity: z.coerce.number().int().min(1).max(1000),
   rate: money,

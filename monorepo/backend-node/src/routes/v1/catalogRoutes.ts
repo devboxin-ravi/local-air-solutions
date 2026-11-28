@@ -4,12 +4,13 @@
 
 import { Router } from 'express';
 import * as c from '../../controllers/masterDataController';
-import { authenticate, optionalAuthenticate, requirePermission } from '../../middleware/auth';
+import * as stock from '../../controllers/stockController';
+import { authenticate, optionalAuthenticate, requireAnyPermission, requirePermission, requireUserType } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { uploadFiles } from '../../middleware/upload';
 import { perm, UploadRules } from '../../constants';
 import { idParams } from '../../validations/common';
-import { branchSchema, citySchema, masterListQuery, productSchema, serviceAreaSchema, skillSchema, stateSchema } from '../../validations/masterData';
+import { branchSchema, citySchema, masterListQuery, productSchema, serviceAreaSchema, skillSchema, stateSchema, stockAdjustSchema, stockItemSchema, stockItemUpdateSchema, stockListQuery } from '../../validations/masterData';
 import { activeSchema, categorySchema, pricingSchema, reorderSchema, serviceListQuery, serviceSchema, serviceUpdateSchema } from '../../validations/catalog';
 import { ZodTypeAny } from 'zod';
 
@@ -42,6 +43,14 @@ crud('/branches', 'branch', branchSchema);
 crud('/service-areas', 'serviceArea', serviceAreaSchema);
 crud('/skills', 'skill', skillSchema);
 crud('/products', 'product', productSchema);
+
+// ─── Stock (also listed by invoice creators, to bill parts) ───
+const admin = requireUserType('ADMIN');
+r.get('/stock-items', authenticate, admin, requireAnyPermission(perm('masterData', 'view'), perm('invoices', 'create')), validate({ query: stockListQuery }), stock.listStock);
+r.post('/stock-items', authenticate, admin, requirePermission(perm('masterData', 'create')), validate({ body: stockItemSchema }), stock.createStockItem);
+r.patch('/stock-items/:id', authenticate, admin, requirePermission(perm('masterData', 'edit')), validate({ params: idParams, body: stockItemUpdateSchema }), stock.updateStockItem);
+r.post('/stock-items/:id/adjust', authenticate, admin, requirePermission(perm('masterData', 'edit')), validate({ params: idParams, body: stockAdjustSchema }), stock.adjustStock);
+r.delete('/stock-items/:id', authenticate, admin, requirePermission(perm('masterData', 'delete')), validate({ params: idParams }), stock.deleteStockItem);
 
 // ─── Catalogue photos (returns the stored path; the form then saves it as imageUrl) ───
 r.post(

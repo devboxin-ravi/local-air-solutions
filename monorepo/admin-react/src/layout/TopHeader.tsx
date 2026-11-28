@@ -34,11 +34,11 @@ const useVisibleNav = () => {
 };
 
 const NAV_ITEM =
-  'relative isolate flex h-10 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13.5px] 2xl:px-2.5 2xl:text-[14px] min-[1680px]:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
+  'relative isolate flex h-10 items-center gap-0.5 whitespace-nowrap rounded-lg px-1.5 text-[13px] min-[1440px]:gap-1 min-[1440px]:px-2 min-[1440px]:text-[13.5px] 2xl:px-2.5 2xl:text-[14px] min-[1680px]:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
 const NAV_ACTIVE = 'text-brand-blue';
 const NAV_IDLE = 'text-slate-600 hover:bg-slate-100 hover:text-brand-navy';
 const NAV_OPEN = 'bg-slate-100 text-brand-navy';
-const NAV_GAP = 'gap-1';
+const NAV_GAP = 'gap-0 min-[1440px]:gap-1';
 
 /** Soft brand pill behind the active module; glides between items. */
 const ActivePill = () => (
@@ -53,8 +53,8 @@ const ActivePill = () => (
 const NavItemBody = ({ module, chevron, open }: { module: NavModule; chevron: boolean; open?: boolean }) => (
   <>
     {module.label}
-    {/* Arrows only on wide screens, so all modules fit in one row on laptops (menus still open on hover/click). */}
-    {chevron && <ChevronDown className={cn('hidden h-3.5 w-3.5 opacity-50 transition-transform duration-dropdown 2xl:block', open && 'rotate-180')} />}
+    {/* Arrows from 1280px (covers MacBook widths); narrower screens drop them so all modules fit in one row. */}
+    {chevron && <ChevronDown className={cn('hidden h-3 w-3 shrink-0 opacity-50 transition-transform duration-dropdown xl:block min-[1440px]:h-3.5 min-[1440px]:w-3.5', open && 'rotate-180')} />}
   </>
 );
 
@@ -180,7 +180,7 @@ const BranchSelector = ({ className }: { className?: string }) => {
       <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-brand-green-50 text-brand-green-700">
         <Building2 className="h-3 w-3" />
       </span>
-      <NativeSelect searchable aria-label="Branch" value={branchId ?? ''} onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : undefined)} className="h-9 w-[180px] gap-1.5 rounded-full border-slate-200 bg-slate-50 pl-9 pr-3 text-[12.5px] font-semibold text-brand-navy shadow-none hover:border-slate-300">
+      <NativeSelect searchable aria-label="Branch" value={branchId ?? ''} onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : undefined)} className="h-9 w-[150px] 2xl:w-[180px] gap-1.5 rounded-full border-slate-200 bg-slate-50 pl-9 pr-3 text-[12.5px] font-semibold text-brand-navy shadow-none hover:border-slate-300">
         <option value="">All branches</option>
         {branches?.map((b) => (
           <option key={b.id} value={b.id}>
@@ -310,13 +310,13 @@ export const TopHeader = () => {
       )}
     >
       {/* One row: brand · modules · utilities */}
-      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[72px] lg:gap-4 2xl:gap-6')}>
+      <div className={cn(PAGE_CONTAINER, 'flex h-[68px] items-center gap-3 lg:h-[72px] lg:gap-2 min-[1440px]:gap-4 2xl:gap-6')}>
         <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
           {mobileOpen ? <X /> : <Menu />}
         </Button>
         <Link to={ROUTES.DASHBOARD} className="flex shrink-0 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring" aria-label="Local Air Solutions — Dashboard">
           {/* The wordmark sits at ~61% of the image height (leaf above it); lift by 11% so it lines up with the menu text. */}
-          <BrandLogo variant="header" className="h-12 -translate-y-[11%] lg:h-14 2xl:h-[60px]" />
+          <BrandLogo variant="header" className="h-12 -translate-y-[11%] lg:h-12 min-[1440px]:h-14 2xl:h-[60px]" />
         </Link>
 
         {/* "safe center": centred when it fits, start-aligned when it overflows — the first module is never cut off. */}
