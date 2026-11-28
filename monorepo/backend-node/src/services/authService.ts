@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OtpPurpose } from '@prisma/client';
 import { config } from '../config';
-import { ADMIN_SESSION_FAMILY_PREFIX, AuthClients, COMPANY_WIDE_ROLES, ErrorCodes, ErrorMessages, NumberPrefixes, RoleCodes, AuditActions, type AuthClient } from '../constants';
+import { ADMIN_SESSION_FAMILY_PREFIX, REFRESH_REUSE_GRACE_MS, AuthClients, COMPANY_WIDE_ROLES, ErrorCodes, ErrorMessages, NumberPrefixes, RoleCodes, AuditActions, type AuthClient } from '../constants';
 import { AuthRepository, UserWithAccess } from '../repositories/authRepository';
 import { UserRepository } from '../repositories/userRepository';
 import { CustomerRepository } from '../repositories/customerRepository';
@@ -204,6 +204,9 @@ export class AuthService {
   async refresh(refreshToken: string, meta: RequestMeta): Promise<TokenPair> {
     const row = await this.authRepo.findRefreshToken(sha256(refreshToken));
     if (!row) throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    if (row.revokedAt && row.replacedBy && Date.now() - row.revokedAt.getTime() < REFRESH_REUSE_GRACE_MS) {
+      throw new UnauthorizedError(ErrorMessages.TOKEN_INVALID, ErrorCodes.TOKEN_INVALID);
+    }
     if (row.revokedAt) {
       await this.authRepo.revokeFamily(row.familyId);
       logger.warn('Refresh token reuse detected', { userId: row.userId });
@@ -349,6 +352,7 @@ export class AuthService {
       const customer = await this.customerRepo.create(
         {
           customerCode: formatCode(NumberPrefixes.CUSTOMER, seq),
+          source: 'APP',
           userId: user.id,
           fullName: input.fullName,
           mobile: input.mobile,

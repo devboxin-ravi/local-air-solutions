@@ -8,10 +8,10 @@ import { Db, prisma } from './db';
 export const invoiceInclude = {
   customer: { select: { id: true, fullName: true, mobile: true, countryCode: true, email: true, customerCode: true } },
   branch: { select: { id: true, name: true } },
-  booking: { select: { id: true, bookingNumber: true } },
+  booking: { select: { id: true, bookingNumber: true, amcVisit: { select: { visitNumber: true, amcContractId: true } }, assignments: { where: { isCurrent: true }, select: { staff: { select: { user: { select: { name: true } } } } } } } },
   amcContract: { select: { id: true, amcNumber: true } },
   items: true,
-  payments: { orderBy: { createdAt: 'desc' }, select: { id: true, paymentNumber: true, amount: true, method: true, status: true, referenceNumber: true, receivedAt: true } },
+  payments: { orderBy: { createdAt: 'desc' }, select: { id: true, paymentNumber: true, amount: true, method: true, status: true, referenceNumber: true, receivedAt: true, receivingAccount: true, receivedBy: true } },
 } satisfies Prisma.InvoiceInclude;
 
 export type InvoiceDetail = Prisma.InvoiceGetPayload<{ include: typeof invoiceInclude }>;
@@ -56,8 +56,27 @@ export class FinanceRepository {
     return db.invoice.findUnique({ where: { id } });
   }
 
+  /** The issued (approved) invoice of a booking, if any. */
   findActiveInvoiceForBooking(bookingId: number, db: Db = prisma) {
+    return db.invoice.findFirst({ where: { bookingId, status: { notIn: ['CANCELLED', 'DRAFT'] } } });
+  }
+
+  /** Issued invoice or a draft waiting in For Invoice. */
+  findOpenInvoiceForBooking(bookingId: number, db: Db = prisma) {
     return db.invoice.findFirst({ where: { bookingId, status: { not: 'CANCELLED' } } });
+  }
+
+  findDraftForBooking(bookingId: number, db: Db = prisma) {
+    return db.invoice.findFirst({ where: { bookingId, status: 'DRAFT' } });
+  }
+
+  replaceInvoiceItems(invoiceId: number, items: Omit<Prisma.InvoiceItemCreateManyInput, 'invoiceId'>[], db: Db = prisma) {
+    return db.invoiceItem.deleteMany({ where: { invoiceId } }).then(() => db.invoiceItem.createMany({ data: items.map((i) => ({ ...i, invoiceId })) }));
+  }
+
+  /** Only drafts can be deleted; their items go with them. */
+  deleteDraftInvoice(id: number, db: Db = prisma) {
+    return db.invoice.deleteMany({ where: { id, status: 'DRAFT' } });
   }
 
   findActiveInvoiceForAmc(amcContractId: number, db: Db = prisma) {
@@ -211,6 +230,18 @@ export class FinanceRepository {
 
   sumVerifiedForBooking(bookingId: number, db: Db = prisma) {
     return db.payment.aggregate({ where: { bookingId, status: 'VERIFIED' }, _sum: { amount: true } });
+  }
+
+  sumPendingForBooking(bookingId: number, db: Db = prisma) {
+    return db.payment.aggregate({ where: { bookingId, status: 'PENDING_VERIFICATION' }, _sum: { amount: true } });
+  }
+
+  /** Contract and its visits, for the AMC usage printed on invoices. */
+  findAmcUsage(amcContractId: number, db: Db = prisma) {
+    return db.amcContract.findUnique({
+      where: { id: amcContractId },
+      select: { amcNumber: true, startDate: true, endDate: true, totalVisits: true, visits: { select: { visitNumber: true, status: true } } },
+    });
   }
 
   setBookingPaymentStatus(bookingId: number, paymentStatus: 'UNPAID' | 'PENDING_VERIFICATION' | 'PARTIALLY_PAID' | 'PAID' | 'REFUNDED', db: Db = prisma) {

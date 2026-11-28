@@ -24,6 +24,8 @@ export const PermissionActions = {
   EXPORT: 'export',
   ASSIGN: 'assign',
   MANAGE: 'manage',
+  /** Checks and approves a bill (For Invoice). */
+  AUDIT: 'audit',
 } as const;
 export type PermissionAction = (typeof PermissionActions)[keyof typeof PermissionActions];
 
@@ -37,6 +39,7 @@ export const PermissionModules = {
   STAFF: 'staff',
   AMC: 'amc',
   INVOICES: 'invoices',
+  FOR_INVOICE: 'forInvoice',
   PAYMENTS: 'payments',
   LEDGER: 'ledger',
   REMINDERS: 'reminders',
@@ -63,6 +66,7 @@ export const MODULE_ACTIONS: Record<PermissionModule, PermissionAction[]> = {
   staff: ['view', 'create', 'edit', 'delete'],
   amc: ['view', 'create', 'edit', 'approve', 'export'],
   invoices: ['view', 'create', 'edit', 'delete', 'export'],
+  forInvoice: ['view', 'create', 'edit', 'audit'],
   payments: ['view', 'create', 'approve', 'export'],
   ledger: ['view', 'create', 'export'],
   reminders: ['view', 'create', 'edit', 'manage'],

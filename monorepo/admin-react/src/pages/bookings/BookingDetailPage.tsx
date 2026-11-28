@@ -6,12 +6,13 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRightLeft, CalendarClock, ChevronDown, Download, FileText, HardHat, IndianRupee, MapPin, MessageCircle, Navigation, Phone, Send, ShieldCheck, UserMinus, XCircle } from 'lucide-react';
 import { useBookingDetail } from '@/hooks/useBookingDetail';
+import { useReceivingAccounts } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { ADMIN_TRANSITIONS, ASSIGNABLE_STATUSES, CANCELLABLE_STATUSES, LIMITS, RESCHEDULABLE_STATUSES, SERIAL_COLUMN } from '@/constants/ui';
+import { FOR_INVOICE, ADMIN_TRANSITIONS, ASSIGNABLE_STATUSES, CANCELLABLE_STATUSES, LIMITS, RESCHEDULABLE_STATUSES, SERIAL_COLUMN, JOB_NOTE_KINDS } from '@/constants/ui';
 import { cn, formatDate, formatDateTime, formatMoney, humanize, mapsDirectionsUrl, serialNumber, toNumber } from '@/lib/utils';
 import { Badge, ConfirmDialog, EmptyState, ErrorState, KeyValue, LoadingBlock, PageHeader, SectionCard, StatusBadge } from '@/components/common';
-import { AssignDialog, AttachmentGallery, RescheduleDialog, StatusTimeline } from '@/components/BookingWidgets';
+import { AssignDialog, AttachmentGallery, JobProgress, RescheduleDialog, StatusTimeline } from '@/components/BookingWidgets';
 import { GenerateInvoiceDialog, RecordPaymentDialog } from '@/components/FinanceWidgets';
 import { Button, Card, Textarea } from '@/components/ui/primitives';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/overlays';
@@ -21,6 +22,7 @@ export default function BookingDetailPage() {
   const goBack = useGoBack(ROUTES.BOOKINGS);
   const id = Number(useParams().id);
   const d = useBookingDetail(id);
+  const { data: accounts } = useReceivingAccounts();
   const { can } = useAuth();
   const [note, setNote] = useState('');
   const b = d.booking.data;
@@ -69,9 +71,9 @@ export default function BookingDetailPage() {
                 <HardHat /> {current ? 'Reassign' : 'Assign technician'}
               </Button>
             )}
-            {can('invoices.create') && b.status === 'COMPLETED' && !d.activeInvoice && (
+            {can('forInvoice.create') && b.status === 'COMPLETED' && !d.activeInvoice && !d.pendingBill && (
               <Button variant="secondary" onClick={() => d.setDialog('invoice')} disabled={!b.items.length}>
-                <FileText /> Generate invoice
+                <FileText /> Send to For Invoice
               </Button>
             )}
             {canEdit && (CANCELLABLE_STATUSES.includes(b.status) || RESCHEDULABLE_STATUSES.includes(b.status)) && (
@@ -114,6 +116,11 @@ export default function BookingDetailPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div className="space-y-6">
+          {!['CANCELLED', 'REJECTED'].includes(b.status) && (
+            <SectionCard title="Job progress" description="Updates automatically as the technician moves through the job.">
+              <JobProgress status={b.status} history={b.statusHistory ?? []} />
+            </SectionCard>
+          )}
           <SectionCard title="Booking overview">
             <KeyValue
               columns={3}
@@ -172,7 +179,7 @@ export default function BookingDetailPage() {
                     <tr key={i.id}>
                       <td className={cn('px-5 py-3', SERIAL_COLUMN.CLASS, SERIAL_COLUMN.CELL_TEXT)}>{serialNumber(index)}</td>
                       <td className="px-5 py-3">
-                        <p className="font-semibold text-brand-navy">{i.serviceName}</p>
+                        <p className="font-semibold text-brand-navy">{i.serviceName} {i.isExtra && <Badge tone="amber" className="ml-1">Extra</Badge>}</p>
                         <p className="text-xs text-muted-foreground">
                           {i.serviceCode} · {humanize(i.pricingType)} {i.isPerformed && <Badge tone="green" className="ml-1">Performed</Badge>}
                         </p>
@@ -203,6 +210,7 @@ export default function BookingDetailPage() {
                 <ul className="space-y-3">
                   {b.notes.map((n) => (
                     <li key={n.id} className="rounded-lg border bg-white p-3">
+                      {n.kind && JOB_NOTE_KINDS[n.kind] && <Badge tone={JOB_NOTE_KINDS[n.kind].tone} className="mb-1.5">{JOB_NOTE_KINDS[n.kind].label}</Badge>}
                       <p className="whitespace-pre-line text-[13.5px] text-slate-700">{n.note}</p>
                       <p className="mt-1.5 text-xs text-muted-foreground">
                         {n.author.name} · {formatDateTime(n.createdAt)}
@@ -285,7 +293,7 @@ export default function BookingDetailPage() {
             actions={
               can('payments.create') && !['CANCELLED', 'REJECTED'].includes(b.status) && b.paymentStatus !== 'PAID' ? (
                 <Button size="sm" variant="soft" onClick={() => d.setDialog('payment')}>
-                  <IndianRupee /> Record payment
+                  <IndianRupee /> Receive payment
                 </Button>
               ) : undefined
             }
@@ -294,8 +302,8 @@ export default function BookingDetailPage() {
               {b.invoices?.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div>
-                    <Link to={ROUTES.INVOICE_DETAIL(inv.id)} className="font-semibold text-brand-blue hover:underline">
-                      {inv.invoiceNumber}
+                    <Link to={inv.status === 'DRAFT' ? ROUTES.FOR_INVOICE_DETAIL(inv.id) : ROUTES.INVOICE_DETAIL(inv.id)} className="font-semibold text-brand-blue hover:underline">
+                      {inv.status === 'DRAFT' ? `${FOR_INVOICE.TITLE} · ${inv.invoiceNumber}` : inv.invoiceNumber}
                     </Link>
                     <p className="text-xs text-muted-foreground">
                       {formatMoney(inv.grandTotal)} · balance {formatMoney(inv.balanceDue)}
@@ -332,7 +340,7 @@ export default function BookingDetailPage() {
         </div>
       </div>
 
-      <AssignDialog open={d.dialog === 'assign'} onOpenChange={(o) => !o && d.close()} suggestions={d.suggestions.data} loading={d.suggestions.isLoading} submitting={d.actions.assign.isPending} onAssign={d.assign} bookingLabel={b.bookingNumber} />
+      <AssignDialog open={d.dialog === 'assign'} onOpenChange={(o) => !o && d.close()} suggestions={d.suggestions.data} loading={d.suggestions.isLoading} submitting={d.actions.assign.isPending} onAssign={d.assign} booking={b} />
       <RescheduleDialog open={d.dialog === 'reschedule'} onOpenChange={(o) => !o && d.close()} date={d.rescheduleDate} onDateChange={d.setRescheduleDate} slots={d.slots.data} slotsLoading={d.slots.isLoading} submitting={d.actions.reschedule.isPending} onSubmit={d.reschedule} />
       <ConfirmDialog open={d.dialog === 'cancel'} onOpenChange={(o) => !o && d.close()} title="Cancel booking?" description="The slot is released and any technician assignment is cancelled." confirmLabel="Cancel booking" destructive requireReason loading={d.actions.cancel.isPending} onConfirm={d.cancel} />
       <ConfirmDialog open={d.dialog === 'status'} onOpenChange={(o) => !o && d.close()} title={`Move to ${humanize(d.nextStatus)}?`} description="This change is recorded in the status history with your name." confirmLabel="Update status" loading={d.actions.changeStatus.isPending} onConfirm={d.changeStatus} />
@@ -347,7 +355,7 @@ export default function BookingDetailPage() {
         submitting={d.generating}
         onSubmit={d.generateInvoice}
       />
-      <RecordPaymentDialog open={d.dialog === 'payment'} onOpenChange={(o) => !o && d.close()} defaultAmount={balance} maxAmount={d.activeInvoice ? balance : undefined} context={`${b.bookingNumber} · ${b.customer.fullName}`} submitting={d.recording} onSubmit={d.recordPayment} />
+      <RecordPaymentDialog accounts={accounts} team={b.assignments.filter((x) => x.isCurrent !== false).map((x) => x.staff.user.name)} open={d.dialog === 'payment'} onOpenChange={(o) => !o && d.close()} defaultAmount={balance} maxAmount={d.activeInvoice ? balance : undefined} context={`${b.bookingNumber} · ${b.customer.fullName}`} submitting={d.recording} onSubmit={d.recordPayment} />
     </>
   );
 }

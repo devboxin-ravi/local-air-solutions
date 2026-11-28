@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CalendarPlus, CheckCircle2, FileText, IndianRupee, Power, XCircle } from 'lucide-react';
-import { useAmc, useAmcActions, usePaymentActions } from '@/hooks/useFinance';
+import { useAmc, useAmcActions, usePaymentActions, useReceivingAccounts } from '@/hooks/useFinance';
 import { useAvailableSlots } from '@/hooks/useOperations';
 import { useTechnicians } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,7 @@ export default function AmcDetailPage() {
   const { can } = useAuth();
   const { data: a, isLoading, error, refetch } = useAmc(id);
   const actions = useAmcActions();
+  const { data: accounts } = useReceivingAccounts();
   const pay = usePaymentActions();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function AmcDetailPage() {
           <>
             <StatusBadge status={a.status} className="px-3 py-1 text-[12.5px]" />
             {a.status === 'DRAFT' && can('amc.edit') && <Button loading={actions.issueInvoice.isPending} onClick={() => actions.issueInvoice.mutate(id)}><FileText /> Issue invoice</Button>}
-            {a.status === 'PENDING_PAYMENT' && can('payments.create') && invoice && <Button variant="secondary" onClick={() => setPayOpen(true)}><IndianRupee /> Record payment</Button>}
+            {a.status === 'PENDING_PAYMENT' && can('payments.create') && invoice && <Button variant="secondary" onClick={() => setPayOpen(true)}><IndianRupee /> Receive payment</Button>}
             {a.status === 'PENDING_PAYMENT' && can('amc.approve') && <Button variant="outline" loading={actions.activate.isPending} onClick={() => actions.activate.mutate(id)}><Power /> Activate</Button>}
             {!['CANCELLED', 'EXPIRED'].includes(a.status) && can('amc.approve') && <Button variant="ghost" onClick={() => setCancelOpen(true)}><XCircle className="text-red-500" /> Cancel</Button>}
           </>
@@ -138,13 +139,14 @@ export default function AmcDetailPage() {
       <ConfirmDialog open={cancelOpen} onOpenChange={setCancelOpen} title="Cancel AMC?" description="Scheduled (unbooked) visits are cancelled. Invoices must be handled separately." confirmLabel="Cancel AMC" destructive requireReason loading={actions.cancel.isPending} onConfirm={(reason) => actions.cancel.mutate({ id, reason }, { onSuccess: () => setCancelOpen(false) })} />
       {invoice && (
         <RecordPaymentDialog
+          accounts={accounts}
           open={payOpen}
           onOpenChange={setPayOpen}
           defaultAmount={toNumber(invoice.balanceDue)}
           maxAmount={toNumber(invoice.balanceDue)}
           context={`${a.amcNumber} · ${invoice.invoiceNumber}`}
           submitting={pay.record.isPending}
-          onSubmit={(v) => pay.record.mutate({ key: crypto.randomUUID(), body: { customerId: a.customerId, invoiceId: invoice.id, amcContractId: a.id, method: v.method, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null } }, { onSuccess: () => setPayOpen(false) })}
+          onSubmit={(v) => pay.record.mutate({ key: crypto.randomUUID(), body: { customerId: a.customerId, invoiceId: invoice.id, amcContractId: a.id, method: v.method, account: v.account, receivedBy: v.receivedBy, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null } }, { onSuccess: () => setPayOpen(false) })}
         />
       )}
       <Dialog open={!!visit} onOpenChange={(o) => !o && setVisit(null)}>

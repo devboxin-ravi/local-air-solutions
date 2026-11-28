@@ -11,7 +11,9 @@ import { z } from 'zod';
 import { ApiError } from '@/services/apiClient';
 import { ROUTES } from '@/constants/routes';
 import { addressSchema, customerSchema, emptyToNull } from '@/lib/validation';
-import { errorMessage, fieldErrors, useCities, useStates } from './useApi';
+import { DEFAULT_LOCATION } from '@/constants/ui';
+import { errorMessage, fieldErrors, useBranches, useCities, useStates } from './useApi';
+import { useAuth } from './useAuth';
 import { useCustomer, useCustomerActions } from './usePeople';
 
 const createSchema = customerSchema.extend({ address: addressSchema });
@@ -43,6 +45,27 @@ export function useCustomerForm(id?: number) {
   const stateId = form.watch('address.stateId');
   const states = useStates();
   const cities = useCities(stateId || undefined);
+  const { user } = useAuth();
+  const { data: branches } = useBranches({ activeOnly: true });
+
+  // New customer: the user's own branch (company-wide users: the header branch, else Raipur),
+  // and the address in Raipur, Chhattisgarh. Each default is set once and can be changed.
+  useEffect(() => {
+    if (id || form.getValues('branchId')) return;
+    const own = user && !user.isCompanyWide ? user.branchId : scopeBranchId;
+    const fallback = branches?.find((b) => b.code === DEFAULT_LOCATION.BRANCH_CODE)?.id;
+    if (own ?? fallback) form.setValue('branchId', (own ?? fallback) as never);
+  }, [id, user, scopeBranchId, branches, form]);
+  useEffect(() => {
+    if (id || form.getValues('address.stateId')) return;
+    const cg = states.data?.find((s) => s.code === DEFAULT_LOCATION.STATE_CODE);
+    if (cg) form.setValue('address.stateId', cg.id as never);
+  }, [id, states.data, form]);
+  useEffect(() => {
+    if (id || form.getValues('address.cityId')) return;
+    const city = cities.data?.find((c) => c.name === DEFAULT_LOCATION.CITY_NAME);
+    if (city) form.setValue('address.cityId', city.id as never);
+  }, [id, cities.data, form]);
 
   useEffect(() => {
     const c = existing.data;

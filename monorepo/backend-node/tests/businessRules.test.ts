@@ -40,7 +40,9 @@ describe('calculateInvoice (GST)', () => {
     expect(t.gstTotal).toBeCloseTo(251.46, 2);
     expect(t.cgst + t.sgst).toBeCloseTo(t.gstTotal, 2);
     expect(t.igst).toBe(0);
-    expect(t.grandTotal).toBeCloseTo(1648.46, 2);
+    // 1648.46 is rounded up to the next rupee.
+    expect(t.roundOff).toBeCloseTo(0.54, 2);
+    expect(t.grandTotal).toBe(1649);
   });
 
   it('uses IGST for inter-state', () => {
@@ -61,6 +63,15 @@ describe('calculateInvoice (GST)', () => {
     expect(t.gstTotal).toBeCloseTo(180, 2);
     const big = calculateInvoice(lines, { applyGst: true, isInterState: false, discount: 999999, isFreeService: false });
     expect(big.grandTotal).toBe(0);
+  });
+
+  it('rounds the grand total up, never down', () => {
+    const exact = calculateInvoice([{ description: 'Service', quantity: 1, rate: 1000, gstRate: 18 }], { applyGst: true, isInterState: false, discount: 0, isFreeService: false });
+    expect(exact.roundOff).toBe(0);
+    expect(exact.grandTotal).toBe(1180);
+    const small = calculateInvoice([{ description: 'Part', quantity: 1, rate: 100.01, gstRate: 0 }], { applyGst: false, isInterState: false, discount: 0, isFreeService: false });
+    expect(small.grandTotal).toBe(101);
+    expect(small.roundOff).toBeCloseTo(0.99, 2);
   });
 
   it('records free services with original value retained', () => {

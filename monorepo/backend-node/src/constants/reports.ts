@@ -2,9 +2,9 @@
  * Report definitions: titles and export columns.
  */
 
-export type ReportKey = 'bookings' | 'revenue' | 'services' | 'staff' | 'branches' | 'customers' | 'gst' | 'payments' | 'amc';
+export type ReportKey = 'cancellations' | 'bookings' | 'revenue' | 'services' | 'staff' | 'branches' | 'customers' | 'gst' | 'payments' | 'amc';
 
-export const REPORT_KEYS: ReportKey[] = ['bookings', 'revenue', 'services', 'staff', 'branches', 'customers', 'gst', 'payments', 'amc'];
+export const REPORT_KEYS: ReportKey[] = ['cancellations', 'bookings', 'revenue', 'services', 'staff', 'branches', 'customers', 'gst', 'payments', 'amc'];
 
 interface Col {
   key: string;
@@ -14,6 +14,19 @@ interface Col {
 }
 
 export const REPORT_DEFINITIONS: Record<ReportKey, { title: string; columns: Col[] }> = {
+  cancellations: {
+    title: 'Cancelled Bookings Report',
+    columns: [
+      { key: 'bookingNumber', header: 'Booking', width: 18 },
+      { key: 'cancelledOn', header: 'Cancelled On', width: 14 },
+      { key: 'customer', header: 'Customer', width: 24 },
+      { key: 'mobile', header: 'Mobile', width: 14 },
+      { key: 'service', header: 'Service', width: 32 },
+      { key: 'branch', header: 'Branch', width: 20 },
+      { key: 'status', header: 'Status' },
+      { key: 'reason', header: 'Reason', width: 40 },
+    ],
+  },
   bookings: {
     title: 'Booking Report',
     columns: [
@@ -91,9 +104,11 @@ export const REPORT_DEFINITIONS: Record<ReportKey, { title: string; columns: Col
     title: 'Payment Report',
     columns: [
       { key: 'method', header: 'Method' },
+      { key: 'account', header: 'Received In', width: 30 },
       { key: 'status', header: 'Status' },
       { key: 'count', header: 'Count' },
       { key: 'amount', header: 'Amount (₹)', money: true },
+      { key: 'charges', header: 'Charges (₹)', money: true },
     ],
   },
   amc: {

@@ -19,7 +19,7 @@ import { Badge, ConfirmDialog, EmptyState, ErrorState, Field, LoadingBlock, Page
 import { Button, Card, Checkbox, Input } from '@/components/ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from '@/components/ui/overlays';
 
-const ACTIONS = ['view', 'create', 'edit', 'delete', 'approve', 'export', 'assign', 'manage'];
+const ACTIONS = ['view', 'create', 'edit', 'delete', 'approve', 'audit', 'export', 'assign', 'manage'];
 const SUPER_ADMIN = 'SUPER_ADMIN';
 const APP_ROLES = ['TECHNICIAN', 'CUSTOMER'];
 

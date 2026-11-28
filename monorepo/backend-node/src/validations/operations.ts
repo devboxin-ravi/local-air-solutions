@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { Limits } from '../constants';
+import { ErrorMessages, Limits } from '../constants';
 import { addressInput } from './auth';
 import {
   boolish,
@@ -20,6 +20,7 @@ import {
   optionalTrimmed,
   optionalUsername,
   password,
+  trimmed,
 } from './common';
 
 // ─── Customers ───
@@ -50,7 +51,9 @@ export const addressListQuery = listQuery.extend({ cityId: z.coerce.number().int
 // ─── Staff ───
 export const staffSchema = z.object({
   name,
+  /** Personal number: required, used to sign in. */
   mobile,
+  companyMobile: optionalMobile,
   email: optionalEmail,
   username: optionalUsername,
   password: password.optional(),
@@ -65,7 +68,10 @@ export const staffSchema = z.object({
   skillIds: z.array(id).max(50).default([]),
   serviceAreaIds: z.array(id).max(100).default([]),
 });
-export const staffUpdateSchema = staffSchema.partial().extend({ status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional() });
+export const staffUpdateSchema = staffSchema
+  .partial()
+  .extend({ status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(), statusReason: optionalTrimmed(500) })
+  .refine((v) => v.status !== 'SUSPENDED' || (v.statusReason ?? '').length >= 3, { message: ErrorMessages.SUSPEND_REASON_REQUIRED, path: ['statusReason'] });
 export const staffListQuery = listQuery.extend({
   isTechnician: boolish.optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
@@ -156,7 +162,7 @@ export const noteSchema = z.object({ note: z.string().trim().min(1).max(Limits.N
 export const calendarQuery = z.object({ branchId: z.coerce.number().int().positive().optional(), from: dateOnly, to: dateOnly });
 
 // ─── Assignments ───
-export const assignSchema = z.object({ staffId: id, notes });
+export const assignSchema = z.object({ staffId: id, notes, scheduledDate: dateOnly.optional(), scheduledTime: hhmm.optional() });
 export const assignmentListQuery = listQuery.extend({
   status: z.enum(['ASSIGNED', 'ACCEPTED', 'REJECTED', 'CANCELLED', 'COMPLETED']).optional(),
   staffId: z.coerce.number().int().positive().optional(),
@@ -170,6 +176,15 @@ export const availabilityQuery = z.object({ branchId: z.coerce.number().int().po
 export const techJobsQuery = z.object({ scope: z.enum(['today', 'upcoming', 'history', 'active']).default('today') });
 export const techRespondSchema = z.object({ accept: z.boolean(), reason: optionalTrimmed(Limits.NOTES_MAX) });
 export const techStatusSchema = z.object({ status: z.enum(['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS']), note: notes });
+export const techExtraWorkSchema = z
+  .object({ items: z.array(bookingItemInput).max(10).default([]), note: optionalTrimmed(500) })
+  .refine((v) => v.items.length > 0 || !!v.note, { message: 'Select a service or describe the extra work', path: ['items'] });
+export const techFindingSchema = z.object({
+  finding: trimmed(3, 900),
+  /** Remind the customer about this finding after so many months. */
+  followUpMonths: z.coerce.number().int().min(1).max(24).optional().nullable(),
+});
+export const techItemParams = z.object({ id, itemId: id });
 export const techCompleteSchema = z.object({
   performedItemIds: z.array(id).max(50).default([]),
   note: notes,

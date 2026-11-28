@@ -6,12 +6,12 @@
 import * as React from 'react';
 import { CheckCircle2, Circle, HardHat, ImagePlus, MapPin, Star, Upload } from 'lucide-react';
 import { cn, assetUrl, formatDateTime, humanize, toYmd } from '@/lib/utils';
-import type { Booking, Slot, Suggestion } from '@/types';
+import type { AssignInput, Booking, Slot, Suggestion } from '@/types';
 import { Badge, EmptyState, Field } from './common';
 import { SlotGrid } from './Pickers';
 import { Button, Input, NativeSelect, Textarea } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
-import { PLACEHOLDERS } from '@/constants/ui';
+import { JOB_STEPS, PLACEHOLDERS } from '@/constants/ui';
 
 export const StatusTimeline = ({ history }: { history: NonNullable<Booking['statusHistory']> }) => (
   <ol className="relative space-y-5 pl-1">
@@ -35,6 +35,26 @@ export const StatusTimeline = ({ history }: { history: NonNullable<Booking['stat
   </ol>
 );
 
+/** The five field steps with the time each was reached. */
+export const JobProgress = ({ status, history }: { status: string; history: NonNullable<Booking['statusHistory']> }) => {
+  const reached = JOB_STEPS.findIndex((s) => s.status === status);
+  return (
+    <ol className="grid grid-cols-5 gap-2">
+      {JOB_STEPS.map((step, i) => {
+        const done = i <= reached;
+        const at = done ? [...history].reverse().find((h) => h.toStatus === step.status)?.createdAt : undefined;
+        return (
+          <li key={step.status} aria-current={i === reached ? 'step' : undefined} className="min-w-0">
+            <span className={cn('block h-1.5 rounded-full', done ? 'bg-brand-green-500' : 'bg-slate-200')} />
+            <span className={cn('mt-2 block text-[12.5px] font-semibold', done ? 'text-brand-navy' : 'text-slate-400')}>{step.label}</span>
+            {at && <span className="block text-[11px] text-muted-foreground">{formatDateTime(at)}</span>}
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
 export const AssignDialog = ({
   open,
   onOpenChange,
@@ -42,29 +62,56 @@ export const AssignDialog = ({
   loading,
   submitting,
   onAssign,
-  bookingLabel,
+  booking,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   suggestions?: Suggestion[];
   loading?: boolean;
   submitting?: boolean;
-  onAssign: (staffId: number, notes: string) => void;
-  bookingLabel?: string;
+  onAssign: (input: AssignInput) => void;
+  /** The booking being assigned: shown as a summary and used to prefill date/time. */
+  booking?: Booking | null;
 }) => {
   const [selected, setSelected] = React.useState<number | null>(null);
   const [notes, setNotes] = React.useState('');
+  const [date, setDate] = React.useState('');
+  const [time, setTime] = React.useState('');
+  const today = toYmd(new Date());
   React.useEffect(() => {
     if (open) {
       setSelected(null);
       setNotes('');
+      setDate(booking?.scheduledDate.slice(0, 10) ?? '');
+      // Slot bookings store "HH:MM-HH:MM": prefill its start.
+      setTime(/^\d{2}:\d{2}/.exec(booking?.scheduledTime ?? '')?.[0] ?? '');
     }
-  }, [open]);
+  }, [open, booking?.id, booking?.scheduledDate, booking?.scheduledTime]);
+  // An unchanged earlier date stays assignable; a newly picked one cannot be in the past.
+  const dateInPast = !!date && date < today && date !== booking?.scheduledDate.slice(0, 10);
+  const ready = !!selected && !!date && !!time && !dateInPast;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
-        <DialogHeader title="Assign technician" description={bookingLabel ? `Suggested technicians for ${bookingLabel}, ranked by area, skills, availability and workload.` : undefined} />
+        <DialogHeader title="Assign technician" description={booking ? `Choose who, and when, for ${booking.bookingNumber}.` : undefined} />
         <DialogBody className="space-y-3">
+          {booking && (
+            <div className="rounded-xl border bg-slate-50 p-3.5 text-[13px]">
+              <p className="font-semibold text-brand-navy">{booking.items.map((i) => i.serviceName).join(', ') || booking.problemDescription || 'Repair visit'}</p>
+              <p className="mt-0.5 text-muted-foreground">
+                {booking.customer.fullName} · {booking.customer.mobile} · {booking.addressSnapshot.line1}, {booking.addressSnapshot.city}
+              </p>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Visit date" required htmlFor="assign-date" error={dateInPast ? 'Date cannot be in the past' : undefined}>
+              <Input id="assign-date" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label="Visit time" required htmlFor="assign-time">
+              <Input id="assign-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </Field>
+          </div>
+          <p className="text-xs text-muted-foreground">Technicians ranked by area, skills, availability and workload.</p>
           {loading && Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton h-20" />)}
           {!loading && !suggestions?.length && <EmptyState icon={HardHat} title="No technicians in this branch" description="Add technicians under Master Data → Staff Management." />}
           {suggestions?.map((s, idx) => (
@@ -102,7 +149,7 @@ export const AssignDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button disabled={!selected} loading={submitting} onClick={() => selected && onAssign(selected, notes.trim())}>
+          <Button disabled={!ready} loading={submitting} onClick={() => selected && ready && onAssign({ staffId: selected, notes: notes.trim() || undefined, scheduledDate: date, scheduledTime: time })}>
             <HardHat /> Assign
           </Button>
         </DialogFooter>

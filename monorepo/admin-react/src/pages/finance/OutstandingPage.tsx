@@ -31,7 +31,7 @@ export default function OutstandingPage() {
 
   return (
     <>
-      <PageHeader title="Outstanding Payments" description="Customers with unpaid balances, largest first." breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Outstanding' }]} />
+      <PageHeader title="Outstanding Payments" description="Customers with unpaid balances, largest first." breadcrumbs={[{ label: 'Accounts', to: ROUTES.INVOICES }, { label: 'Outstanding' }]} />
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total revenue (billed)" value={formatMoney(s?.totalRevenue)} icon={IndianRupee} loading={summary.isLoading} />
         <StatCard label="Payments received" value={formatMoney(s?.paymentsReceived)} icon={Landmark} tone="green" loading={summary.isLoading} hint="last 12 months" />

@@ -15,7 +15,7 @@ import { CustomerRepository } from '../repositories/customerRepository';
 import { AmcRepository } from '../repositories/amcRepository';
 import { Db, nextSequence, runInTransaction } from '../repositories/db';
 import type { AuthUser, RequestMeta } from '../models';
-import { AppError, BusinessRuleError, ConflictError, IntegrationDisabledError, NotFoundError, ValidationError } from '../utils/errors';
+import { AppError, BusinessRuleError, ConflictError, ForbiddenError, IntegrationDisabledError, NotFoundError, ValidationError } from '../utils/errors';
 import { StatusCodes } from '../constants/api';
 import { formatDocNumber, formatInr, hmacSha256Hex, moneyNumber, parseDateOnly, safeEqual, toPageMeta, toPageParams } from '../utils/helpers';
 import { logger } from '../utils/logger';
@@ -25,7 +25,12 @@ import { AmcService } from './amcService';
 import { InvoiceService } from './invoiceService';
 import { LedgerService } from './ledgerService';
 import { NotificationService } from './notificationService';
-import { SettingsService } from './settingsService';
+import { SettingsService, upiAccounts } from './settingsService';
+import { CASH_IN_HAND } from '../constants/settings';
+import { calculateInvoice } from './invoiceService';
+
+/** Booking states in which the technician may take payment. */
+const COLLECTABLE_STATUSES = ['IN_PROGRESS', 'COMPLETED'];
 
 interface PaymentTarget {
   customerId: number;
@@ -93,12 +98,127 @@ export class PaymentService {
     return pmt;
   }
 
+  /** UPI accounts staff can pick from when recording where money arrived. */
+  async receivingAccounts() {
+    const { accounts, defaultAccount } = upiAccounts(await this.settings.payment());
+    return { accounts, defaultAccount: defaultAccount?.key ?? null };
+  }
+
+  /**
+   * Where the money went and what it cost the company. The charge never changes the amount the
+   * customer pays; it is only recorded.
+   */
+  private async receipt(method: PaymentMethod, amount: number, account?: number) {
+    const cfg = await this.settings.payment();
+    const { accounts, defaultAccount } = upiAccounts(cfg);
+    const chosen = account ? accounts.find((a) => a.key === account) : defaultAccount;
+    if (account && !chosen) throw new ValidationError('That UPI account is not configured');
+    const toBank = method === 'UPI_MANUAL' || method === 'BANK_TRANSFER';
+    const percent = Number(method === 'UPI_MANUAL' ? cfg.upiChargePercent : method === 'RAZORPAY' ? cfg.razorpayChargePercent : 0) || 0;
+    return {
+      receivingAccount: method === 'RAZORPAY' ? 'Razorpay' : toBank && chosen ? `${chosen.label} · ${chosen.upiId}` : null,
+      chargePercent: percent,
+      chargeAmount: moneyNumber(Math.round(amount * percent) / 100),
+    };
+  }
+
+  // ─── Technician: pay after service ───
+  private async ownJob(actor: AuthUser, bookingId: number) {
+    const b = await this.bookingsRepo.findById(bookingId);
+    const current = b?.assignments.find((a) => a.isCurrent);
+    if (!b || !current || !actor.staffId || current.staffId !== actor.staffId) throw new ForbiddenError(ErrorMessages.JOB_NOT_YOURS);
+    return b;
+  }
+
+  /**
+   * What is still to be collected for a booking. Uses the invoice balance once it exists, otherwise the
+   * bill the booking's services would produce (GST included). Unverified collections are subtracted.
+   */
+  private async outstandingForBooking(booking: { id: number; items: Array<{ serviceId: number; serviceName: string; quantity: number; unitPrice: Prisma.Decimal; gstRate: Prisma.Decimal }> }, db?: Db) {
+    const invoice = await this.repo.findActiveInvoiceForBooking(booking.id, db);
+    let due: number;
+    if (invoice) due = moneyNumber(invoice.balanceDue);
+    else {
+      // A bill waiting in For Invoice may have been edited (e.g. GST removed): its total wins.
+      const draft = await this.repo.findDraftForBooking(booking.id, db);
+      const gst = await this.settings.gst(db);
+      const bill = draft ? { grandTotal: moneyNumber(draft.grandTotal) } : calculateInvoice(
+        booking.items.map((i) => ({ serviceId: i.serviceId, description: i.serviceName, quantity: i.quantity, rate: moneyNumber(i.unitPrice), gstRate: moneyNumber(i.gstRate) })),
+        { applyGst: gst.enabled, isInterState: false, discount: 0, isFreeService: false },
+      );
+      const paid = await this.repo.sumVerifiedForBooking(booking.id, db);
+      due = bill.grandTotal - moneyNumber(paid._sum.amount ?? 0);
+    }
+    const pending = moneyNumber((await this.repo.sumPendingForBooking(booking.id, db))._sum.amount ?? 0);
+    return { invoice, pending, due: Math.max(0, moneyNumber(due - pending)) };
+  }
+
+  async jobPaymentInfo(actor: AuthUser, bookingId: number) {
+    const booking = await this.ownJob(actor, bookingId);
+    const cfg = await this.settings.payment();
+    const { invoice, pending, due } = await this.outstandingForBooking(booking);
+    const upi = upiAccounts(cfg);
+    return {
+      bookingNumber: booking.bookingNumber,
+      invoiceNumber: invoice?.invoiceNumber ?? null,
+      amountDue: due,
+      pendingVerification: pending,
+      canCollect: COLLECTABLE_STATUSES.includes(booking.status) && due > 0,
+      upiEnabled: cfg.upiEnabled && upi.accounts.length > 0,
+      cashEnabled: cfg.cashEnabled,
+      accounts: cfg.upiEnabled ? upi.accounts : [],
+      defaultAccount: upi.defaultAccount?.key ?? null,
+    };
+  }
+
+  /** The technician's entry stays pending until an admin verifies it. The amount is computed here. */
+  async collectOnJob(actor: AuthUser, bookingId: number, input: { method: 'UPI_MANUAL' | 'CASH'; account?: number; referenceNumber?: string | null }, idempotencyKey: string | undefined, meta: RequestMeta) {
+    const booking = await this.ownJob(actor, bookingId);
+    if (idempotencyKey) {
+      const existing = await this.repo.findPaymentByIdempotencyKey(idempotencyKey);
+      if (existing) return existing;
+    }
+    if (!COLLECTABLE_STATUSES.includes(booking.status)) throw new BusinessRuleError('Payment can be collected once the work has started.');
+    const cfg = await this.settings.payment();
+    if (input.method === 'UPI_MANUAL' ? !cfg.upiEnabled : !cfg.cashEnabled) throw new BusinessRuleError('This payment method is currently disabled.');
+    const reference = input.method === 'UPI_MANUAL' ? input.referenceNumber ?? null : null;
+    if (reference && (await this.repo.findPaymentByReference(input.method, reference))) throw new ConflictError(ErrorMessages.DUPLICATE_PAYMENT_REFERENCE);
+
+    const pmt = await runInTransaction(async (tx) => {
+      await this.repo.lockBooking(booking.id, tx);
+      const { invoice, due } = await this.outstandingForBooking(booking, tx);
+      if (due <= 0) throw new BusinessRuleError('Nothing is due on this job.');
+      const created = await this.repo.createPayment(
+        {
+          paymentNumber: await this.newPaymentNumber(tx),
+          customerId: booking.customerId,
+          bookingId: booking.id,
+          invoiceId: invoice?.id ?? null,
+          method: input.method,
+          amount: due,
+          referenceNumber: reference,
+          idempotencyKey: idempotencyKey ?? null,
+          createdById: actor.id,
+          receivedBy: actor.name,
+          verificationNote: `Collected by ${actor.name}`,
+          ...(await this.receipt(input.method, due, input.method === 'UPI_MANUAL' ? input.account : undefined)),
+        },
+        tx,
+      );
+      await this.repo.setBookingPaymentStatus(booking.id, 'PENDING_VERIFICATION', tx);
+      return created;
+    });
+    await this.settings.audit(actor, AuditActions.CREATE, 'payment', pmt.id, null, { ...input, collectedOnJob: booking.id }, meta);
+    return this.repo.findPayment(pmt.id);
+  }
+
   /** Ensures the referenced invoice/booking/AMC belongs to the customer. */
   private async validateTarget(t: PaymentTarget) {
     if (t.invoiceId) {
       const inv = await this.repo.findInvoice(t.invoiceId);
       if (!inv || inv.customerId !== t.customerId) throw new ValidationError('Invoice does not belong to this customer');
       if (inv.status === 'CANCELLED') throw new BusinessRuleError(ErrorMessages.INVOICE_CANCELLED);
+      if (inv.status === 'DRAFT') throw new BusinessRuleError(ErrorMessages.DRAFT_NOT_ISSUED);
       return { invoice: inv };
     }
     if (t.bookingId) {
@@ -128,7 +248,8 @@ export class PaymentService {
     let invoiceId = pmt.invoiceId;
     if (!invoiceId && pmt.amcContractId) invoiceId = (await this.repo.findActiveInvoiceForAmc(pmt.amcContractId, tx))?.id ?? null;
     if (!invoiceId && pmt.bookingId) invoiceId = (await this.repo.findActiveInvoiceForBooking(pmt.bookingId, tx))?.id ?? null;
-    if (invoiceId) await this.invoices.applyPayment(tx, invoiceId, amount);
+    // Collected before the bill was final: never block verification on a changed total.
+    if (invoiceId) await this.invoices.applyPayment(tx, invoiceId, amount, !pmt.invoiceId);
 
     await this.repo.updatePayment(paymentId, { status: 'VERIFIED', verifiedById: actorId, verifiedAt: new Date(), verificationNote: note ?? null, invoiceId }, tx);
     await this.ledger.post(tx, {
@@ -176,7 +297,7 @@ export class PaymentService {
   }
 
   /** Admin records a payment. Cash/bank entered by staff with approve permission are verified immediately. */
-  async record(actor: AuthUser, input: PaymentTarget & { method: 'UPI_MANUAL' | 'CASH' | 'BANK_TRANSFER'; amount: number; referenceNumber?: string | null; receivedAt?: string; note?: string | null }, autoVerify: boolean, idempotencyKey: string | undefined, meta: RequestMeta) {
+  async record(actor: AuthUser, input: PaymentTarget & { method: 'UPI_MANUAL' | 'CASH' | 'BANK_TRANSFER'; account?: number; receivedBy: string; amount: number; referenceNumber?: string | null; receivedAt?: string; note?: string | null }, idempotencyKey: string | undefined, meta: RequestMeta) {
     if (idempotencyKey) {
       const existing = await this.repo.findPaymentByIdempotencyKey(idempotencyKey);
       if (existing) return existing;
@@ -198,6 +319,8 @@ export class PaymentService {
           amcContractId: input.amcContractId ?? invoice?.amcContractId ?? null,
           method: input.method,
           amount: input.amount,
+          ...(await this.receipt(input.method, input.amount, input.account)),
+          receivedBy: input.receivedBy,
           referenceNumber: input.referenceNumber ?? null,
           receivedAt: input.receivedAt ? parseDateOnly(input.receivedAt) : new Date(),
           idempotencyKey: idempotencyKey ?? null,
@@ -206,11 +329,9 @@ export class PaymentService {
         },
         tx,
       );
-      if (autoVerify) await this.settle(tx, created.id, actor.id, input.note);
       return created;
     });
-    await this.settings.audit(actor, AuditActions.CREATE, 'payment', pmt.id, null, { ...input, autoVerify }, meta);
-    if (autoVerify) await this.notifyReceived(pmt.id);
+    await this.settings.audit(actor, AuditActions.CREATE, 'payment', pmt.id, null, input, meta);
     return this.repo.findPayment(pmt.id);
   }
 
@@ -236,6 +357,7 @@ export class PaymentService {
           amcContractId: input.amcContractId ?? null,
           method: 'UPI_MANUAL',
           amount: input.amount,
+          ...(await this.receipt('UPI_MANUAL', input.amount)),
           referenceNumber: input.referenceNumber,
           proofPath,
           idempotencyKey: idempotencyKey ?? null,
@@ -253,11 +375,17 @@ export class PaymentService {
     return this.repo.findPayment(pmt.id);
   }
 
-  async verify(actor: AuthUser, id: number, approve: boolean, note: string | null | undefined, meta: RequestMeta) {
+  async verify(actor: AuthUser, id: number, approve: boolean, note: string | null | undefined, meta: RequestMeta, account?: number) {
     const pmt = await this.get(actor, id);
     if (pmt.status !== 'PENDING_VERIFICATION') throw new BusinessRuleError(ErrorMessages.PAYMENT_ALREADY_PROCESSED);
     await runInTransaction(async (tx) => {
       if (approve) {
+        // Confirmed by the office: cash goes to cash in hand, UPI/bank money to the chosen account.
+        if (pmt.method === 'CASH') await this.repo.updatePayment(id, { receivingAccount: CASH_IN_HAND }, tx);
+        else if (account) {
+          const { receivingAccount } = await this.receipt(pmt.method, moneyNumber(pmt.amount), account);
+          if (receivingAccount) await this.repo.updatePayment(id, { receivingAccount }, tx);
+        }
         await this.settle(tx, id, actor.id, note);
       } else {
         const locked = await this.repo.lockPayment(id, tx);
@@ -327,6 +455,7 @@ export class PaymentService {
     if (t.invoiceId) {
       const inv = await this.repo.findInvoice(t.invoiceId);
       if (!inv || inv.customerId !== t.customerId) throw new NotFoundError('Invoice');
+      if (inv.status === 'DRAFT') throw new BusinessRuleError(ErrorMessages.DRAFT_NOT_ISSUED);
       return moneyNumber(inv.balanceDue);
     }
     if (t.bookingId) {
@@ -384,6 +513,7 @@ export class PaymentService {
           amcContractId: raw.amcContractId ?? null,
           method: 'RAZORPAY',
           amount: txn.amount,
+          ...(await this.receipt('RAZORPAY', moneyNumber(txn.amount))),
           referenceNumber: gatewayPaymentId,
           idempotencyKey: `rzp:${gatewayPaymentId}`,
         },

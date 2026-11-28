@@ -4,7 +4,8 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { authService } from '@/services/authService';
-import { refreshAccessToken, tokenStore } from '@/services/apiClient';
+import { ApiError, refreshAccessToken, tokenStore } from '@/services/apiClient';
+import { HTTP, QUERY } from '@/constants/api';
 import type { AuthUser, LoginResult } from '@/types';
 
 type Status = 'loading' | 'authenticated' | 'anonymous';
@@ -35,17 +36,20 @@ export const bootstrapSession = async (): Promise<void> => {
     setState({ status: 'anonymous', user: null });
     return;
   }
-  const token = await refreshAccessToken();
-  if (!token) {
-    setState({ status: 'anonymous', user: null });
-    return;
+  // Retries while the server is unreachable (e.g. restarting) instead of signing the user out.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      const token = await refreshAccessToken();
+      if (!token) break;
+      setState({ status: 'authenticated', user: await authService.me() });
+      return;
+    } catch (e) {
+      const signedOut = e instanceof ApiError && e.status === HTTP.UNAUTHORIZED;
+      if (signedOut || attempt >= QUERY.SESSION_RETRY_ATTEMPTS) break;
+      await new Promise((resolve) => setTimeout(resolve, QUERY.SESSION_RETRY_MS));
+    }
   }
-  try {
-    setState({ status: 'authenticated', user: await authService.me() });
-  } catch {
-    tokenStore.clear();
-    setState({ status: 'anonymous', user: null });
-  }
+  setState({ status: 'anonymous', user: null });
 };
 
 const complete = (r: LoginResult): LoginResult => {

@@ -46,7 +46,8 @@ export const addressInput = z.object({
   landmark: optionalTrimmed(200),
   stateId: id,
   cityId: id,
-  pincode,
+  /** Optional: the address line, state and city are enough. */
+  pincode: z.union([z.literal(''), pincode]).optional().nullable().transform((v) => v || null),
   latitude,
   longitude,
 });

@@ -7,12 +7,13 @@ import { Prisma } from '@prisma/client';
 import { ACTIVE_JOB_STATUSES, PENDING_BOOKING_STATUSES } from '../constants';
 import { ReportRepository, DateRange } from '../repositories/reportRepository';
 import type { AuthUser } from '../models';
-import { moneyNumber, parseDateOnly, todayDateOnly, addDays } from '../utils/helpers';
+import { moneyNumber, parseDateOnly, todayDateOnly, addDays, formatDisplayDate } from '../utils/helpers';
 import { customerBranchWhere, resolveBranchScope } from './accessControl';
 
 const DASHBOARD_LIST_SIZE = 6;
 const SEARCH_LIMIT = 5;
 const CUSTOMER_REPORT_LIMIT = 500;
+const CANCELLATION_REPORT_LIMIT = 500;
 
 const n = (v: bigint | number | null | undefined) => Number(v ?? 0);
 
@@ -135,6 +136,20 @@ export class ReportService {
   }
 
   // ─── Reports (rows are plain objects suitable for export) ───
+  async cancellationReport(actor: AuthUser, f: ReportFilter) {
+    const rows = await this.repo.cancelledBookings(this.range(f), resolveBranchScope(actor, f.branchId), CANCELLATION_REPORT_LIMIT);
+    return rows.map((r) => ({
+      bookingNumber: r.bookingNumber,
+      cancelledOn: r.statusHistory[0] ? formatDisplayDate(r.statusHistory[0].createdAt) : '',
+      customer: r.customer.fullName,
+      mobile: r.customer.mobile,
+      service: r.items.map((i) => i.serviceName).join(', ') || r.problemDescription || '',
+      branch: r.branch.name,
+      status: r.status,
+      reason: r.cancelReason ?? r.statusHistory[0]?.note ?? '',
+    }));
+  }
+
   async bookingReport(actor: AuthUser, f: ReportFilter) {
     const branchId = resolveBranchScope(actor, f.branchId);
     const rows = await this.repo.bookingTrend(this.range(f), branchId, f.granularity ?? 'day');
@@ -187,7 +202,7 @@ export class ReportService {
 
   async paymentReport(actor: AuthUser, f: ReportFilter) {
     const rows = await this.repo.paymentMethodSplit(this.range(f), resolveBranchScope(actor, f.branchId));
-    return rows.map((r) => ({ method: r.method, status: r.status, count: n(r.count), amount: moneyNumber(r.amount) }));
+    return rows.map((r) => ({ method: r.method, account: r.account ?? '-', status: r.status, count: n(r.count), amount: moneyNumber(r.amount), charges: moneyNumber(r.charges) }));
   }
 
   async amcReport(actor: AuthUser, f: ReportFilter) {

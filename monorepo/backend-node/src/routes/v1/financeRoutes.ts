@@ -11,7 +11,7 @@ import { validate, validateBodyBy } from '../../middleware/validate';
 import { perm, SharedLinks } from '../../constants';
 import { REPORT_KEYS } from '../../constants/reports';
 import { idParams, listQuery } from '../../validations/common';
-import { amcCancelSchema, amcCreateSchema, amcListQuery, amcUpdateSchema, amcVisitBookSchema, amcVisitListQuery, auditListQuery, globalSearchQuery, integrationCredentialSchemas, integrationNameParams, integrationTestSchema, invoiceCancelSchema, invoiceFromBookingSchema, invoiceLineSchema, invoiceListQuery, invoiceManualSchema, invoiceShareSchema, ledgerAdjustmentSchema, notificationReadSchema, paymentCreateSchema, paymentListQuery, paymentRefundSchema, paymentVerifySchema, razorpayCredentialsSchema, razorpayTestSchema, reminderCreateSchema, reminderListQuery, reminderUpdateSchema, reportQuery, settingKeyParams, settingValueSchema, settingValueSchemas, shareQuery, templateUpdateSchema } from '../../validations/finance';
+import { draftInvoiceListQuery, draftInvoiceUpdateSchema, amcCancelSchema, amcCreateSchema, amcListQuery, amcUpdateSchema, amcVisitBookSchema, amcVisitListQuery, auditListQuery, globalSearchQuery, integrationCredentialSchemas, integrationNameParams, integrationTestSchema, invoiceCancelSchema, invoiceFromBookingSchema, invoiceLineSchema, invoiceListQuery, invoiceManualSchema, invoiceShareSchema, ledgerAdjustmentSchema, notificationReadSchema, paymentCreateSchema, paymentListQuery, paymentRefundSchema, paymentVerifySchema, razorpayCredentialsSchema, razorpayTestSchema, reminderCreateSchema, reminderListQuery, reminderUpdateSchema, reportQuery, settingKeyParams, settingValueSchema, settingValueSchemas, shareQuery, templateUpdateSchema } from '../../validations/finance';
 
 const r = Router();
 const invoicePreviewSchema = z.object({
@@ -25,8 +25,16 @@ const admin = requireUserType('ADMIN');
 
 // ─── Invoices ───
 r.get('/invoices', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ query: invoiceListQuery }), fin.listInvoices);
-r.post('/invoices/preview', authenticate, admin, requirePermission(perm('invoices', 'create')), validate({ body: invoicePreviewSchema }), fin.previewInvoice);
-r.post('/invoices/from-booking', authenticate, admin, requirePermission(perm('invoices', 'create')), validate({ body: invoiceFromBookingSchema }), fin.createInvoiceFromBooking);
+r.post('/invoices/preview', authenticate, admin, requireAnyPermission(perm('invoices', 'create'), perm('forInvoice', 'create'), perm('forInvoice', 'edit')), validate({ body: invoicePreviewSchema }), fin.previewInvoice);
+
+// ─── For Invoice: bills of completed jobs, edited and then approved (audited) into invoices ───
+r.get('/draft-invoices', authenticate, admin, requirePermission(perm('forInvoice', 'view')), validate({ query: draftInvoiceListQuery }), fin.listDraftInvoices);
+r.post('/draft-invoices', authenticate, admin, requirePermission(perm('forInvoice', 'create')), validate({ body: invoiceFromBookingSchema }), fin.generateDraftInvoice);
+r.get('/draft-invoices/:id', authenticate, admin, requirePermission(perm('forInvoice', 'view')), validate({ params: idParams }), fin.getDraftInvoice);
+r.patch('/draft-invoices/:id', authenticate, admin, requirePermission(perm('forInvoice', 'edit')), validate({ params: idParams, body: draftInvoiceUpdateSchema }), fin.updateDraftInvoice);
+r.post('/draft-invoices/:id/approve', authenticate, admin, requirePermission(perm('forInvoice', 'audit')), validate({ params: idParams }), fin.approveDraftInvoice);
+r.post('/draft-invoices/:id/discard', authenticate, admin, requirePermission(perm('forInvoice', 'edit')), validate({ params: idParams, body: invoiceCancelSchema }), fin.discardDraftInvoice);
+
 r.post('/invoices', authenticate, admin, requirePermission(perm('invoices', 'create')), validate({ body: invoiceManualSchema }), fin.createManualInvoice);
 r.post('/invoices/share', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ body: invoiceShareSchema }), fin.shareInvoices);
 r.get('/invoices/:id', authenticate, admin, requirePermission(perm('invoices', 'view')), validate({ params: idParams }), fin.getInvoice);
@@ -38,6 +46,7 @@ r.post('/invoices/:id/cancel', authenticate, admin, requirePermission(perm('invo
 // ─── Payments ───
 r.get('/payments', authenticate, admin, requirePermission(perm('payments', 'view')), validate({ query: paymentListQuery }), fin.listPayments);
 r.post('/payments', authenticate, admin, requirePermission(perm('payments', 'create')), validate({ body: paymentCreateSchema }), fin.recordPayment);
+r.get('/payments/accounts', authenticate, admin, requireAnyPermission(perm('payments', 'view'), perm('payments', 'create')), fin.receivingAccounts);
 r.get('/payments/:id', authenticate, admin, requirePermission(perm('payments', 'view')), validate({ params: idParams }), fin.getPayment);
 r.post('/payments/:id/verify', authenticate, admin, requirePermission(perm('payments', 'approve')), validate({ params: idParams, body: paymentVerifySchema }), fin.verifyPayment);
 r.post('/payments/:id/refund', authenticate, admin, requirePermission(perm('payments', 'approve')), validate({ params: idParams, body: paymentRefundSchema }), fin.refundPayment);

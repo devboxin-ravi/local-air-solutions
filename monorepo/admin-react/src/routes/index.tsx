@@ -19,6 +19,7 @@ const BookingFormPage = lazy(() => import('@/pages/bookings/BookingFormPage'));
 const BookingDetailPage = lazy(() => import('@/pages/bookings/BookingDetailPage'));
 const CalendarPage = lazy(() => import('@/pages/bookings/CalendarPage'));
 const SlotsPage = lazy(() => import('@/pages/bookings/SlotsPage'));
+const ServicesHomePage = lazy(() => import('@/pages/services/ServicesHomePage'));
 const ServicesListPage = lazy(() => import('@/pages/services/ServicesListPage'));
 const ServiceFormPage = lazy(() => import('@/pages/services/ServiceFormPage'));
 const CategoriesPage = lazy(() => import('@/pages/services/CategoriesPage'));
@@ -39,6 +40,7 @@ const AmcDetailPage = lazy(() => import('@/pages/amc/AmcDetailPage'));
 const AmcVisitsPage = lazy(() => import('@/pages/amc/AmcVisitsPage'));
 const InvoicesPage = lazy(() => import('@/pages/finance/InvoicesPage'));
 const InvoiceDetailPage = lazy(() => import('@/pages/finance/InvoiceDetailPage'));
+const ForInvoicePage = lazy(() => import('@/pages/finance/ForInvoicePage'));
 const InvoiceFormPage = lazy(() => import('@/pages/finance/InvoiceFormPage'));
 const PaymentsPage = lazy(() => import('@/pages/finance/PaymentsPage'));
 const OutstandingPage = lazy(() => import('@/pages/finance/OutstandingPage'));
@@ -113,6 +115,7 @@ export const AppRoutes = () => {
           {P('slots.view', <Route path={ROUTES.SLOTS} element={<SlotsPage />} />)}
 
           {P('services.view', <>
+            <Route path={ROUTES.SERVICES_HOME} element={<ServicesHomePage />} />
             <Route path={ROUTES.SERVICES} element={<ServicesListPage />} />
             <Route path={ROUTES.CATEGORIES} element={<CategoriesPage />} />
             <Route path={ROUTES.PRICING} element={<PricingPage />} />
@@ -162,6 +165,10 @@ export const AppRoutes = () => {
             <Route path="/finance/invoices/:id" element={<InvoiceDetailPage />} />
           </>)}
           {P('invoices.create', <Route path={ROUTES.INVOICE_NEW} element={<InvoiceFormPage />} />)}
+          {P('forInvoice.view', <>
+            <Route path={ROUTES.FOR_INVOICE} element={<ForInvoicePage />} />
+            <Route path="/finance/for-invoice/:id" element={<InvoiceFormPage />} />
+          </>)}
           {P('payments.view', <Route path={ROUTES.PAYMENTS} element={<PaymentsPage />} />)}
           {P('payments.approve', <Route path={ROUTES.PAYMENT_VERIFICATION} element={<PaymentsPage verification />} />)}
 

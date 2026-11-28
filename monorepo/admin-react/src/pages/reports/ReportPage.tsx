@@ -19,6 +19,7 @@ import { ColumnResizer } from '@/components/DataTable';
 import { Button, Card, NativeSelect } from '@/components/ui/primitives';
 
 const DESCRIPTIONS: Record<string, string> = {
+  cancellations: 'Every cancelled or rejected booking with its reason, by cancellation date.',
   bookings: 'Bookings created per period with completion and cancellation counts.',
   revenue: 'Monthly billed vs collected revenue.',
   services: 'Bookings and booked value by service.',

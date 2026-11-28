@@ -161,7 +161,8 @@ export default function ServiceFormPage() {
         title={id ? `Edit ${existing.data?.name ?? "service"}` : "Add Service"}
         description="Services are fetched by the apps from here — no code changes needed."
         breadcrumbs={[
-          { label: "Services", to: ROUTES.SERVICES },
+          { label: "Master Data", to: ROUTES.STATES },
+          { label: "Services", to: ROUTES.SERVICES_HOME },
           { label: id ? "Edit" : "Add Service" },
         ]}
         actions={saveButtons}

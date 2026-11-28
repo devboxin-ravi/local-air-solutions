@@ -36,7 +36,7 @@ export default function PricingPage() {
 
   return (
     <>
-      <PageHeader title="Service Pricing" description="Set base prices and branch overrides. Every change is kept as history; existing bookings keep their price." breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: 'Pricing' }]} />
+      <PageHeader title="Pricing" description="Set base prices and branch overrides. Every change is kept as history; existing bookings keep their price." breadcrumbs={[{ label: 'Master Data', to: ROUTES.STATES }, { label: 'Services', to: ROUTES.SERVICES_HOME }, { label: 'Pricing' }]} />
       <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card className="space-y-4 p-5 xl:sticky xl:top-[97px] xl:self-start">
           <Field label="Service">

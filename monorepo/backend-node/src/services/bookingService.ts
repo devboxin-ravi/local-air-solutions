@@ -109,6 +109,7 @@ export class BookingService {
     if (!b) throw new NotFoundError('Booking');
     if (actor.userType === 'CUSTOMER') {
       if (b.customerId !== actor.customerId) throw new NotFoundError('Booking');
+      return { ...b, invoices: b.invoices.filter((i) => i.status !== 'DRAFT') };
     } else if (actor.userType === 'STAFF') {
       if (!b.assignments.some((a) => a.isCurrent && a.staff.id === actor.staffId)) throw new ForbiddenError(ErrorMessages.JOB_NOT_YOURS);
     } else {
@@ -307,6 +308,21 @@ export class BookingService {
     await this.settings.audit(actor, AuditActions.UPDATE, 'booking', id, { scheduledDate: b.scheduledDate }, input, meta);
     await this.notifyStatus(id, 'CONFIRMED');
     return this.repo.findById(id);
+  }
+
+  /**
+   * Sets a manually chosen visit date/time (used while assigning). Returns false when nothing changed;
+   * otherwise any booked slot is released because the visit no longer follows it.
+   */
+  async applyManualSchedule(tx: Db, booking: { id: number; slotId: number | null; scheduledDate: Date; scheduledTime: string | null }, input: { scheduledDate?: string; scheduledTime?: string }): Promise<boolean> {
+    const date = input.scheduledDate ? parseDateOnly(input.scheduledDate) : booking.scheduledDate;
+    const dateChanged = date.getTime() !== booking.scheduledDate.getTime();
+    const timeChanged = !!input.scheduledTime && !booking.scheduledTime?.startsWith(input.scheduledTime);
+    if (!dateChanged && !timeChanged) return false;
+    if (date < todayDateOnly()) throw new ValidationError(ErrorMessages.VALIDATION_FAILED, { scheduledDate: 'Date cannot be in the past' });
+    await this.slots.release(booking.slotId, booking.id, tx);
+    await this.repo.update(booking.id, { scheduledDate: date, scheduledTime: input.scheduledTime ?? null, slotId: null }, tx);
+    return true;
   }
 
   async update(actor: AuthUser, id: number, input: { instructions?: string | null; problemDescription?: string | null; problemCategory?: string | null; productId?: number | null; items?: Array<{ serviceId: number; quantity: number }> }, meta: RequestMeta) {

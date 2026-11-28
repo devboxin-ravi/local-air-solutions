@@ -28,8 +28,9 @@ export default {
         danger: { DEFAULT: '#DC2626', soft: '#FEE2E2' },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'],
-        display: ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Times New Roman across the system; Hindi falls back to the system Devanagari serif fonts.
+        sans: ['"Times New Roman"', 'Times', '"Nirmala UI"', '"Noto Serif Devanagari"', 'Mangal', 'serif'],
+        display: ['"Times New Roman"', 'Times', '"Nirmala UI"', '"Noto Serif Devanagari"', 'Mangal', 'serif'],
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)', xl: 'calc(var(--radius) + 4px)' },
       boxShadow: {

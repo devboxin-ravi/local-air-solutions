@@ -104,10 +104,22 @@ export const INVOICE_SHARE = {
   ATTACH_HINT: (fileName: string) => `${fileName} downloaded — attach it in the WhatsApp chat that just opened.`,
 } as const;
 
-/** "Record payment" on the Payment In page (manual entry, not tied to an invoice page). */
+/** "Receive payment" dialog. */
+export const RECEIVE_PAYMENT = {
+  TITLE: 'Receive payment',
+  RECEIVED_BY: 'Received by',
+  OTHERS: 'Others',
+  OTHER_NAME: 'Name of the person who received it',
+  NAME_REQUIRED: 'Enter who received the payment',
+  VERIFY_NOTE: 'It is added to cash in hand / bank once the office confirms it in Payment Verification.',
+  CASH_DESTINATION: 'Goes to: Cash in hand',
+  BANK_LABEL: 'Received in bank account',
+} as const;
+
+/** "Receive payment" on the Payment Receipt page (manual entry, not tied to an invoice page). */
 export const MANUAL_PAYMENT = {
-  BUTTON: 'Record payment',
-  CONTEXT: 'Payment received outside the app — cash, UPI or bank transfer.',
+  BUTTON: 'Receive payment',
+  CONTEXT: 'Payment received outside the app — cash, UPI or bank transfer',
   CUSTOMER_LABEL: 'Customer',
   CUSTOMER_REQUIRED: 'Select a customer',
   INVOICE_LABEL: 'Against invoice',
@@ -147,6 +159,9 @@ export const PAYMENT_METHODS_UI = {
   SHOWN_IN_APP: 'Shown in app',
   HIDDEN_IN_APP: 'Hidden',
   UPI_DESCRIPTION: 'Customer pays to your UPI ID and shares the reference; staff verify it.',
+  ACCOUNT_NAME_PLACEHOLDER: 'e.g. HDFC Current',
+  CHARGE_LABEL: 'Charge %',
+  CHARGE_HINT: 'Fee the company bears. Recorded for reports; the customer pays the same bill amount.',
   RAZORPAY_DESCRIPTION: 'Customer pays online in the app (cards, UPI, net banking). Confirmed automatically.',
   CASH_DESCRIPTION: 'Customer pays the technician after the job (cash or UPI on the spot).',
   RAZORPAY_NEEDS_KEYS: 'Add your Razorpay keys to turn this on.',
@@ -223,6 +238,7 @@ export const BACK_LABEL = 'Back';
 export const ROW_ACTIONS = {
   HEADER: 'Actions',
   VIEW: 'View',
+  VIEW_TITLE: 'Details',
   DOWNLOAD: 'Download PDF',
   EDIT: 'Edit',
   CANCEL: 'Cancel',
@@ -301,6 +317,59 @@ export const ADMIN_TRANSITIONS: Record<string, string[]> = {
 };
 
 export const CANCELLABLE_STATUSES = ['PENDING_PAYMENT', 'PAYMENT_VERIFICATION', 'CONFIRMED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'RESCHEDULED'];
+/** Bookings made in the customer app are highlighted in the bookings list. */
+export const APP_BOOKING = {
+  SOURCE: 'CUSTOMER_APP',
+  BADGE: 'App booking',
+  LEGEND: 'Highlighted rows were booked from the customer app.',
+  ROW_CLASS: 'bg-violet-50/70 shadow-[inset_3px_0_0_#7c3aed]',
+} as const;
+
+/** Technician's field steps, in order, as shown on the booking page. */
+export const JOB_STEPS = [
+  { status: 'ACCEPTED', label: 'Accepted' },
+  { status: 'ON_THE_WAY', label: 'On the way' },
+  { status: 'ARRIVED', label: 'Arrived' },
+  { status: 'IN_PROGRESS', label: 'Work started' },
+  { status: 'COMPLETED', label: 'Completed' },
+] as const;
+
+export const JOB_NOTE_KINDS: Record<string, { label: string; tone: 'amber' | 'red' }> = {
+  EXTRA_WORK: { label: 'Extra work', tone: 'amber' },
+  FINDING: { label: 'Additional finding', tone: 'red' },
+};
+
+/** Accounts → For Invoice (bills of completed jobs awaiting approval). */
+export const FOR_INVOICE = {
+  TITLE: 'For Invoice',
+  DESCRIPTION: 'Bills made automatically when a job is completed. Check or edit them (e.g. remove GST), then approve to issue the invoice.',
+  EDIT_HINT: 'Check and edit the bill, then approve it to issue the invoice.',
+  PENDING: 'Pending approval',
+  APPROVE: 'Approve & issue invoice',
+  APPROVE_TITLE: 'Approve this bill?',
+  APPROVE_NOTE: 'Any unsaved edits are saved first. The invoice gets its number and is billed to the customer.',
+  DISCARD: 'Remove bill',
+  DISCARD_TITLE: 'Remove this bill?',
+  DISCARD_NOTE: 'Nothing is billed. It can be generated again from the booking.',
+  EMPTY_TITLE: 'Nothing waiting',
+  EMPTY_DESCRIPTION: 'Bills appear here when technicians complete jobs.',
+  SENT: 'Sent to For Invoice',
+} as const;
+
+export const GST_FILTER_OPTIONS = [
+  { value: 'GST', label: 'GST invoices' },
+  { value: 'NON_GST', label: 'Non-GST invoices' },
+];
+
+/** Default location for new customers and staff when the user has no branch of their own. */
+export const DEFAULT_LOCATION = { STATE_CODE: 'CG', CITY_NAME: 'Raipur', BRANCH_CODE: 'RPR-01' } as const;
+
+/** Customers registered in the app vs entered by staff. */
+export const CUSTOMER_SOURCE: Record<string, { label: string; text: string; badge: string }> = {
+  APP: { label: 'App', text: 'text-green-800', badge: 'bg-green-800 text-white' },
+  ADMIN: { label: 'Manual', text: 'text-brand-blue', badge: 'bg-brand-blue text-white' },
+};
+
 export const ASSIGNABLE_STATUSES = ['CONFIRMED', 'ASSIGNED', 'ACCEPTED', 'RESCHEDULED'];
 export const RESCHEDULABLE_STATUSES = ['CONFIRMED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'ARRIVED'];
 

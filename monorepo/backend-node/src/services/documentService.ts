@@ -66,10 +66,10 @@ export class DocumentService {
     const W = doc.page.width - 80;
     const logo = this.logoPath();
     if (logo) doc.image(logo, 40, 34, { fit: [190, 56] });
-    else doc.fillColor(BRAND.blue).font('Helvetica-Bold').fontSize(20).text(snap.company?.name || 'Local Air Solutions', 40, 40);
+    else doc.fillColor(BRAND.blue).font('Times-Bold').fontSize(20).text(snap.company?.name || 'Local Air Solutions', 40, 40);
 
-    doc.fillColor(BRAND.navy).font('Helvetica-Bold').fontSize(22).text(inv.isFreeService ? 'FREE SERVICE INVOICE' : 'TAX INVOICE', 40, 40, { width: W, align: 'right' });
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate)
+    doc.fillColor(BRAND.navy).font('Times-Bold').fontSize(22).text(inv.isFreeService ? 'FREE SERVICE INVOICE' : 'INVOICE', 40, 40, { width: W, align: 'right' });
+    doc.font('Times-Roman').fontSize(9).fillColor(BRAND.slate)
       .text(`Invoice No: ${inv.invoiceNumber}`, 40, 68, { width: W, align: 'right' })
       .text(`Date: ${formatDisplayDate(inv.invoiceDate)}`, { width: W, align: 'right' })
       .text(snap.bookingNumber ? `Booking: ${snap.bookingNumber}` : snap.amcNumber ? `AMC: ${snap.amcNumber}` : '', { width: W, align: 'right' });
@@ -81,23 +81,23 @@ export class DocumentService {
     // FROM = Settings → Company Profile; the branch only adds its name (and its own GSTIN when separately registered).
     const company = snap.company ?? {};
     const branch = snap.branch ?? null;
-    doc.fillColor(BRAND.slate).fontSize(8).font('Helvetica-Bold').text('FROM', 40, top);
-    doc.fillColor(BRAND.navy).fontSize(10).font('Helvetica-Bold').text(company.legalName || company.name || '', 40, top + 12, { width: W / 2 - 10 });
+    doc.fillColor(BRAND.slate).fontSize(8).font('Times-Bold').text('FROM', 40, top);
+    doc.fillColor(BRAND.navy).fontSize(10).font('Times-Bold').text(company.legalName || company.name || '', 40, top + 12, { width: W / 2 - 10 });
     const fromLines = [
       company.address || branch?.address,
       branch?.name ? `Branch: ${branch.name}` : '',
       [company.phone || branch?.phone, company.email].filter(Boolean).join(' · '),
       company.website,
     ].filter(Boolean);
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate).text(fromLines.join('\n'), { width: W / 2 - 10 });
+    doc.font('Times-Roman').fontSize(9).fillColor(BRAND.slate).text(fromLines.join('\n'), { width: W / 2 - 10 });
     const gstin = branch?.gstin || company.gstin;
     const stateCode = branch?.gstin ? '' : company.stateCode;
     if (gstin) doc.text(`GSTIN: ${gstin}${stateCode ? ` · State code: ${stateCode}` : ''}`, { width: W / 2 - 10 });
 
     const cx = 40 + W / 2 + 10;
-    doc.fillColor(BRAND.slate).fontSize(8).font('Helvetica-Bold').text('BILL TO', cx, top);
-    doc.fillColor(BRAND.navy).fontSize(10).font('Helvetica-Bold').text(snap.customer?.name ?? '', cx, top + 12, { width: W / 2 - 10 });
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate)
+    doc.fillColor(BRAND.slate).fontSize(8).font('Times-Bold').text('BILL TO', cx, top);
+    doc.fillColor(BRAND.navy).fontSize(10).font('Times-Bold').text(snap.customer?.name ?? '', cx, top + 12, { width: W / 2 - 10 });
+    doc.font('Times-Roman').fontSize(9).fillColor(BRAND.slate)
       .text(`${snap.customer?.code ?? ''}  ${snap.customer?.mobile ?? ''}`, { width: W / 2 - 10 })
       .text(snap.customer?.address ?? '', { width: W / 2 - 10 });
     if (snap.customer?.email) doc.text(snap.customer.email, { width: W / 2 - 10 });
@@ -116,7 +116,7 @@ export class DocumentService {
     ];
     doc.rect(40, y, W, 22).fill(BRAND.blue);
     let x = 40;
-    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8.5);
+    doc.fillColor('#FFFFFF').font('Times-Bold').fontSize(8.5);
     for (const c of cols) {
       doc.text(c.h, x + 4, y + 7, { width: c.w - 8, align: c.a });
       x += c.w;
@@ -127,7 +127,7 @@ export class DocumentService {
     const itemsBottom = doc.page.height - ITEM_TABLE.BOTTOM_RESERVE;
     const descWidth = cols[1].w - 8;
     const rowHeights = (fs: number, pad: number, oneLine: boolean) => {
-      doc.font('Helvetica').fontSize(fs);
+      doc.font('Times-Roman').fontSize(fs);
       return inv.items.map((it) => (oneLine ? fs + pad : Math.max(fs + 11, doc.heightOfString(it.description, { width: descWidth }) + pad)));
     };
     const total = (hs: number[]) => hs.reduce((s, h) => s + h, 0);
@@ -144,7 +144,7 @@ export class DocumentService {
       oneLine = true;
       heights = rowHeights(fontSize, pad, oneLine);
     }
-    doc.font('Helvetica').fontSize(fontSize).fillColor(BRAND.navy);
+    doc.font('Times-Roman').fontSize(fontSize).fillColor(BRAND.navy);
     inv.items.forEach((it, i) => {
       const vals = [String(i + 1), it.description, it.hsnSac ?? snap.sacCode ?? '', String(it.quantity), formatInr(it.rate), formatInr(it.discount), `${moneyNumber(it.gstRate)}`, formatInr(it.amount)];
       const h = heights[i];
@@ -167,7 +167,7 @@ export class DocumentService {
     y += 12;
     const tx = 40 + W - 220;
     const row = (label: string, value: string, bold = false, color = BRAND.navy) => {
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 11 : 9.5).fillColor(BRAND.slate).text(label, tx, y, { width: 120 });
+      doc.font(bold ? 'Times-Bold' : 'Times-Roman').fontSize(bold ? 11 : 9.5).fillColor(BRAND.slate).text(label, tx, y, { width: 120 });
       doc.fillColor(color).text(value, tx + 120, y, { width: 100, align: 'right' });
       y += bold ? 20 : 16;
     };
@@ -183,22 +183,35 @@ export class DocumentService {
     }
     doc.moveTo(tx, y).lineTo(40 + W, y).lineWidth(1).strokeColor(BRAND.green).stroke();
     y += 6;
+    if (moneyNumber(inv.roundOff) > 0) row('Round off', `+ Rs. ${formatInr(inv.roundOff)}`);
     row('Grand Total', `Rs. ${formatInr(inv.grandTotal)}`, true, BRAND.blue);
     row('Amount paid', `Rs. ${formatInr(inv.amountPaid)}`);
     row('Balance due', `Rs. ${formatInr(inv.balanceDue)}`, true, moneyNumber(inv.balanceDue) > 0 ? '#C2410C' : BRAND.green);
 
     // Status badge
-    const status = inv.status === 'PAID' ? 'PAID' : inv.status === 'CANCELLED' ? 'CANCELLED' : moneyNumber(inv.amountPaid) > 0 ? 'PARTIALLY PAID' : 'UNPAID';
+    const status = inv.status === 'DRAFT' ? 'DRAFT' : inv.status === 'PAID' ? 'PAID' : inv.status === 'CANCELLED' ? 'CANCELLED' : moneyNumber(inv.amountPaid) > 0 ? 'PARTIALLY PAID' : 'UNPAID';
     doc.roundedRect(40, y - 60, 120, 26, 6).lineWidth(1.2).strokeColor(status === 'PAID' ? BRAND.green : '#C2410C').stroke();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor(status === 'PAID' ? BRAND.green : '#C2410C').text(status, 40, y - 52, { width: 120, align: 'center' });
+    doc.font('Times-Bold').fontSize(11).fillColor(status === 'PAID' ? BRAND.green : '#C2410C').text(status, 40, y - 52, { width: 120, align: 'center' });
+
+    const amc = (inv as InvoiceDetail & { amcUsage?: { amcNumber: string; startDate: Date; endDate: Date; totalVisits: number; usedVisits: number; remainingVisits: number; visitNumber: number | null; asOn: Date } | null }).amcUsage;
+    if (amc) {
+      y += 8;
+      doc.font('Times-Bold').fontSize(9).fillColor(BRAND.slate).text('AMC usage', 40, y);
+      doc.font('Times-Roman').fillColor(BRAND.navy).text(
+        `${amc.amcNumber} (${formatDisplayDate(amc.startDate)} to ${formatDisplayDate(amc.endDate)})${amc.visitNumber ? ` - this bill is for visit ${amc.visitNumber}` : ''}\n` +
+          `Visits used: ${amc.usedVisits} of ${amc.totalVisits}, remaining ${amc.remainingVisits} (as on ${formatDisplayDate(amc.asOn)})`,
+        40, doc.y + 2, { width: W },
+      );
+      y = doc.y;
+    }
 
     if (inv.notes) {
       y += 8;
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(BRAND.slate).text('Notes', 40, y);
+      doc.font('Times-Bold').fontSize(9).fillColor(BRAND.slate).text('Notes', 40, y);
       // Notes never run into the footer (keeps the invoice on one page).
       const notesTop = doc.y + 2;
       const notesRoom = doc.page.height - 70 - 8 - notesTop;
-      if (notesRoom > 10) doc.font('Helvetica').fillColor(BRAND.navy).text(inv.notes, 40, notesTop, { width: W, height: notesRoom, ellipsis: true });
+      if (notesRoom > 10) doc.font('Times-Roman').fillColor(BRAND.navy).text(inv.notes, 40, notesTop, { width: W, height: notesRoom, ellipsis: true });
     }
 
     // Footer
@@ -207,7 +220,7 @@ export class DocumentService {
     doc.page.margins.bottom = 0;
     doc.moveTo(40, fy).lineTo(40 + W, fy).lineWidth(0.5).strokeColor(BRAND.line).stroke();
     doc.font('Helvetica-Oblique').fontSize(9).fillColor(BRAND.green).text(company.tagline || 'Cool Comfort Care', 40, fy + 10, { width: W, align: 'center' });
-    doc.font('Helvetica').fontSize(8).fillColor(BRAND.slate).text('This is a computer-generated invoice and does not require a signature.', 40, fy + 24, { width: W, align: 'center' });
+    doc.font('Times-Roman').fontSize(8).fillColor(BRAND.slate).text('This is a computer-generated invoice and does not require a signature.', 40, fy + 24, { width: W, align: 'center' });
 
     doc.end();
     return done;
@@ -247,13 +260,13 @@ export class DocumentService {
     const W = doc.page.width - 72;
     const logo = this.logoPath();
     if (logo) doc.image(logo, 36, 28, { fit: [150, 44] });
-    doc.font('Helvetica-Bold').fontSize(16).fillColor(BRAND.navy).text(title, 36, 32, { width: W, align: 'right' });
-    doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate).text(subtitle, { width: W, align: 'right' });
+    doc.font('Times-Bold').fontSize(16).fillColor(BRAND.navy).text(title, 36, 32, { width: W, align: 'right' });
+    doc.font('Times-Roman').fontSize(9).fillColor(BRAND.slate).text(subtitle, { width: W, align: 'right' });
     let y = 86;
     const cw = W / columns.length;
     const header = () => {
       doc.rect(36, y, W, 20).fill(BRAND.blue);
-      columns.forEach((c, i) => doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF').text(c.header, 36 + i * cw + 4, y + 6, { width: cw - 8, align: c.money ? 'right' : 'left' }));
+      columns.forEach((c, i) => doc.font('Times-Bold').fontSize(8).fillColor('#FFFFFF').text(c.header, 36 + i * cw + 4, y + 6, { width: cw - 8, align: c.money ? 'right' : 'left' }));
       y += 20;
     };
     header();
@@ -267,11 +280,11 @@ export class DocumentService {
       columns.forEach((c, i) => {
         const v = r[c.key];
         const s = c.money ? formatInr(Number(v ?? 0)) : v === null || v === undefined ? '' : String(v);
-        doc.font('Helvetica').fontSize(8).fillColor(BRAND.navy).text(s, 36 + i * cw + 4, y + 5, { width: cw - 8, align: c.money ? 'right' : 'left', lineBreak: false, ellipsis: true });
+        doc.font('Times-Roman').fontSize(8).fillColor(BRAND.navy).text(s, 36 + i * cw + 4, y + 5, { width: cw - 8, align: c.money ? 'right' : 'left', lineBreak: false, ellipsis: true });
       });
       y += 18;
     });
-    if (!rows.length) doc.font('Helvetica').fontSize(10).fillColor(BRAND.slate).text('No data for the selected filters.', 36, y + 10);
+    if (!rows.length) doc.font('Times-Roman').fontSize(10).fillColor(BRAND.slate).text('No data for the selected filters.', 36, y + 10);
     doc.end();
     return done;
   }

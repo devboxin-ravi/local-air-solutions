@@ -9,6 +9,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/job_entities.dart';
+import '../domain/job_payment.dart';
 
 Job jobFromJson(Map<String, dynamic> j) {
   final snap = (j['addressSnapshot'] as Map?) ?? const {};
@@ -33,13 +34,28 @@ Job jobFromJson(Map<String, dynamic> j) {
     problemDescription: j['problemDescription'] as String?,
     instructions: j['instructions'] as String?,
     productName: (j['product'] as Map?)?['name'] as String?,
+    branchId: (j['branchId'] as num?)?.toInt(),
     items: ((j['items'] as List?) ?? const [])
-        .map((e) => JobItem(id: ((e as Map)['id'] as num).toInt(), name: e['serviceName'] as String, quantity: (e['quantity'] as num).toInt(), isPerformed: e['isPerformed'] as bool? ?? false))
+        .map((e) => JobItem(id: ((e as Map)['id'] as num).toInt(), name: e['serviceName'] as String, quantity: (e['quantity'] as num).toInt(), isPerformed: e['isPerformed'] as bool? ?? false, isExtra: e['isExtra'] as bool? ?? false))
         .toList(),
-    notes: ((j['notes'] as List?) ?? const []).map((e) => (note: (e as Map)['note'] as String, author: ((e['author'] as Map?)?['name'] as String?) ?? '', at: e['createdAt'] as String)).toList(),
+    notes: ((j['notes'] as List?) ?? const []).map((e) => (note: (e as Map)['note'] as String, author: ((e['author'] as Map?)?['name'] as String?) ?? '', at: e['createdAt'] as String, kind: e['kind'] as String? ?? 'NOTE')).toList(),
     photos: ((j['attachments'] as List?) ?? const []).map((e) => (kind: (e as Map)['kind'] as String, path: e['filePath'] as String)).toList(),
   );
 }
+
+JobPayment jobPaymentFromJson(Map<String, dynamic> j) => JobPayment(
+      bookingNumber: j['bookingNumber'] as String,
+      invoiceNumber: j['invoiceNumber'] as String?,
+      amountDue: (j['amountDue'] as num).toDouble(),
+      pendingVerification: (j['pendingVerification'] as num).toDouble(),
+      canCollect: j['canCollect'] == true,
+      upiEnabled: j['upiEnabled'] == true,
+      cashEnabled: j['cashEnabled'] == true,
+      defaultAccount: (j['defaultAccount'] as num?)?.toInt(),
+      accounts: ((j['accounts'] as List?) ?? const [])
+          .map((e) => UpiAccount(key: ((e as Map)['key'] as num).toInt(), label: e['label'] as String, upiId: e['upiId'] as String, payeeName: e['payeeName'] as String? ?? ''))
+          .toList(),
+    );
 
 class JobRepository {
   JobRepository({ApiClient? client}) : _api = client ?? ApiClient.instance;
@@ -90,6 +106,33 @@ class JobRepository {
 
   Future<Job> complete(int id, {required List<int> performedItemIds, String? note, String? otp}) => _api.post(ApiConstants.techComplete(id),
       body: {'performedItemIds': performedItemIds, 'note': (note?.trim().isEmpty ?? true) ? null : note!.trim(), if (otp != null && otp.isNotEmpty) 'completionOtp': otp}, parse: (d) => jobFromJson(d as Map<String, dynamic>));
+
+  Future<JobPayment> payment(int id) => _api.get(ApiConstants.techPayment(id), parse: (d) => jobPaymentFromJson(d as Map<String, dynamic>));
+
+  /// The server decides the amount; the entry stays pending until the office verifies it.
+  Future<void> collect(int id, {required String method, int? account, String? reference, required String idempotencyKey}) => _api.post(
+        ApiConstants.techPayment(id),
+        body: {'method': method, if (method == 'UPI_MANUAL') 'account': account, if (method == 'UPI_MANUAL') 'referenceNumber': reference?.trim()},
+        headers: {ApiConstants.idempotencyHeader: idempotencyKey},
+        parse: (_) {},
+      );
+
+  /// Services offered (and priced) in the job's branch.
+  Future<List<ExtraService>> extraServices(int? branchId) => _api
+      .getPage(ApiConstants.services,
+          query: {'branchId': branchId, 'pageSize': 100, 'sortBy': 'sortOrder', 'sortOrder': 'asc'},
+          item: (j) => (id: (j['id'] as num).toInt(), name: j['name'] as String, code: j['code'] as String, price: double.tryParse('${j['effectivePrice'] ?? j['basePrice']}') ?? 0))
+      .then((p) => p.items);
+
+  Future<void> addExtraWork(int id, {required Map<int, int> services, String? note}) => _api.post(
+        ApiConstants.techExtraWork(id),
+        body: {'items': [for (final e in services.entries) {'serviceId': e.key, 'quantity': e.value}], 'note': (note?.trim().isEmpty ?? true) ? null : note!.trim()},
+        parse: (_) {},
+      );
+
+  Future<void> removeExtraItem(int id, int itemId) => _api.delete(ApiConstants.techExtraItem(id, itemId));
+
+  Future<void> addFinding(int id, String finding, {int? followUpMonths}) => _api.post(ApiConstants.techFindings(id), body: {'finding': finding.trim(), 'followUpMonths': followUpMonths}, parse: (_) {});
 
   Future<void> addNote(int id, String note) => _api.post(ApiConstants.techNotes(id), body: {'note': note.trim()}, parse: (_) {});
 

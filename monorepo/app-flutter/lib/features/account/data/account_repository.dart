@@ -17,7 +17,7 @@ Address addressFromJson(Map<String, dynamic> j) => Address(
       cityId: (j['cityId'] as num).toInt(),
       cityName: (j['city'] as Map?)?['name'] as String? ?? '',
       stateName: (j['state'] as Map?)?['name'] as String?,
-      pincode: j['pincode'] as String,
+      pincode: j['pincode'] as String? ?? '',
       isDefault: j['isDefault'] as bool? ?? false,
       serviceAreaName: (j['serviceArea'] as Map?)?['name'] as String?,
     );

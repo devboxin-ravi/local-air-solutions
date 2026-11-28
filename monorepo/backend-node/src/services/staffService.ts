@@ -22,6 +22,7 @@ export interface StaffInput {
   password?: string;
   roleCodes: string[];
   designation?: string | null;
+  companyMobile?: string | null;
   branchId: number;
   experienceYears: number;
   workStartTime: string;
@@ -31,6 +32,7 @@ export interface StaffInput {
   skillIds: number[];
   serviceAreaIds: number[];
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  statusReason?: string | null;
 }
 
 const STAFF_ROLE_CODES: string[] = [RoleCodes.TECHNICIAN, RoleCodes.BRANCH_MANAGER, RoleCodes.COMPANY_ADMIN, RoleCodes.SUPER_ADMIN];
@@ -67,7 +69,9 @@ export class StaffService {
     return s;
   }
 
-  private assertRoleGrant(actor: AuthUser, roleCodes: string[]) {
+  /** Super Admin is never handed out from Staff Management; an existing one keeps the role. */
+  private assertRoleGrant(actor: AuthUser, roleCodes: string[], alreadySuperAdmin = false) {
+    if (roleCodes.includes(RoleCodes.SUPER_ADMIN) && !alreadySuperAdmin) throw new ForbiddenError(ErrorMessages.SUPER_ADMIN_NOT_ASSIGNABLE);
     if (roleCodes.some((r) => !STAFF_ROLE_CODES.includes(r) && r !== RoleCodes.CUSTOMER)) {
       // custom roles are allowed only for company-wide admins
       if (!actor.isCompanyWide) throw new ForbiddenError();
@@ -100,6 +104,7 @@ export class StaffService {
           userId: user.id,
           staffCode: formatCode(NumberPrefixes.STAFF, seq),
           designation: input.designation ?? null,
+          companyMobile: input.companyMobile ?? null,
           branchId: input.branchId,
           experienceYears: input.experienceYears,
           workStartTime: input.workStartTime,
@@ -120,7 +125,7 @@ export class StaffService {
   async update(actor: AuthUser, id: number, input: Partial<StaffInput>, meta: RequestMeta) {
     const before = await this.get(actor, id);
     if (input.branchId) assertBranchAccess(actor, input.branchId);
-    if (input.roleCodes) this.assertRoleGrant(actor, input.roleCodes);
+    if (input.roleCodes) this.assertRoleGrant(actor, input.roleCodes, before.user.roles.some((r) => r.role.code === RoleCodes.SUPER_ADMIN));
     if (input.mobile && input.mobile !== before.user.mobile && (await this.users.findByMobile(input.mobile))) throw new ConflictError(ErrorMessages.MOBILE_IN_USE);
     if (input.email && input.email !== before.user.email && (await this.users.findByEmail(input.email))) throw new ConflictError(ErrorMessages.EMAIL_IN_USE);
     if (input.username && input.username !== before.user.username && (await this.users.findByUsername(input.username))) throw new ConflictError(ErrorMessages.USERNAME_IN_USE);
@@ -136,6 +141,8 @@ export class StaffService {
           email: input.email,
           username: input.username,
           status: input.status,
+          // Reactivating clears the reason; deactivating/suspending records it.
+          statusReason: input.status === 'ACTIVE' ? null : input.status ? input.statusReason ?? null : undefined,
           branchId: input.branchId,
           passwordHash,
           userType: input.roleCodes ? (input.roleCodes.some((r) => r !== RoleCodes.TECHNICIAN) ? 'ADMIN' : 'STAFF') : undefined,
@@ -147,6 +154,7 @@ export class StaffService {
         id,
         compact({
           designation: input.designation,
+          companyMobile: input.companyMobile,
           branchId: input.branchId,
           experienceYears: input.experienceYears,
           workStartTime: input.workStartTime,

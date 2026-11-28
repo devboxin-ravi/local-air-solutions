@@ -34,22 +34,23 @@ describe('form validation', () => {
     expect(serviceSchema.safeParse({ ...s, pricingType: 'QUOTATION' }).success).toBe(true);
   });
   it('requires a reference for non-cash payments', () => {
-    expect(paymentSchema.safeParse({ method: 'UPI_MANUAL', amount: 100, referenceNumber: '' }).success).toBe(false);
-    expect(paymentSchema.safeParse({ method: 'CASH', amount: 100, referenceNumber: '' }).success).toBe(true);
+    expect(paymentSchema.safeParse({ method: 'UPI_MANUAL', amount: 100, referenceNumber: '', receivedBy: 'Ravi' }).success).toBe(false);
+    expect(paymentSchema.safeParse({ method: 'CASH', amount: 100, referenceNumber: '', receivedBy: 'Ravi' }).success).toBe(true);
+    expect(paymentSchema.safeParse({ method: 'CASH', amount: 100, referenceNumber: '', receivedBy: '' }).success).toBe(false);
   });
 });
 
 describe('top navigation', () => {
-  it('has the 9 top-bar modules in order with no sidebar', () => {
-    expect(NAVIGATION.map((m) => m.label)).toEqual(['Dashboard', 'Bookings', 'Services', 'Assignments', 'Customers', 'AMC', 'Finance', 'Reports', 'Master Data']);
+  it('has the 8 top-bar modules in order with no sidebar', () => {
+    expect(NAVIGATION.map((m) => m.label)).toEqual(['Dashboard', 'Bookings', 'Assignments', 'Customers', 'AMC', 'Accounts', 'Reports', 'Master Data']);
   });
   it('keeps Settings out of the top bar, in the profile menu', () => {
     expect(SETTINGS_MENU.permission).toBeTruthy();
     expect(SETTINGS_MENU.children.length).toBeGreaterThan(0);
   });
-  it('every module has a permission and submenu items', () => {
+  it('every module is permission-gated (itself or every item) and has submenu items', () => {
     NAVIGATION.forEach((m) => {
-      expect(m.permission).toBeTruthy();
+      expect(!!m.permission || m.children.every((c) => !!c.permission)).toBe(true);
       expect(m.children.length).toBeGreaterThan(0);
     });
   });

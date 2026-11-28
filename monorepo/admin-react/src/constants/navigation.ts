@@ -76,8 +76,26 @@ export interface NavModule {
   icon: LucideIcon;
   permission?: string;
   basePath: string;
+  /** Other path prefixes that also highlight this module. */
+  alsoActiveFor?: string[];
   children: NavChild[];
 }
+
+/** Heading of the Master Data → Services landing page. */
+export const SERVICE_HUB_PAGE = {
+  TITLE: 'Services',
+  DESCRIPTION: 'Everything about the services you offer. Active services appear in the customer app.',
+} as const;
+
+/** Cards on that landing page. */
+export const SERVICE_HUB: NavChild[] = [
+  { label: 'All Services', to: ROUTES.SERVICES, permission: 'services.view', icon: ListChecks, description: 'View, edit and switch services on or off' },
+  { label: 'Add Service', to: ROUTES.SERVICE_NEW, permission: 'services.create', icon: Wrench, description: 'Create a new service' },
+  { label: 'Service Categories', to: ROUTES.CATEGORIES, permission: 'services.view', icon: ClipboardList, description: 'Add, edit or delete categories' },
+  { label: 'Pricing', to: ROUTES.PRICING, permission: 'services.view', icon: Wallet, description: 'Base price and branch-wise price' },
+  { label: 'Repairing', to: ROUTES.REPAIRS, permission: 'bookings.view', icon: Settings, description: 'Repair bookings and their progress' },
+  { label: 'Service Availability', to: ROUTES.AVAILABILITY, permission: 'services.view', icon: CalendarCheck2, description: 'Turn services on or off per branch' },
+];
 
 export const NAVIGATION: NavModule[] = [
   {
@@ -106,21 +124,6 @@ export const NAVIGATION: NavModule[] = [
     ],
   },
   {
-    key: 'services',
-    label: 'Services',
-    icon: Wrench,
-    permission: 'services.view',
-    basePath: '/services',
-    children: [
-      { label: 'All Services', to: ROUTES.SERVICES },
-      { label: 'Add Service', to: ROUTES.SERVICE_NEW, permission: 'services.create' },
-      { label: 'Service Categories', to: ROUTES.CATEGORIES },
-      { label: 'Service Pricing', to: ROUTES.PRICING },
-      { label: 'Repairing Management', to: ROUTES.REPAIRS, permission: 'bookings.view' },
-      { label: 'Service Availability', to: ROUTES.AVAILABILITY },
-    ],
-  },
-  {
     key: 'assignments',
     label: 'Assignments',
     icon: ClipboardList,
@@ -146,7 +149,6 @@ export const NAVIGATION: NavModule[] = [
       { label: 'Add Customer', to: ROUTES.CUSTOMER_NEW, permission: 'customers.create' },
       { label: 'Customer Addresses', to: ROUTES.CUSTOMER_ADDRESSES },
       { label: 'Customer Service History', to: ROUTES.CUSTOMER_HISTORY, permission: 'bookings.view' },
-      { label: 'Customer Ledger', to: ROUTES.CUSTOMER_LEDGER, permission: 'ledger.view' },
       { label: 'Service Reminders', to: ROUTES.REMINDERS, permission: 'reminders.view' },
     ],
   },
@@ -166,13 +168,13 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     key: 'finance',
-    label: 'Finance',
+    label: 'Accounts',
     icon: FileSpreadsheet,
-    permission: 'invoices.view',
     basePath: '/finance',
     children: [
-      { label: 'Invoices', to: ROUTES.INVOICES },
-      { label: 'Payment In', to: ROUTES.PAYMENTS, permission: 'payments.view' },
+      { label: 'For Invoice', to: ROUTES.FOR_INVOICE, permission: 'forInvoice.view' },
+      { label: 'Invoices', to: ROUTES.INVOICES, permission: 'invoices.view' },
+      { label: 'Payment Receipt', to: ROUTES.PAYMENTS, permission: 'payments.view' },
       { label: 'Payment Verification', to: ROUTES.PAYMENT_VERIFICATION, permission: 'payments.approve' },
       { label: 'Customer Ledger', to: ROUTES.FINANCE_LEDGER, permission: 'ledger.view' },
       { label: 'Outstanding Payments', to: ROUTES.OUTSTANDING, permission: 'ledger.view' },
@@ -187,6 +189,7 @@ export const NAVIGATION: NavModule[] = [
     basePath: '/reports',
     children: [
       { label: 'Booking Reports', to: ROUTES.REPORT('bookings') },
+      { label: 'Cancelled Bookings', to: ROUTES.REPORT('cancellations') },
       { label: 'Revenue Reports', to: ROUTES.REPORT('revenue') },
       { label: 'Service Reports', to: ROUTES.REPORT('services') },
       { label: 'Staff Performance', to: ROUTES.REPORT('staff') },
@@ -199,15 +202,16 @@ export const NAVIGATION: NavModule[] = [
     key: 'master',
     label: 'Master Data',
     icon: Building2,
-    permission: 'masterData.view',
     basePath: '/master',
+    alsoActiveFor: [ROUTES.SERVICES],
     children: [
-      { label: 'States', to: ROUTES.STATES },
-      { label: 'Cities', to: ROUTES.CITIES },
-      { label: 'Branches', to: ROUTES.BRANCHES },
-      { label: 'Service Areas', to: ROUTES.SERVICE_AREAS },
-      { label: 'Staff Skills & Products', to: ROUTES.SKILLS_PRODUCTS },
-      { label: 'Stock Item', to: ROUTES.STOCK },
+      { label: 'States', to: ROUTES.STATES, permission: 'masterData.view' },
+      { label: 'Cities', to: ROUTES.CITIES, permission: 'masterData.view' },
+      { label: 'Branches', to: ROUTES.BRANCHES, permission: 'masterData.view' },
+      { label: 'Service Areas', to: ROUTES.SERVICE_AREAS, permission: 'masterData.view' },
+      { label: 'Services', to: ROUTES.SERVICES_HOME, permission: 'services.view' },
+      { label: 'Staff Skills & Products', to: ROUTES.SKILLS_PRODUCTS, permission: 'masterData.view' },
+      { label: 'Stock Item', to: ROUTES.STOCK, permission: 'masterData.view' },
       { label: 'Staff Management', to: ROUTES.STAFF, permission: 'staff.view' },
       { label: 'Roles & Permissions', to: ROUTES.ROLES, permission: 'roles.view' },
     ],

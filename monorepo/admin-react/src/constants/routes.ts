@@ -16,6 +16,7 @@ export const ROUTES = {
   BOOKING_CALENDAR: '/bookings/calendar',
   SLOTS: '/bookings/slots',
 
+  SERVICES_HOME: '/master/services',
   SERVICES: '/services',
   SERVICE_NEW: '/services/new',
   SERVICE_EDIT: (id: number | string) => `/services/${id}/edit`,
@@ -48,6 +49,8 @@ export const ROUTES = {
   AMC_REPORTS: '/amc/reports',
 
   INVOICES: '/finance/invoices',
+  FOR_INVOICE: '/finance/for-invoice',
+  FOR_INVOICE_DETAIL: (id: number | string) => `/finance/for-invoice/${id}`,
   INVOICE_NEW: '/finance/invoices/new',
   INVOICE_DETAIL: (id: number | string) => `/finance/invoices/${id}`,
   PAYMENTS: '/finance/payments',

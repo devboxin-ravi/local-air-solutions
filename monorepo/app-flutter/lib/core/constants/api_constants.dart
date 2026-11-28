@@ -59,6 +59,10 @@ abstract class ApiConstants {
   static String techComplete(int id) => '/technician/jobs/$id/complete';
   static String techNotes(int id) => '/technician/jobs/$id/notes';
   static String techPhotos(int id) => '/technician/jobs/$id/photos';
+  static String techPayment(int id) => '/technician/jobs/$id/payment';
+  static String techExtraWork(int id) => '/technician/jobs/$id/extra-work';
+  static String techExtraItem(int id, int itemId) => '/technician/jobs/$id/extra-work/$itemId';
+  static String techFindings(int id) => '/technician/jobs/$id/findings';
 
   // Headers
   static const String idempotencyHeader = 'Idempotency-Key';

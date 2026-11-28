@@ -13,7 +13,7 @@ import { ROUTES } from '@/constants/routes';
 import { PRICING_TYPES, ROW_ACTIONS } from '@/constants/ui';
 import { assetUrl, priceLabel } from '@/lib/utils';
 import type { Service } from '@/types';
-import { Badge, ConfirmDialog, PageHeader } from '@/components/common';
+import { ActiveBadge, Badge, ConfirmDialog, PageHeader } from '@/components/common';
 import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Button, Switch } from '@/components/ui/primitives';
@@ -28,6 +28,7 @@ export default function ServicesListPage() {
   const [toDelete, setToDelete] = useState<Service | null>(null);
 
   const columns: Column<Service>[] = [
+    { key: 'code', header: 'Code', cell: (s) => <span className="whitespace-nowrap text-[12.5px] font-semibold text-slate-600">{s.code}</span> },
     {
       key: 'name',
       header: 'Service',
@@ -41,19 +42,19 @@ export default function ServicesListPage() {
             <p className="flex items-center gap-1.5 truncate font-semibold text-brand-navy">
               {s.name} {s.isPopular && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
             </p>
-            <p className="text-xs text-muted-foreground">{s.code}</p>
           </div>
         </div>
       ),
     },
     { key: 'category', header: 'Category', cell: (s) => <Badge tone="blue">{s.category.name}</Badge> },
-    { key: 'basePrice', header: 'Service Price', sortable: true, cell: (s) => <span className="num font-semibold">{priceLabel(s)}</span> },
+    { key: 'basePrice', header: 'Pricing', sortable: true, cell: (s) => <span className="num font-semibold">{priceLabel(s)}</span> },
     { key: 'durationMinutes', header: 'Duration', sortable: true, cell: (s) => `${s.durationMinutes} min` },
     { key: 'gst', header: 'GST', cell: (s) => (s.gstApplicable ? `${s.gstRate}%` : 'Exempt') },
     { key: 'reminder', header: 'Reminder', cell: (s) => (s.reminderEligible ? <Badge tone="green">{s.reminderIntervalMonths ?? 'Default'} {s.reminderIntervalMonths ? 'mo' : ''}</Badge> : <span className="text-muted-foreground">—</span>) },
     {
       key: 'isActive',
       header: 'Active',
+      viewCell: (s) => <ActiveBadge active={s.isActive} />,
       cell: (s) => <Switch checked={s.isActive} disabled={!can('services.edit')} onCheckedChange={(v) => actions.setActive.mutate({ id: s.id, isActive: v })} onClick={(e) => e.stopPropagation()} aria-label={`Toggle ${s.name}`} />,
     },
     {
@@ -74,7 +75,7 @@ export default function ServicesListPage() {
       <PageHeader
         title="All Services"
         description={`${data?.meta.total ?? '…'} services in the catalogue. Customers see only active services.`}
-        breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: 'All Services' }]}
+        breadcrumbs={[{ label: 'Master Data', to: ROUTES.STATES }, { label: 'Services', to: ROUTES.SERVICES_HOME }, { label: 'All Services' }]}
         actions={can('services.create') && <Button onClick={() => navigate(ROUTES.SERVICE_NEW)}><Plus /> Add service</Button>}
       />
       <DataTable

@@ -48,6 +48,12 @@ export type AuthClient = (typeof AuthClients)[keyof typeof AuthClients];
 /** Refresh-token family id prefix that marks an admin-panel session. */
 export const ADMIN_SESSION_FAMILY_PREFIX = 'adm_';
 
+/**
+ * A refresh token used again this soon after it was rotated is a parallel refresh (two tabs, a retry),
+ * not a stolen token: the request is refused but the session is not revoked.
+ */
+export const REFRESH_REUSE_GRACE_MS = 30_000;
+
 export const HeaderNames = {
   IDEMPOTENCY_KEY: 'idempotency-key',
   RAZORPAY_SIGNATURE: 'x-razorpay-signature',

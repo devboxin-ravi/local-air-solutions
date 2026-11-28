@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { INTEGRATION_NAMES, Razorpay as RazorpayConst, type IntegrationName } from '../constants/integrations';
 import { Limits, Patterns, ValidationMessages } from '../constants';
-import { AppContentLimits as AL, PaymentPolicies, PROMO_ACTIONS, PROMO_STYLES, SettingKeys, TRACKER_REQUIRED_STEPS, TRACKER_STEP_STATUSES, TrackerLimits, type SettingKey } from '../constants/settings';
+import { AppContentLimits as AL, MAX_PAYMENT_CHARGE_PERCENT, PaymentPolicies, PROMO_ACTIONS, PROMO_STYLES, SettingKeys, TRACKER_REQUIRED_STEPS, TRACKER_STEP_STATUSES, TrackerLimits, type SettingKey } from '../constants/settings';
 import { boolish, dateOnly, email, gstRate, hhmm, id, listQuery, mobile, money, notes, optionalTrimmed, trimmed } from './common';
 
 // ─── Invoices ───
@@ -40,14 +40,20 @@ export const invoiceManualSchema = z.object({
   notes,
 });
 
+const gstFilter = z.enum(['GST', 'NON_GST']).optional();
 export const invoiceListQuery = listQuery.extend({
-  status: z.enum(['DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED']).optional(),
+  status: z.enum(['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED']).optional(),
+  gst: gstFilter,
   customerId: z.coerce.number().int().positive().optional(),
   from: dateOnly.optional(),
   to: dateOnly.optional(),
   isFreeService: boolish.optional(),
   outstandingOnly: boolish.optional(),
 });
+
+export const draftInvoiceListQuery = listQuery.extend({ from: dateOnly.optional(), to: dateOnly.optional(), gst: gstFilter });
+/** Editing a For Invoice bill: lines and options; customer and branch stay. */
+export const draftInvoiceUpdateSchema = invoiceManualSchema.omit({ customerId: true, branchId: true });
 
 export const invoiceCancelSchema = z.object({ reason: trimmed(3, Limits.NOTES_MAX) });
 export const invoiceShareSchema = z.object({
@@ -66,6 +72,10 @@ export const paymentCreateSchema = z
     bookingId: id.optional().nullable(),
     amcContractId: id.optional().nullable(),
     method: z.enum(['UPI_MANUAL', 'CASH', 'BANK_TRANSFER']),
+    /** Which company account received UPI/bank money. */
+    account: z.coerce.number().int().min(1).max(2).optional(),
+    /** Assigned technician, or the name of whoever else took the money. */
+    receivedBy: trimmed(2, 100),
     amount: money.refine((v) => v > 0, 'Amount must be greater than 0'),
     referenceNumber: optionalTrimmed(100),
     receivedAt: dateOnly.optional(),
@@ -81,7 +91,13 @@ export const customerUpiSubmitSchema = z.object({
   referenceNumber: trimmed(4, 100),
 });
 
-export const paymentVerifySchema = z.object({ approve: z.boolean(), note: notes });
+const upiAccountKey = z.coerce.number().int().min(1).max(2);
+export const paymentVerifySchema = z.object({ approve: z.boolean(), note: notes, account: upiAccountKey.optional() });
+
+/** Technician records money collected at the customer's place. */
+export const jobCollectSchema = z
+  .object({ method: z.enum(['UPI_MANUAL', 'CASH']), account: upiAccountKey.optional(), referenceNumber: optionalTrimmed(100) })
+  .refine((v) => v.method === 'CASH' || !!v.referenceNumber, { message: 'UPI reference number is required', path: ['referenceNumber'] });
 export const paymentRefundSchema = z.object({ amount: money.refine((v) => v > 0), reason: trimmed(3, Limits.NOTES_MAX) });
 export const paymentListQuery = listQuery.extend({
   status: z.enum(['PENDING_VERIFICATION', 'VERIFIED', 'REJECTED', 'REFUNDED', 'FAILED']).optional(),
@@ -267,8 +283,16 @@ export const settingValueSchemas: Record<SettingKey, z.ZodTypeAny> = {
       upiPayeeName: text(100),
       razorpayEnabled: flag,
       cashEnabled: flag,
+      upiAccountName: text(60),
+      upiId2: blankOr(z.string().trim().regex(Patterns.UPI_ID, ValidationMessages.UPI_ID)),
+      upiPayeeName2: text(100),
+      upiAccountName2: text(60),
+      defaultUpiAccount: intIn(1, 2),
+      upiChargePercent: z.coerce.number().min(0).max(MAX_PAYMENT_CHARGE_PERCENT).optional(),
+      razorpayChargePercent: z.coerce.number().min(0).max(MAX_PAYMENT_CHARGE_PERCENT).optional(),
     })
     .superRefine((v, ctx) => {
+      if (v.defaultUpiAccount === 2 && v.upiId2 === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId2'], message: 'Enter the second UPI ID or make account 1 the default' });
       if (v.upiEnabled === true && v.upiId === '') ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId'], message: 'UPI ID is required while UPI is enabled' });
       if (v.upiEnabled === false && v.cashEnabled === false && v.razorpayEnabled === false) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cashEnabled'], message: 'Enable at least one payment method' });

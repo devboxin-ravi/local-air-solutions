@@ -46,7 +46,7 @@ crud('/products', 'product', productSchema);
 
 // ─── Stock (also listed by invoice creators, to bill parts) ───
 const admin = requireUserType('ADMIN');
-r.get('/stock-items', authenticate, admin, requireAnyPermission(perm('masterData', 'view'), perm('invoices', 'create')), validate({ query: stockListQuery }), stock.listStock);
+r.get('/stock-items', authenticate, admin, requireAnyPermission(perm('masterData', 'view'), perm('invoices', 'create'), perm('forInvoice', 'edit')), validate({ query: stockListQuery }), stock.listStock);
 r.post('/stock-items', authenticate, admin, requirePermission(perm('masterData', 'create')), validate({ body: stockItemSchema }), stock.createStockItem);
 r.patch('/stock-items/:id', authenticate, admin, requirePermission(perm('masterData', 'edit')), validate({ params: idParams, body: stockItemUpdateSchema }), stock.updateStockItem);
 r.post('/stock-items/:id/adjust', authenticate, admin, requirePermission(perm('masterData', 'edit')), validate({ params: idParams, body: stockAdjustSchema }), stock.adjustStock);

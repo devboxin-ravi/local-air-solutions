@@ -18,6 +18,22 @@ const customerBranchSql = (alias: string, branchId?: number) =>
   branchId ? Prisma.sql`AND (${Prisma.raw(alias)}.branch_id = ${branchId} OR ${Prisma.raw(alias)}.branch_id IS NULL)` : Prisma.empty;
 
 export class ReportRepository {
+  /** Bookings cancelled or rejected within the range, newest first. */
+  cancelledBookings(range: DateRange, branchId: number | undefined, take: number, db: Db = prisma) {
+    const closed: Prisma.EnumBookingStatusFilter = { in: ['CANCELLED', 'REJECTED'] };
+    return db.serviceBooking.findMany({
+      where: { ...(branchId ? { branchId } : {}), status: closed, statusHistory: { some: { toStatus: closed, createdAt: { gte: range.from, lte: range.to } } } },
+      include: {
+        customer: { select: { fullName: true, mobile: true } },
+        branch: { select: { name: true } },
+        items: { select: { serviceName: true } },
+        statusHistory: { where: { toStatus: closed }, orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take,
+    });
+  }
+
   countBookings(where: Prisma.ServiceBookingWhereInput, db: Db = prisma) {
     return db.serviceBooking.count({ where });
   }
@@ -36,7 +52,7 @@ export class ReportRepository {
 
   sumInvoices(where: Prisma.InvoiceWhereInput, db: Db = prisma) {
     return db.invoice.aggregate({
-      where: { ...where, status: { not: 'CANCELLED' } },
+      where: { ...where, status: { notIn: ['CANCELLED', 'DRAFT'] } },
       _sum: { grandTotal: true, balanceDue: true, amountPaid: true, cgst: true, sgst: true, igst: true, gstTotal: true, taxableAmount: true, discount: true },
       _count: { _all: true },
     });
@@ -50,7 +66,7 @@ export class ReportRepository {
     return db.$queryRaw<Array<{ month: string; revenue: Prisma.Decimal; invoices: bigint }>>`
       SELECT DATE_FORMAT(i.invoice_date, '%Y-%m') AS month, SUM(i.grand_total) AS revenue, COUNT(*) AS invoices
         FROM invoices i
-       WHERE i.status <> 'CANCELLED' AND i.invoice_date BETWEEN ${range.from} AND ${range.to} ${branchSql('i', branchId)}
+       WHERE i.status NOT IN ('CANCELLED','DRAFT') AND i.invoice_date BETWEEN ${range.from} AND ${range.to} ${branchSql('i', branchId)}
        GROUP BY month ORDER BY month`;
   }
 
@@ -99,8 +115,8 @@ export class ReportRepository {
       SELECT br.id AS branchId, br.name AS branch,
              (SELECT COUNT(*) FROM service_bookings b WHERE b.branch_id = br.id AND b.created_at BETWEEN ${range.from} AND ${range.to}) AS bookings,
              (SELECT COUNT(*) FROM service_bookings b WHERE b.branch_id = br.id AND b.status = 'COMPLETED' AND b.created_at BETWEEN ${range.from} AND ${range.to}) AS completed,
-             (SELECT COALESCE(SUM(i.grand_total),0) FROM invoices i WHERE i.branch_id = br.id AND i.status <> 'CANCELLED' AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS revenue,
-             (SELECT COALESCE(SUM(i.amount_paid),0) FROM invoices i WHERE i.branch_id = br.id AND i.status <> 'CANCELLED' AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS collected
+             (SELECT COALESCE(SUM(i.grand_total),0) FROM invoices i WHERE i.branch_id = br.id AND i.status NOT IN ('CANCELLED','DRAFT') AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS revenue,
+             (SELECT COALESCE(SUM(i.amount_paid),0) FROM invoices i WHERE i.branch_id = br.id AND i.status NOT IN ('CANCELLED','DRAFT') AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS collected
         FROM branches br WHERE br.is_active = 1 ORDER BY revenue DESC`;
   }
 
@@ -123,7 +139,7 @@ export class ReportRepository {
     return db.$queryRaw<Array<{ id: number; code: string; name: string; mobile: string; bookings: bigint; billed: Prisma.Decimal; paid: Prisma.Decimal }>>`
       SELECT c.id, c.customer_code AS code, c.full_name AS name, c.mobile,
              (SELECT COUNT(*) FROM service_bookings b WHERE b.customer_id = c.id AND b.created_at BETWEEN ${range.from} AND ${range.to}) AS bookings,
-             (SELECT COALESCE(SUM(i.grand_total),0) FROM invoices i WHERE i.customer_id = c.id AND i.status <> 'CANCELLED' AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS billed,
+             (SELECT COALESCE(SUM(i.grand_total),0) FROM invoices i WHERE i.customer_id = c.id AND i.status NOT IN ('CANCELLED','DRAFT') AND i.invoice_date BETWEEN ${range.from} AND ${range.to}) AS billed,
              (SELECT COALESCE(SUM(p.amount),0) FROM payments p WHERE p.customer_id = c.id AND p.status = 'VERIFIED' AND p.received_at BETWEEN ${range.from} AND ${range.to}) AS paid
         FROM customers c
        WHERE c.deleted_at IS NULL ${customerBranchSql('c', branchId)}
@@ -136,16 +152,16 @@ export class ReportRepository {
              SUM(i.taxable_amount) AS taxable, SUM(i.cgst) AS cgst, SUM(i.sgst) AS sgst, SUM(i.igst) AS igst,
              SUM(i.grand_total) AS total, COUNT(*) AS invoices
         FROM invoices i
-       WHERE i.status <> 'CANCELLED' AND i.apply_gst = 1 AND i.invoice_date BETWEEN ${range.from} AND ${range.to} ${branchSql('i', branchId)}
+       WHERE i.status NOT IN ('CANCELLED','DRAFT') AND i.apply_gst = 1 AND i.invoice_date BETWEEN ${range.from} AND ${range.to} ${branchSql('i', branchId)}
        GROUP BY month ORDER BY month`;
   }
 
   paymentMethodSplit(range: DateRange, branchId?: number, db: Db = prisma) {
-    return db.$queryRaw<Array<{ method: string; status: string; count: bigint; amount: Prisma.Decimal }>>`
-      SELECT p.method, p.status, COUNT(*) AS count, SUM(p.amount) AS amount
+    return db.$queryRaw<Array<{ method: string; account: string | null; status: string; count: bigint; amount: Prisma.Decimal; charges: Prisma.Decimal }>>`
+      SELECT p.method, p.receiving_account AS account, p.status, COUNT(*) AS count, SUM(p.amount) AS amount, SUM(p.charge_amount) AS charges
         FROM payments p JOIN customers c ON c.id = p.customer_id
        WHERE p.created_at BETWEEN ${range.from} AND ${range.to} ${customerBranchSql('c', branchId)}
-       GROUP BY p.method, p.status`;
+       GROUP BY p.method, p.receiving_account, p.status`;
   }
 
   amcSummary(branchId?: number, db: Db = prisma) {
@@ -244,7 +260,7 @@ export class ReportRepository {
         select: { id: true, fullName: true, mobile: true, customerCode: true },
       }),
       db.invoice.findMany({
-        where: { ...b, invoiceNumber: { contains: term } },
+        where: { ...b, status: { not: 'DRAFT' }, invoiceNumber: { contains: term } },
         take,
         select: { id: true, invoiceNumber: true, grandTotal: true, status: true },
       }),

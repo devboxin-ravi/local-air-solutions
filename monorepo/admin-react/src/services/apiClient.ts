@@ -74,24 +74,45 @@ client.interceptors.request.use((req) => {
 
 let refreshing: Promise<string | null> | null = null;
 
-/** Exchanges the refresh token once, even when many requests fail concurrently. */
+/** Runs `fn` while no other tab is refreshing the same session (falls back to no lock). */
+const withRefreshLock = <T,>(fn: () => Promise<T>): Promise<T> =>
+  typeof navigator !== 'undefined' && navigator.locks ? (navigator.locks.request(STORAGE_KEYS.REFRESH_LOCK, fn) as Promise<T>) : fn();
+
+const exchange = (refreshToken: string) =>
+  axios.post<{ data: TokenPair }>(`${config.apiBaseUrl}${API.AUTH.REFRESH}`, { refreshToken }).then((r) => {
+    tokenStore.setTokens(r.data.data);
+    return r.data.data.accessToken;
+  });
+
+const refused = (e: unknown) => (e as AxiosError).response?.status === HTTP.UNAUTHORIZED;
+
+/**
+ * Exchanges the refresh token once, even when many requests fail concurrently. Resolves null only when
+ * the server refused the session (signed out). Throws when the server could not be reached, was
+ * restarting or rate-limited: the session is kept and the caller can try again.
+ */
 export const refreshAccessToken = (): Promise<string | null> => {
   if (!refreshing) {
-    const rt = tokenStore.getRefreshToken();
-    refreshing = (
-      rt
-        ? axios
-            .post<{ data: TokenPair }>(`${config.apiBaseUrl}${API.AUTH.REFRESH}`, { refreshToken: rt })
-            .then((r) => {
-              tokenStore.setTokens(r.data.data);
-              return r.data.data.accessToken;
-            })
-            .catch(() => {
-              tokenStore.clear();
-              return null;
-            })
-        : Promise.resolve(null)
-    ).finally(() => {
+    refreshing = withRefreshLock(async () => {
+      const rt = tokenStore.getRefreshToken();
+      if (!rt) return null;
+      try {
+        return await exchange(rt);
+      } catch (e) {
+        if (!refused(e)) throw toApiError(e);
+        // Another tab may have rotated the token meanwhile: use the newer one.
+        const latest = tokenStore.getRefreshToken();
+        if (latest && latest !== rt) {
+          try {
+            return await exchange(latest);
+          } catch (again) {
+            if (!refused(again)) throw toApiError(again);
+          }
+        }
+        tokenStore.clear();
+        return null;
+      }
+    }).finally(() => {
       refreshing = null;
     });
   }
@@ -105,7 +126,13 @@ client.interceptors.response.use(
     const isAuthCall = original?.url?.includes('/auth/');
     if (error.response?.status === HTTP.UNAUTHORIZED && original && !original._retry && !isAuthCall) {
       original._retry = true;
-      const token = await refreshAccessToken();
+      let token: string | null;
+      try {
+        token = await refreshAccessToken();
+      } catch (e) {
+        // Server unreachable: keep the session, report the failure.
+        return Promise.reject(toApiError(e));
+      }
       if (token) {
         original.headers.Authorization = `Bearer ${token}`;
         return client(original);

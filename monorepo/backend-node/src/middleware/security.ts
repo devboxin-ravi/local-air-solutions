@@ -19,11 +19,15 @@ export const apiLimiter = rateLimit({
   message: limitedResponse,
 });
 
-/** Password / OTP sign-in: only failed attempts count, so normal sign-ins never lock a user out. */
+/**
+ * Password / OTP sign-in: only wrong credentials (401) count. Successful sign-ins and retries against an
+ * already locked account or an active limit don't use up the allowance.
+ */
 export const loginLimiter = rateLimit({
   windowMs: config.rateLimit.windowMinutes * 60_000,
   limit: config.rateLimit.authMax,
   skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode !== StatusCodes.UNAUTHORIZED,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   statusCode: StatusCodes.TOO_MANY_REQUESTS,

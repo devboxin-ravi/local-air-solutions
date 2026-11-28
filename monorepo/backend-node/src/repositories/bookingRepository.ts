@@ -157,6 +157,13 @@ export class BookingRepository {
     return db.jobNote.create({ data, include: { author: { select: { id: true, name: true } } } });
   }
 
+  addItems(data: Prisma.BookingItemCreateManyInput[], db: Db = prisma) {
+    return db.bookingItem.createMany({ data });
+  }
+  deleteItem(id: number, db: Db = prisma) {
+    return db.bookingItem.delete({ where: { id } });
+  }
+
   addAttachments(data: Prisma.JobAttachmentCreateManyInput[], db: Db = prisma) {
     return db.jobAttachment.createMany({ data });
   }

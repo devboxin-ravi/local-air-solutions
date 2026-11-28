@@ -7,7 +7,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app_flutter/core/config/app_config.dart';
 import 'package:app_flutter/features/account/domain/account_entities.dart';
@@ -54,7 +53,6 @@ List<Override> _overrides(Mode m) => [
 
 void main() {
   setUpAll(() {
-    GoogleFonts.config.allowRuntimeFetching = false;
     dotenv.loadFromString(envString: 'API_BASE_URL=http://127.0.0.1:9/api/v1\nASSET_BASE_URL=http://127.0.0.1:9\nAPP_ENV=test\nAPP_NAME=Test\nAPP_VERSION=1.0.0\nSUPPORT_PHONE=\nSUPPORT_WHATSAPP=');
     AppConfig.initialize();
   });

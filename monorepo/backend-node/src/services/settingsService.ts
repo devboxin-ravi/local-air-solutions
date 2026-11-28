@@ -47,7 +47,32 @@ export interface PaymentSettings {
   upiPayeeName: string;
   razorpayEnabled: boolean;
   cashEnabled: boolean;
+  upiAccountName: string;
+  upiId2: string;
+  upiPayeeName2: string;
+  upiAccountName2: string;
+  defaultUpiAccount: number;
+  upiChargePercent: number;
+  razorpayChargePercent: number;
 }
+
+export interface UpiAccount {
+  key: number;
+  label: string;
+  upiId: string;
+  payeeName: string;
+}
+
+/** The configured UPI accounts, and which one is offered by default. */
+export const upiAccounts = (p: PaymentSettings): { accounts: UpiAccount[]; defaultAccount: UpiAccount | null } => {
+  const accounts = [
+    { key: 1, name: p.upiAccountName, upiId: p.upiId, payeeName: p.upiPayeeName },
+    { key: 2, name: p.upiAccountName2, upiId: p.upiId2, payeeName: p.upiPayeeName2 || p.upiPayeeName },
+  ]
+    .filter((a) => !!a.upiId)
+    .map((a) => ({ key: a.key, label: a.name || `UPI account ${a.key}`, upiId: a.upiId, payeeName: a.payeeName }));
+  return { accounts, defaultAccount: accounts.find((a) => a.key === Number(p.defaultUpiAccount)) ?? accounts[0] ?? null };
+};
 
 export interface ReminderSettings {
   enabled: boolean;
@@ -192,13 +217,14 @@ export class SettingsService {
   async getPublic() {
     const [company, payment, general, appHome, trackerSteps, razorpay] = await Promise.all([this.company(), this.payment(), this.general(), this.appHome(), this.trackerSteps(), this.razorpayCredentials()]);
     const razorpayOn = payment.razorpayEnabled && razorpay !== null;
+    const upi = upiAccounts(payment).defaultAccount;
     return {
       company: { name: company.name, tagline: company.tagline, logoUrl: company.logoUrl, phone: company.phone, email: company.email, supportPhone: company.supportPhone, supportWhatsapp: company.supportWhatsapp, address: company.address },
       payment: {
         policy: payment.policy,
         upiEnabled: payment.upiEnabled,
-        upiId: payment.upiEnabled ? payment.upiId : '',
-        upiPayeeName: payment.upiPayeeName,
+        upiId: payment.upiEnabled ? upi?.upiId ?? '' : '',
+        upiPayeeName: upi?.payeeName ?? payment.upiPayeeName,
         razorpayEnabled: razorpayOn,
         // The Key ID is public by design (Razorpay Checkout needs it); the secret never leaves the server.
         razorpayKeyId: razorpayOn ? razorpay.keyId : null,

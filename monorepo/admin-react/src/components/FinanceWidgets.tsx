@@ -8,9 +8,9 @@ import { useForm } from 'react-hook-form';
 import { Trash2 } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { cn, formatMoney, toYmd } from '@/lib/utils';
-import { PAYMENT_METHODS, PLACEHOLDERS } from '@/constants/ui';
+import { PAYMENT_METHODS, PLACEHOLDERS, RECEIVE_PAYMENT } from '@/constants/ui';
 import { paymentSchema, type PaymentForm } from '@/lib/validation';
-import type { InvoiceTotals, StockItem } from '@/types';
+import type { InvoiceTotals, ReceivingAccounts, StockItem } from '@/types';
 import { Field } from './common';
 import { Button, Checkbox, Input, Label, NativeSelect, Textarea } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
@@ -25,6 +25,8 @@ export const RecordPaymentDialog = ({
   submitting,
   onSubmit,
   children,
+  accounts,
+  team = [],
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -35,22 +37,35 @@ export const RecordPaymentDialog = ({
   onSubmit: (v: PaymentForm) => void;
   /** Extra fields rendered above the payment fields (e.g. customer / invoice pickers). */
   children?: React.ReactNode;
+  /** Company accounts for UPI/bank money. */
+  accounts?: ReceivingAccounts;
+  /** Technicians on the job; the first is the default "received by". */
+  team?: string[];
 }) => {
-  const form = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema), defaultValues: { method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), note: '' } });
+  const form = useForm<PaymentForm>({ resolver: zodResolver(paymentSchema), defaultValues: { method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), receivedBy: team[0] ?? '', note: '' } });
   // Reset the whole form only when the dialog opens (defaultAmount deliberately not a dependency)…
   React.useEffect(() => {
-    if (open) form.reset({ method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), note: '' });
+    if (open) form.reset({ method: 'UPI_MANUAL', amount: defaultAmount ?? 0, referenceNumber: '', receivedAt: toYmd(new Date()), receivedBy: team[0] ?? '', note: '' });
   }, [open, form]);
   // …and only the amount when the suggested amount changes (e.g. another invoice picked), keeping typed fields.
   React.useEffect(() => {
     if (open) form.setValue('amount', defaultAmount ?? 0);
   }, [open, defaultAmount, form]);
   const method = form.watch('method');
+  const defaultReceiver = team[0] ?? RECEIVE_PAYMENT.OTHERS;
+  const [receiver, setReceiver] = React.useState<string>(defaultReceiver);
+  React.useEffect(() => {
+    if (open) setReceiver(defaultReceiver);
+  }, [open, defaultReceiver]);
+  const showAccount = method !== 'CASH' && !!accounts?.accounts.length;
+  React.useEffect(() => {
+    if (open && accounts?.defaultAccount) form.setValue('account', accounts.defaultAccount);
+  }, [open, accounts?.defaultAccount, form]);
   const e = form.formState.errors;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader title="Record payment" description={context} />
+        <DialogHeader title={RECEIVE_PAYMENT.TITLE} description={`${context}. ${RECEIVE_PAYMENT.VERIFY_NOTE}`} />
         <form
           onSubmit={form.handleSubmit((v) => {
             if (maxAmount !== undefined && v.amount > maxAmount + 0.001) {
@@ -78,6 +93,38 @@ export const RecordPaymentDialog = ({
             <Field label={method === 'CASH' ? 'Receipt no. (optional)' : 'Transaction / UTR reference'} required={method !== 'CASH'} error={e.referenceNumber?.message}>
               <Input {...form.register('referenceNumber')} placeholder={method === 'CASH' ? PLACEHOLDERS.RECEIPT_NO : PLACEHOLDERS.PAYMENT_REFERENCE} maxLength={100} aria-invalid={!!e.referenceNumber} />
             </Field>
+            {showAccount && (
+              <Field label="Received in account" required className="sm:col-span-2">
+                <NativeSelect {...form.register('account')}>
+                  {accounts?.accounts.map((a) => (
+                    <option key={a.key} value={a.key}>
+                      {a.label} · {a.upiId}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+            )}
+            <Field label={RECEIVE_PAYMENT.RECEIVED_BY} required error={receiver === RECEIVE_PAYMENT.OTHERS ? undefined : e.receivedBy?.message}>
+              <NativeSelect
+                value={receiver}
+                onChange={(ev) => {
+                  setReceiver(ev.target.value);
+                  form.setValue('receivedBy', ev.target.value === RECEIVE_PAYMENT.OTHERS ? '' : ev.target.value, { shouldValidate: form.formState.isSubmitted });
+                }}
+              >
+                {team.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+                <option value={RECEIVE_PAYMENT.OTHERS}>{RECEIVE_PAYMENT.OTHERS}</option>
+              </NativeSelect>
+            </Field>
+            {receiver === RECEIVE_PAYMENT.OTHERS && (
+              <Field label={RECEIVE_PAYMENT.OTHER_NAME} required error={e.receivedBy?.message}>
+                <Input {...form.register('receivedBy')} maxLength={100} aria-invalid={!!e.receivedBy} />
+              </Field>
+            )}
             <Field label="Received on">
               <Input type="date" max={toYmd(new Date())} {...form.register('receivedAt')} />
             </Field>
@@ -90,7 +137,7 @@ export const RecordPaymentDialog = ({
               Cancel
             </Button>
             <Button type="submit" loading={submitting}>
-              Record payment
+              {RECEIVE_PAYMENT.TITLE}
             </Button>
           </DialogFooter>
         </form>
@@ -113,6 +160,7 @@ export const TotalsSummary = ({ totals, applyGst, isInterState, className }: { t
           <Row label="SGST" value={formatMoney(totals?.sgst)} />
         </>
       ))}
+    {!!totals?.roundOff && <Row label="Round off" value={`+ ${formatMoney(totals.roundOff)}`} />}
     <div className="flex items-center justify-between border-t pt-2.5">
       <dt className="font-display font-bold text-brand-navy">Grand total</dt>
       <dd className="num font-display text-lg font-extrabold text-brand-blue">{formatMoney(totals?.grandTotal)}</dd>
@@ -193,7 +241,7 @@ export const GenerateInvoiceDialog = ({
 }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent size="lg">
-      <DialogHeader title="Generate invoice" description="Services use the booking’s locked prices. Add any stock items used on the job." />
+      <DialogHeader title="Send to For Invoice" description="Services use the booking’s locked prices. Add any stock items used on the job. The bill is approved from Accounts → For Invoice." />
       <DialogBody className="space-y-5">
         <ul className="divide-y rounded-xl border text-[13px]">
           {lines.map((l, i) => (
@@ -235,7 +283,7 @@ export const GenerateInvoiceDialog = ({
           Cancel
         </Button>
         <Button loading={submitting} onClick={onSubmit}>
-          Generate invoice
+          Send to For Invoice
         </Button>
       </DialogFooter>
     </DialogContent>

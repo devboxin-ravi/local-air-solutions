@@ -4,7 +4,6 @@ library;
 
 import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 abstract class AppColors {
   static const Color blue = Color(0xFF0048A8); // logo wordmark
@@ -133,10 +132,17 @@ abstract class StatusColors {
   }
 }
 
+/// Times New Roman across the app; Android has no Times, so the system serif (and its Devanagari
+/// companion for Hindi) is used there.
+const String _family = 'Times New Roman';
+const List<String> _fallback = ['serif', 'Noto Serif Devanagari', 'Noto Sans Devanagari'];
+TextStyle _font({double? fontSize, FontWeight? fontWeight, Color? color, double? letterSpacing}) =>
+    TextStyle(fontFamily: _family, fontFamilyFallback: _fallback, fontSize: fontSize, fontWeight: fontWeight, color: color, letterSpacing: letterSpacing);
+
 abstract class AppTheme {
   static TextTheme _text(TextTheme base) {
-    final t = GoogleFonts.interTextTheme(base);
-    final display = GoogleFonts.plusJakartaSansTextTheme(base);
+    final t = base.apply(fontFamily: _family, fontFamilyFallback: _fallback);
+    final display = t;
     return t.copyWith(
       displaySmall: display.displaySmall?.copyWith(fontWeight: FontWeight.w800, color: AppColors.navy, letterSpacing: -0.5),
       headlineMedium: display.headlineMedium?.copyWith(fontWeight: FontWeight.w800, color: AppColors.navy, letterSpacing: -0.5),
@@ -165,7 +171,7 @@ abstract class AppTheme {
         centerTitle: false,
         foregroundColor: AppColors.navy,
         titleSpacing: Space.page,
-        titleTextStyle: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.navy, letterSpacing: -0.3),
+        titleTextStyle: _font(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.navy, letterSpacing: -0.3),
       ),
       cardTheme: CardThemeData(color: AppColors.surface, elevation: 0, margin: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg), side: const BorderSide(color: AppColors.borderSoft))),
       inputDecorationTheme: InputDecorationTheme(
@@ -187,7 +193,7 @@ abstract class AppTheme {
           minimumSize: const Size.fromHeight(Sizes.buttonHeight),
           backgroundColor: AppColors.blue,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
-          textStyle: GoogleFonts.inter(fontSize: 15.5, fontWeight: FontWeight.w700),
+          textStyle: _font(fontSize: 15.5, fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -197,18 +203,18 @@ abstract class AppTheme {
           backgroundColor: AppColors.surface,
           side: const BorderSide(color: AppColors.border, width: 1.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
-          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: _font(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
-      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: AppColors.blue, textStyle: GoogleFonts.inter(fontWeight: FontWeight.w700))),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: AppColors.blue, textStyle: _font(fontWeight: FontWeight.w700))),
       tabBarTheme: TabBarThemeData(
         indicator: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(Radii.pill), boxShadow: AppShadows.card),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: AppColors.navy,
         unselectedLabelColor: AppColors.slate,
-        labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
-        unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+        labelStyle: _font(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelStyle: _font(fontWeight: FontWeight.w600, fontSize: 14),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         splashFactory: NoSplash.splashFactory,
       ),
@@ -221,7 +227,7 @@ abstract class AppTheme {
         // Chips resolve only a WidgetStateColor inside labelStyle — a WidgetStateTextStyle is
         // passed through unresolved and renders the label invisible. Keep the style static and
         // put the per-state behaviour in the colour.
-        labelStyle: GoogleFonts.inter(
+        labelStyle: _font(
           fontWeight: FontWeight.w600,
           fontSize: 13,
           color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : AppColors.navy),
@@ -234,7 +240,7 @@ abstract class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         height: 66,
-        labelTextStyle: WidgetStateProperty.resolveWith((s) => GoogleFonts.inter(fontSize: 12, fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500, color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.slate)),
+        labelTextStyle: WidgetStateProperty.resolveWith((s) => _font(fontSize: 12, fontWeight: s.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500, color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.slate)),
         iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(color: s.contains(WidgetState.selected) ? AppColors.blue : AppColors.slate)),
       ),
       bottomSheetTheme: const BottomSheetThemeData(backgroundColor: AppColors.surface, surfaceTintColor: Colors.transparent, showDragHandle: true, shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)))),

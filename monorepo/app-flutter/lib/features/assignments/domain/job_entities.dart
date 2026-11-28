@@ -2,12 +2,18 @@
 library;
 
 class JobItem {
-  const JobItem({required this.id, required this.name, required this.quantity, required this.isPerformed});
+  const JobItem({required this.id, required this.name, required this.quantity, required this.isPerformed, this.isExtra = false});
   final int id;
   final String name;
   final int quantity;
   final bool isPerformed;
+
+  /// Added on site, over and above what was booked.
+  final bool isExtra;
 }
+
+/// A service the technician can add as extra work.
+typedef ExtraService = ({int id, String name, String code, double price});
 
 class Job {
   const Job({
@@ -28,6 +34,7 @@ class Job {
     this.problemDescription,
     this.instructions,
     this.productName,
+    this.branchId,
     this.notes = const [],
     this.photos = const [],
   });
@@ -48,9 +55,14 @@ class Job {
   final String? problemDescription;
   final String? instructions;
   final String? productName;
+  final int? branchId;
   final List<JobItem> items;
-  final List<({String note, String author, String at})> notes;
+  final List<({String note, String author, String at, String kind})> notes;
   final List<({String kind, String path})> photos;
+
+  /// The technician is at the site: extra work can be added or removed.
+  bool get canAddExtraWork => status == 'ARRIVED' || status == 'IN_PROGRESS';
+  bool get canRecordFindings => canAddExtraWork || status == 'COMPLETED';
 
   bool get hasCoordinates => latitude != null && longitude != null;
   String get title => items.isNotEmpty ? items.map((i) => i.name).join(', ') : (problemDescription ?? 'Repair job');

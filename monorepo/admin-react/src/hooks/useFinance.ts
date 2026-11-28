@@ -5,16 +5,16 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { amcService, invoiceService, paymentService } from '@/services/financeService';
+import { amcService, draftInvoiceService, invoiceService, paymentService } from '@/services/financeService';
 import { settingsService } from '@/services/engagementService';
-import { INVOICE_SHARE, MANUAL_PAYMENT } from '@/constants/ui';
+import { FOR_INVOICE, INVOICE_SHARE, MANUAL_PAYMENT } from '@/constants/ui';
 import { downloadBlob, toNumber } from '@/lib/utils';
 import type { PaymentForm } from '@/lib/validation';
 import type { Customer, QueryParams, ShareLink } from '@/types';
 import { errorMessage, useAction } from './useApi';
 import { useCustomerSearch } from './usePeople';
 
-const FIN_KEYS = [['invoices'], ['invoice'], ['payments'], ['ledger'], ['outstanding'], ['booking'], ['bookings'], ['amc'], ['dashboard'], ['finance'], ['stock-items']];
+const FIN_KEYS = [['invoices'], ['invoice'], ['payments'], ['ledger'], ['outstanding'], ['booking'], ['bookings'], ['amc'], ['dashboard'], ['finance'], ['stock-items'], ['draft-invoices'], ['draft-invoice']];
 
 export const useInvoiceList = (params: QueryParams) =>
   useQuery({ queryKey: ['invoices', params], queryFn: () => invoiceService.list(params), placeholderData: keepPreviousData });
@@ -22,9 +22,24 @@ export const useInvoice = (id?: number) => useQuery({ queryKey: ['invoice', id],
 export const useInvoicePreview = (body: unknown, enabled: boolean) =>
   useQuery({ queryKey: ['invoice-preview', body], queryFn: () => invoiceService.preview(body), enabled, placeholderData: keepPreviousData });
 
+const AFTER_DRAFT_KEYS = FIN_KEYS.filter((k) => k[0] !== 'draft-invoice');
+
+export const useDraftInvoiceList = (params: QueryParams) =>
+  useQuery({ queryKey: ['draft-invoices', params], queryFn: () => draftInvoiceService.list(params), placeholderData: keepPreviousData });
+export const useDraftInvoice = (id?: number) => useQuery({ queryKey: ['draft-invoice', id], queryFn: () => draftInvoiceService.get(id as number), enabled: !!id });
+
+export function useDraftInvoiceActions() {
+  return {
+    update: useAction((v: { id: number; body: unknown }) => draftInvoiceService.update(v.id, v.body), { success: 'Bill saved', invalidate: FIN_KEYS, silentError: true }),
+    // The approved/removed bill is no longer a draft: don't re-read it on the page being left.
+    approve: useAction((id: number) => draftInvoiceService.approve(id), { success: (i) => `Invoice ${i.invoiceNumber} issued`, invalidate: AFTER_DRAFT_KEYS }),
+    discard: useAction((v: { id: number; reason: string }) => draftInvoiceService.discard(v.id, v.reason), { success: 'Bill removed', invalidate: AFTER_DRAFT_KEYS }),
+  };
+}
+
 export function useInvoiceActions() {
   return {
-    fromBooking: useAction((body: unknown) => invoiceService.fromBooking(body), { success: (i) => `Invoice ${i.invoiceNumber} generated`, invalidate: FIN_KEYS }),
+    fromBooking: useAction((body: unknown) => draftInvoiceService.generate(body), { success: FOR_INVOICE.SENT, invalidate: FIN_KEYS }),
     createManual: useAction((body: unknown) => invoiceService.createManual(body), { success: (i) => `Invoice ${i.invoiceNumber} created`, invalidate: FIN_KEYS }),
     cancel: useAction((v: { id: number; reason: string }) => invoiceService.cancel(v.id, v.reason), { success: 'Invoice cancelled', invalidate: FIN_KEYS }),
     share: useAction((body: { invoiceIds: number[]; channel: 'EMAIL' | 'WHATSAPP'; toCustomer?: boolean; staffUserIds?: number[] }) => invoiceService.share(body), {
@@ -98,10 +113,13 @@ export function useInvoiceActions() {
 export const usePaymentList = (params: QueryParams) =>
   useQuery({ queryKey: ['payments', params], queryFn: () => paymentService.list(params), placeholderData: keepPreviousData });
 
+/** Company accounts offered when recording or verifying a UPI/bank payment. */
+export const useReceivingAccounts = () => useQuery({ queryKey: ['payment-accounts'], queryFn: () => paymentService.accounts() });
+
 export function usePaymentActions() {
   return {
-    record: useAction((v: { body: unknown; key: string }) => paymentService.record(v.body, v.key), { success: (p) => `Payment ${p.paymentNumber} recorded (${p.status.replace('_', ' ').toLowerCase()})`, invalidate: FIN_KEYS }),
-    verify: useAction((v: { id: number; approve: boolean; note?: string }) => paymentService.verify(v.id, v.approve, v.note), { success: (p) => `Payment ${p.status === 'VERIFIED' ? 'approved' : 'rejected'}`, invalidate: FIN_KEYS }),
+    record: useAction((v: { body: unknown; key: string }) => paymentService.record(v.body, v.key), { success: (p) => `Payment ${p.paymentNumber} received — waiting for office verification`, invalidate: FIN_KEYS }),
+    verify: useAction((v: { id: number; approve: boolean; note?: string; account?: number }) => paymentService.verify(v.id, v.approve, v.note, v.account), { success: (p) => `Payment ${p.status === 'VERIFIED' ? 'approved' : 'rejected'}`, invalidate: FIN_KEYS }),
     refund: useAction((v: { id: number; amount: number; reason: string }) => paymentService.refund(v.id, v.amount, v.reason), { success: 'Refund recorded', invalidate: FIN_KEYS }),
     adjust: useAction((body: unknown) => paymentService.adjustLedger(body), { success: 'Ledger entry posted', invalidate: FIN_KEYS }),
   };
@@ -149,7 +167,7 @@ export function useManualPayment() {
     record.mutate(
       {
         key: crypto.randomUUID(),
-        body: { customerId: customer.id, invoiceId: invoice?.id ?? null, method: v.method, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null },
+        body: { customerId: customer.id, invoiceId: invoice?.id ?? null, method: v.method, account: v.account, receivedBy: v.receivedBy, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null },
       },
       { onSuccess: () => setOpenState(false) },
     );

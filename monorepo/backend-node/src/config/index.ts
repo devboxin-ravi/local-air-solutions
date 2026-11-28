@@ -41,7 +41,7 @@ const EnvSchema = z.object({
   JWT_ISSUER: z.string().default('local-air-solutions'),
 
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
-  LOGIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  LOGIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(8),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   OTP_ENABLED: bool(false),
   OTP_EXPIRES_MINUTES: z.coerce.number().int().positive().default(10),

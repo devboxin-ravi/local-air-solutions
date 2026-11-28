@@ -86,6 +86,13 @@ export const DEFAULT_SETTINGS: Record<SettingKey, Record<string, unknown>> = {
     upiPayeeName: 'Local Air Solutions',
     razorpayEnabled: false,
     cashEnabled: true,
+    upiAccountName: '',
+    upiId2: '',
+    upiPayeeName2: '',
+    upiAccountName2: '',
+    defaultUpiAccount: 1,
+    upiChargePercent: 0,
+    razorpayChargePercent: 0,
   },
   reminder: {
     enabled: true,
@@ -145,3 +152,10 @@ export const DEFAULT_SETTINGS: Record<SettingKey, Record<string, unknown>> = {
     maxJobsPerSlot: 3,
   },
 };
+
+/** The company can collect into two UPI IDs (separate bank accounts). */
+/** Where verified cash goes. */
+export const CASH_IN_HAND = 'Cash in hand';
+
+export const UPI_ACCOUNT_KEYS = [1, 2] as const;
+export const MAX_PAYMENT_CHARGE_PERCENT = 10;

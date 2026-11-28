@@ -6,18 +6,22 @@ import { BookingStatus, Prisma } from '@prisma/client';
 import { ACTIVE_JOB_STATUSES, Assignment, AuditActions, ErrorMessages, NotificationEvents, PENDING_BOOKING_STATUSES } from '../constants';
 import { BookingRepository } from '../repositories/bookingRepository';
 import { StaffRepository } from '../repositories/staffRepository';
-import { runInTransaction } from '../repositories/db';
+import { Db, runInTransaction } from '../repositories/db';
 import type { AuthUser, RequestMeta, TechnicianSuggestion, UploadedFileInfo } from '../models';
 import { BusinessRuleError, ForbiddenError, NotFoundError } from '../utils/errors';
-import { addDays, formatDisplayDate, generateOtp, parseDateOnly, sha256, todayDateOnly, toPageMeta, toPageParams } from '../utils/helpers';
+import { addDays, formatDisplayDate, generateOtp, parseDateOnly, round2, sha256, todayDateOnly, toPageMeta, toPageParams } from '../utils/helpers';
 import { assertBranchAccess, resolveBranchScope } from './accessControl';
 import { BookingService } from './bookingService';
 import { CatalogService } from './catalogService';
 import { NotificationService } from './notificationService';
 import { ReminderService } from './reminderService';
 import { SettingsService } from './settingsService';
+import { InvoiceService } from './invoiceService';
 
 const ASSIGNABLE: BookingStatus[] = ['CONFIRMED', 'ASSIGNED', 'ACCEPTED', 'RESCHEDULED'];
+/** The technician is at the site: extra work can be billed. */
+const EXTRA_WORK_STATUSES: BookingStatus[] = ['ARRIVED', 'IN_PROGRESS'];
+const FINDING_STATUSES: BookingStatus[] = ['ARRIVED', 'IN_PROGRESS', 'COMPLETED'];
 
 export class AssignmentService {
   constructor(
@@ -28,6 +32,7 @@ export class AssignmentService {
     private readonly reminders: ReminderService,
     private readonly notifications: NotificationService,
     private readonly settings: SettingsService,
+    private readonly invoices: InvoiceService,
   ) {}
 
   // ─── Admin ───
@@ -104,7 +109,7 @@ export class AssignmentService {
     return this.catalog.skillIdsForServices(serviceIds);
   }
 
-  async assign(actor: AuthUser, bookingId: number, staffId: number, notes: string | null | undefined, meta: RequestMeta) {
+  async assign(actor: AuthUser, bookingId: number, staffId: number, notes: string | null | undefined, meta: RequestMeta, schedule: { scheduledDate?: string; scheduledTime?: string } = {}) {
     const b = await this.bookingService.get(actor, bookingId);
     const tech = await this.staff.findById(staffId);
     if (!tech || tech.branchId !== b.branchId || tech.user.status !== 'ACTIVE') throw new BusinessRuleError(ErrorMessages.TECHNICIAN_NOT_ELIGIBLE);
@@ -114,7 +119,10 @@ export class AssignmentService {
       const locked = await this.bookings.lockById(bookingId, tx);
       if (!locked) throw new NotFoundError('Booking');
       if (!ASSIGNABLE.includes(locked.status)) throw new BusinessRuleError(ErrorMessages.BOOKING_NOT_ASSIGNABLE);
-      let state = locked;
+      const current = await this.bookings.findById(bookingId, tx);
+      if (!current) throw new NotFoundError('Booking');
+      const rescheduled = await this.bookingService.applyManualSchedule(tx, current, schedule);
+      let state = rescheduled ? { ...locked, slotId: null } : locked;
       if (locked.status === 'ACCEPTED') {
         await this.bookingService.applyTransition(tx, locked, 'CONFIRMED', actor.id, 'Technician changed');
         state = { ...locked, status: 'CONFIRMED' };
@@ -127,13 +135,15 @@ export class AssignmentService {
         await this.bookingService.applyTransition(tx, state, 'ASSIGNED', actor.id, `Assigned to ${tech.user.name}`);
       }
     });
-    await this.settings.audit(actor, AuditActions.ASSIGN, 'booking', bookingId, null, { staffId }, meta);
+    await this.settings.audit(actor, AuditActions.ASSIGN, 'booking', bookingId, null, { staffId, ...schedule }, meta);
 
+    const visit = (await this.bookings.findById(bookingId)) ?? b;
+    const when = [formatDisplayDate(visit.scheduledDate), visit.scheduledTime].filter(Boolean).join(', ');
     const area = b.address.serviceArea?.name ?? b.address.city.name;
     await this.notifications.notify({
       userId: tech.userId,
       event: NotificationEvents.NEW_JOB,
-      data: { bookingNumber: b.bookingNumber, date: formatDisplayDate(b.scheduledDate), area },
+      data: { bookingNumber: b.bookingNumber, date: when, area },
     });
     await this.notifications.notify({
       userId: b.customer.userId,
@@ -294,6 +304,7 @@ export class AssignmentService {
     });
     await this.settings.audit(actor, AuditActions.STATUS_CHANGE, 'booking', bookingId, { status: booking.status }, { status: 'COMPLETED' }, meta);
     await this.bookingService.notifyStatus(bookingId, 'COMPLETED');
+    await this.invoices.draftForCompletedBooking(actor, bookingId);
     return this.bookings.findById(bookingId);
   }
 
@@ -312,12 +323,81 @@ export class AssignmentService {
     });
     await this.settings.audit(actor, AuditActions.STATUS_CHANGE, 'booking', bookingId, { status: b.status }, { status: 'COMPLETED' }, meta);
     await this.bookingService.notifyStatus(bookingId, 'COMPLETED');
+    await this.invoices.draftForCompletedBooking(actor, bookingId);
     return this.bookings.findById(bookingId);
   }
 
   async addJobNote(actor: AuthUser, bookingId: number, note: string) {
     await this.loadOwnJob(actor, bookingId);
     return this.bookings.addNote({ bookingId, authorId: actor.id, note });
+  }
+
+  /** Services done on top of the booking: added to the booking so they are billed with it. */
+  async addExtraWork(actor: AuthUser, bookingId: number, input: { items: Array<{ serviceId: number; quantity: number }>; note?: string | null }, meta: RequestMeta) {
+    const { booking } = await this.loadOwnJob(actor, bookingId);
+    const services = input.items.length ? await this.catalog.resolveForBooking(input.items.map((i) => i.serviceId), booking.branchId) : [];
+    const lines = input.items.map((item, idx) => {
+      const s = services[idx];
+      const unit = s.pricingType === 'FREE' || s.pricingType === 'QUOTATION' ? 0 : s.effectivePrice;
+      return { bookingId, serviceId: s.id, serviceName: s.name, serviceCode: s.code, pricingType: s.pricingType, quantity: item.quantity, unitPrice: round2(unit), gstRate: round2(s.gstApplicable ? s.gstRate : 0), lineTotal: round2(unit * item.quantity), isExtra: true, isPerformed: true };
+    });
+    const added = lines.reduce((sum, l) => sum + Number(l.lineTotal), 0);
+    const summary = lines.map((l) => `${l.serviceName} x ${l.quantity}`).join(', ');
+
+    await runInTransaction(async (tx) => {
+      const current = await this.assertBillable(tx, bookingId);
+      if (lines.length) {
+        await this.bookings.addItems(lines, tx);
+        await this.bookings.update(
+          bookingId,
+          {
+            estimatedTotal: round2(Number(current.estimatedTotal) + added),
+            // A fully paid booking (e.g. a free AMC visit) has money due again.
+            ...(added > 0 && current.paymentStatus === 'PAID' ? { paymentStatus: current.payments.some((p) => p.status === 'VERIFIED') ? 'PARTIALLY_PAID' : 'UNPAID' } : {}),
+          },
+          tx,
+        );
+      }
+      await this.bookings.addNote({ bookingId, authorId: actor.id, kind: 'EXTRA_WORK', note: [summary && `Added: ${summary}`, input.note].filter(Boolean).join('\n').slice(0, 1000) }, tx);
+    });
+    await this.settings.audit(actor, AuditActions.UPDATE, 'booking', bookingId, null, { extraWork: input }, meta);
+    return this.bookings.findById(bookingId);
+  }
+
+  /** Undo of a wrongly added extra service, before the invoice exists. */
+  async removeExtraItem(actor: AuthUser, bookingId: number, itemId: number, meta: RequestMeta) {
+    await this.loadOwnJob(actor, bookingId);
+    await runInTransaction(async (tx) => {
+      const current = await this.assertBillable(tx, bookingId);
+      const item = current.items.find((i) => i.id === itemId && i.isExtra);
+      if (!item) throw new NotFoundError('Extra work item');
+      await this.bookings.deleteItem(itemId, tx);
+      await this.bookings.update(bookingId, { estimatedTotal: round2(Math.max(0, Number(current.estimatedTotal) - Number(item.lineTotal))) }, tx);
+      await this.bookings.addNote({ bookingId, authorId: actor.id, kind: 'EXTRA_WORK', note: `Removed: ${item.serviceName} x ${item.quantity}` }, tx);
+    });
+    await this.settings.audit(actor, AuditActions.UPDATE, 'booking', bookingId, null, { removedExtraItem: itemId }, meta);
+    return this.bookings.findById(bookingId);
+  }
+
+  private async assertBillable(tx: Db, bookingId: number) {
+    await this.bookings.lockById(bookingId, tx);
+    const current = await this.bookings.findById(bookingId, tx);
+    if (!current) throw new NotFoundError('Booking');
+    if (!EXTRA_WORK_STATUSES.includes(current.status)) throw new BusinessRuleError('Extra work can be changed only after arriving and before completing the job.');
+    if (current.invoices.length) throw new BusinessRuleError('The invoice is already generated; ask the office to bill extra work.');
+    return current;
+  }
+
+  /** On-site observation kept with author and time, optionally with a follow-up reminder. */
+  async addFinding(actor: AuthUser, bookingId: number, input: { finding: string; followUpMonths?: number | null }, meta: RequestMeta) {
+    const { booking } = await this.loadOwnJob(actor, bookingId);
+    if (!FINDING_STATUSES.includes(booking.status)) throw new BusinessRuleError('Findings can be recorded after arriving at the site.');
+    await runInTransaction(async (tx) => {
+      await this.bookings.addNote({ bookingId, authorId: actor.id, kind: 'FINDING', note: input.finding }, tx);
+      if (input.followUpMonths) await this.reminders.createFollowUp({ customerId: booking.customerId, bookingId, months: input.followUpMonths, note: `Follow-up: ${input.finding}` }, tx);
+    });
+    await this.settings.audit(actor, AuditActions.UPDATE, 'booking', bookingId, null, { finding: input }, meta);
+    return this.bookings.findById(bookingId);
   }
 
   async uploadJobPhotos(actor: AuthUser, bookingId: number, kind: 'BEFORE' | 'AFTER' | 'OTHER', files: UploadedFileInfo[]) {

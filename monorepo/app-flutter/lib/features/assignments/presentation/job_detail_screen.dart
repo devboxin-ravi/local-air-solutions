@@ -16,6 +16,8 @@ import '../../../shared/widgets/app_widgets.dart';
 import '../../bookings/presentation/booking_widgets.dart';
 import '../../catalog/presentation/catalog_providers.dart';
 import '../domain/job_entities.dart';
+import 'collect_payment_card.dart';
+import 'job_extra_cards.dart';
 import 'job_providers.dart';
 import 'tech_screens.dart';
 
@@ -106,6 +108,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       Text('${Fmt.dateOnly(job.scheduledDate)}${job.scheduledTime != null ? ' · ${job.scheduledTime}' : ''}${job.productName != null ? ' · ${job.productName}' : ''}', style: t.bodyMedium),
       const SizedBox(height: Space.lg),
       _statusCard(context, job),
+      CollectPaymentCard(jobId: job.id),
       const SizedBox(height: Space.lg),
       AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -138,9 +141,11 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           Text('Services', style: t.titleMedium),
           const SizedBox(height: Space.sm),
           if (job.items.isEmpty) Text('Repair — services to be decided on inspection.', style: t.bodyMedium),
-          ...job.items.map((i) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(i.isPerformed ? Icons.check_circle : Icons.circle_outlined, size: 20, color: i.isPerformed ? AppColors.green : AppColors.slateLight), const SizedBox(width: Space.sm), Expanded(child: Text('${i.name} × ${i.quantity}', style: t.bodyLarge))]))),
+          ...job.items.map((i) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Icon(i.isPerformed ? Icons.check_circle : Icons.circle_outlined, size: 20, color: i.isPerformed ? AppColors.green : AppColors.slateLight), const SizedBox(width: Space.sm), Expanded(child: Text('${i.name} × ${i.quantity}${i.isExtra ? ' (extra)' : ''}', style: t.bodyLarge))]))),
         ]),
       ),
+      ExtraWorkCard(job: job),
+      FindingsCard(job: job),
       const SizedBox(height: Space.lg),
       AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -171,8 +176,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       AppCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [Expanded(child: Text('Service notes', style: t.titleMedium)), if (canEdit) TextButton.icon(onPressed: _busy ? null : () => _addNote(job), icon: const Icon(Icons.note_add_outlined), label: const Text('Add note'))]),
-          if (job.notes.isEmpty) Text('No notes yet.', style: t.bodyMedium),
-          ...job.notes.map((n) => Padding(
+          if (job.notes.every((n) => n.kind == 'FINDING')) Text('No notes yet.', style: t.bodyMedium),
+          ...job.notes.where((n) => n.kind != 'FINDING').map((n) => Padding(
                 padding: const EdgeInsets.only(top: Space.sm),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(n.note, style: t.bodyLarge), Text('${n.author} · ${Fmt.dateTime(n.at)}', style: t.bodySmall)]),
               )),
