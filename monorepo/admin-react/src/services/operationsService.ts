@@ -3,7 +3,7 @@
  */
 
 import { API } from '@/constants/api';
-import type { Assignment, Booking, QueryParams, Slot, Suggestion, TechAvailability } from '@/types';
+import type { AssignInput, Assignment, Booking, QueryParams, Slot, Suggestion, TechAvailability } from '@/types';
 import { http } from './apiClient';
 
 export const bookingService = {
@@ -23,7 +23,7 @@ export const bookingService = {
     return http.upload(API.BOOKING_ATTACHMENTS(id), form);
   },
   suggestions: (id: number) => http.get<Suggestion[]>(API.BOOKING_SUGGESTIONS(id)),
-  assign: (id: number, staffId: number, notes?: string) => http.post<Booking>(API.BOOKING_ASSIGN(id), { staffId, notes }),
+  assign: (id: number, body: AssignInput) => http.post<Booking>(API.BOOKING_ASSIGN(id), body),
   unassign: (id: number) => http.post<Booking>(API.BOOKING_UNASSIGN(id)),
 };
 

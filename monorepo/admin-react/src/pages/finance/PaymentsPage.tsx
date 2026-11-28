@@ -6,10 +6,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ExternalLink, PlusCircle, RotateCcw, XCircle } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { useManualPayment, usePaymentActions, usePaymentList } from '@/hooks/useFinance';
+import { useManualPayment, usePaymentActions, usePaymentList, useReceivingAccounts } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { MANUAL_PAYMENT, PAYMENT_METHODS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
+import { MANUAL_PAYMENT, PAYMENT_METHODS, RECEIVE_PAYMENT, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import { assetUrl, formatDate, formatDateTime, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Payment } from '@/types';
 import { ConfirmDialog, Field, PageHeader, StatusBadge } from '@/components/common';
@@ -33,6 +33,8 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
   const { data, isLoading, error, refetch } = usePaymentList({ ...list.query, ...(verification ? { status: 'PENDING_VERIFICATION' } : {}) });
   const actions = usePaymentActions();
   const manual = useManualPayment();
+  const { data: accounts } = useReceivingAccounts();
+  const [account, setAccount] = useState('');
   const [review, setReview] = useState<{ payment: Payment; approve: boolean } | null>(null);
   const [note, setNote] = useState('');
   const [refund, setRefund] = useState<Payment | null>(null);
@@ -49,9 +51,9 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
     { key: 'no', header: 'Payment', cell: (p) => <div><p className="font-semibold text-brand-navy">{p.paymentNumber}</p><p className="text-xs text-muted-foreground">{formatDateTime(p.createdAt ?? p.receivedAt)}</p></div> },
     { key: 'customer', header: 'Customer', cell: (p) => <div><p className="font-medium">{p.customer?.fullName}</p><p className="text-xs text-muted-foreground">{p.customer?.mobile}</p></div> },
     { key: 'for', header: 'For', cell: (p) => p.invoice?.invoiceNumber ?? p.booking?.bookingNumber ?? p.amcContract?.amcNumber ?? '—' },
-    { key: 'method', header: 'Method', cell: (p) => humanize(p.method) },
+    { key: 'method', header: 'Method', cell: (p) => <div><p>{humanize(p.method)}</p>{p.receivingAccount && <p className="max-w-[200px] truncate text-xs text-muted-foreground" title={p.receivingAccount}>{p.receivingAccount}</p>}{p.receivedBy && <p className="text-xs text-muted-foreground">By {p.receivedBy}</p>}</div> },
     { key: 'ref', header: 'Reference', cell: (p) => <div className="flex items-center gap-1.5"><span className="font-mono text-xs">{p.referenceNumber ?? '—'}</span>{p.proofPath && <a href={assetUrl(p.proofPath)} target="_blank" rel="noreferrer" className="text-brand-blue" onClick={(e) => e.stopPropagation()} aria-label="View screenshot"><ExternalLink className="h-3.5 w-3.5" /></a>}</div> },
-    { key: 'amount', header: 'Amount', align: 'right', cell: (p) => <span className="num font-semibold">{formatMoney(p.amount)}</span> },
+    { key: 'amount', header: 'Amount', align: 'right', cell: (p) => <div><p className="num font-semibold">{formatMoney(p.amount)}</p>{toNumber(p.chargeAmount) > 0 && <p className="num text-xs text-muted-foreground">Charge {formatMoney(p.chargeAmount)}</p>}</div> },
     { key: 'status', header: 'Status', cell: (p) => <div><StatusBadge status={p.status} />{p.verificationNote && <p className="mt-1 max-w-[180px] truncate text-[11px] text-muted-foreground" title={p.verificationNote}>{p.verificationNote}</p>}</div> },
     {
       key: 'actions',
@@ -61,8 +63,8 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
         <div className="flex items-center justify-end gap-1">
           {p.status === 'PENDING_VERIFICATION' && can('payments.approve') && (
             <>
-              <Button size="sm" variant="secondary" onClick={() => { setNote(''); setReview({ payment: p, approve: true }); }}><CheckCircle2 /> Approve</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setNote(''); setReview({ payment: p, approve: false }); }}><XCircle className="text-red-500" /> Reject</Button>
+              <Button size="sm" variant="secondary" onClick={() => { setNote(''); setAccount(''); setReview({ payment: p, approve: true }); }}><CheckCircle2 /> Approve</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setNote(''); setAccount(''); setReview({ payment: p, approve: false }); }}><XCircle className="text-red-500" /> Reject</Button>
             </>
           )}
           {p.status === 'VERIFIED' && can('payments.approve') && <Button size="sm" variant="ghost" onClick={() => { setRefund(p); setRefundAmount(String(toNumber(p.amount))); }}><RotateCcw /> Refund</Button>}
@@ -75,9 +77,9 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
   return (
     <>
       <PageHeader
-        title={verification ? 'Payment Verification' : 'Payment In'}
-        description={verification ? 'Customer-submitted UPI references awaiting review. Only verified payments update invoices and the ledger.' : 'All recorded payments.'}
-        breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: verification ? 'Payment Verification' : 'Payment In' }]}
+        title={verification ? 'Payment Verification' : 'Payment Receipt'}
+        description={verification ? 'Payments received by technicians, staff or customers. Confirm once the money reaches the office: cash goes to cash in hand, UPI/bank to the chosen account. Only verified payments update invoices and the ledger.' : 'All recorded payments.'}
+        breadcrumbs={[{ label: 'Accounts', to: ROUTES.INVOICES }, { label: verification ? 'Payment Verification' : 'Payment Receipt' }]}
         actions={!verification && can('payments.create') && <Button onClick={() => manual.setOpen(true)}><PlusCircle /> {MANUAL_PAYMENT.BUTTON}</Button>}
       />
       <DataTable
@@ -108,6 +110,7 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
         maxAmount={manual.balance}
         submitting={manual.submitting}
         onSubmit={manual.submit}
+        accounts={accounts}
       >
         <Field label={MANUAL_PAYMENT.CUSTOMER_LABEL} required error={manual.customerError ? MANUAL_PAYMENT.CUSTOMER_REQUIRED : undefined}>
           <CustomerPicker value={manual.customer} options={manual.customers} loading={manual.customersLoading} search={manual.search} onSearchChange={manual.setSearch} onSelect={manual.selectCustomer} invalid={manual.customerError} />
@@ -135,8 +138,22 @@ export default function PaymentsPage({ verification }: { verification?: boolean 
         requireReason={!review?.approve}
         reasonLabel="Reason (shared with customer)"
         loading={actions.verify.isPending}
-        onConfirm={(reason) => review && actions.verify.mutate({ id: review.payment.id, approve: review.approve, note: reason || note || undefined }, { onSuccess: () => setReview(null) })}
-      />
+        onConfirm={(reason) => review && actions.verify.mutate({ id: review.payment.id, approve: review.approve, note: reason || note || undefined, account: account ? Number(account) : undefined }, { onSuccess: () => setReview(null) })}
+      >
+        {review?.approve && review.payment.method === 'CASH' && <p className="text-[13px] font-medium text-brand-navy">{RECEIVE_PAYMENT.CASH_DESTINATION}</p>}
+        {review?.approve && review.payment.method !== 'CASH' && review.payment.method !== 'RAZORPAY' && !!accounts?.accounts.length && (
+          <Field label={RECEIVE_PAYMENT.BANK_LABEL} hint={review.payment.receivingAccount ? `Currently: ${review.payment.receivingAccount}` : undefined}>
+            <NativeSelect value={account} onChange={(e) => setAccount(e.target.value)}>
+              <option value="">Keep as is</option>
+              {accounts.accounts.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label} · {a.upiId}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+      </ConfirmDialog>
       <Dialog open={!!refund} onOpenChange={(o) => { if (!o) { setRefund(null); refundErrors.reset(); } }}>
         <DialogContent size="sm">
           <DialogHeader title="Record refund" description="Posts a REFUND entry to the ledger and re-opens the invoice balance." />

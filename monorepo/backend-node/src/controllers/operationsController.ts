@@ -79,7 +79,7 @@ export const suggestTechnicians = asyncHandler(async (req, res) => {
   sendOk(res, await services().assignments.suggest(actorOf(req), idParam(req)));
 });
 export const assignTechnician = asyncHandler(async (req, res) => {
-  sendOk(res, await services().assignments.assign(actorOf(req), idParam(req), req.body.staffId, req.body.notes, metaOf(req)));
+  sendOk(res, await services().assignments.assign(actorOf(req), idParam(req), req.body.staffId, req.body.notes, metaOf(req), { scheduledDate: req.body.scheduledDate, scheduledTime: req.body.scheduledTime }));
 });
 export const unassignTechnician = asyncHandler(async (req, res) => {
   sendOk(res, await services().assignments.unassign(actorOf(req), idParam(req), metaOf(req)));
@@ -110,6 +110,15 @@ export const techComplete = asyncHandler(async (req, res) => {
 });
 export const techNote = asyncHandler(async (req, res) => {
   sendCreated(res, await services().assignments.addJobNote(actorOf(req), idParam(req), req.body.note));
+});
+export const techExtraWork = asyncHandler(async (req, res) => {
+  sendOk(res, await services().assignments.addExtraWork(actorOf(req), idParam(req), req.body, metaOf(req)));
+});
+export const techRemoveExtra = asyncHandler(async (req, res) => {
+  sendOk(res, await services().assignments.removeExtraItem(actorOf(req), idParam(req), Number(req.params.itemId), metaOf(req)));
+});
+export const techFinding = asyncHandler(async (req, res) => {
+  sendOk(res, await services().assignments.addFinding(actorOf(req), idParam(req), req.body, metaOf(req)));
 });
 export const techPhotos = asyncHandler(async (req, res) => {
   sendCreated(res, await services().assignments.uploadJobPhotos(actorOf(req), idParam(req), (req.body.kind as never) ?? 'OTHER', files(res)));

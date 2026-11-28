@@ -18,6 +18,7 @@ Invoice invoiceFromJson(Map<String, dynamic> j) => Invoice(
       igst: Fmt.toNum(j['igst']),
       gstTotal: Fmt.toNum(j['gstTotal']),
       grandTotal: Fmt.toNum(j['grandTotal']),
+      roundOff: Fmt.toNum(j['roundOff']),
       amountPaid: Fmt.toNum(j['amountPaid']),
       balanceDue: Fmt.toNum(j['balanceDue']),
       isFreeService: j['isFreeService'] as bool? ?? false,

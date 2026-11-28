@@ -2,7 +2,7 @@
  * Staff & technician management: roles, branch, skills, service areas, working hours, status.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,11 +13,11 @@ import { errorMessage, fieldErrors, useBranches, useRoles, useServiceAreas, useS
 import { useAuth } from '@/hooks/useAuth';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { ROUTES } from '@/constants/routes';
-import { LIMITS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
+import { DEFAULT_LOCATION, LIMITS, PLACEHOLDERS, ROW_ACTIONS } from '@/constants/ui';
 import { formatDate, humanize, initials } from '@/lib/utils';
 import { emptyToNull, staffSchema, type StaffForm } from '@/lib/validation';
 import type { Staff } from '@/types';
-import { Badge, ConfirmDialog, Field, PageHeader, StatusBadge } from '@/components/common';
+import { Badge, Field, PageHeader, StatusBadge } from '@/components/common';
 import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { ChipMultiSelect, MultiSelectDropdown } from '@/components/Pickers';
@@ -29,7 +29,7 @@ type StaffTab = 'profile' | 'work' | 'history';
 /** Role that makes a staff member a field technician (assignable to jobs). */
 const TECHNICIAN_ROLE = 'TECHNICIAN';
 
-const DEFAULTS: StaffForm = { name: '', mobile: '', email: '', username: '', password: '', roleCodes: ['TECHNICIAN'], designation: '', branchId: 0, experienceYears: 0, workStartTime: '09:00', workEndTime: '18:00', isTechnician: true, isAvailable: true, status: 'ACTIVE', skillIds: [], serviceAreaIds: [] };
+const DEFAULTS: StaffForm = { name: '', mobile: '', companyMobile: '', email: '', username: '', password: '', roleCodes: ['TECHNICIAN'], designation: '', branchId: 0, experienceYears: 0, workStartTime: '09:00', workEndTime: '18:00', isTechnician: true, isAvailable: true, status: 'ACTIVE', statusReason: '', skillIds: [], serviceAreaIds: [] };
 
 export default function StaffPage() {
   const { can, user } = useAuth();
@@ -42,7 +42,6 @@ export default function StaffPage() {
   const { data: skills } = useSkills();
   const [editing, setEditing] = useState<Staff | 'new' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toDelete, setToDelete] = useState<Staff | null>(null);
   const [tab, setTab] = useState<StaffTab>('profile');
   /** Opens the editor on its first step. */
   const openEditor = (target: Staff | 'new') => {
@@ -51,18 +50,32 @@ export default function StaffPage() {
   };
   const form = useForm<StaffForm>({ resolver: zodResolver(staffSchema), defaultValues: DEFAULTS });
   const branchId = form.watch('branchId');
+  /** State filter for the branch list (not saved). */
+  const [stateId, setStateId] = useState<number | ''>('');
+  const branchStates = useMemo(() => {
+    const seen = new Map<number, string>();
+    (branches ?? []).forEach((b) => b.city?.state && seen.set(b.city.state.id, b.city.state.name));
+    return [...seen.entries()].map(([sid, sname]) => ({ id: sid, name: sname })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [branches]);
+  const stateBranches = (branches ?? []).filter((b) => !stateId || b.city?.state.id === stateId);
   const isTechnicianRole = form.watch('roleCodes').includes(TECHNICIAN_ROLE);
+  const accountStatus = form.watch('status');
   const { data: areas } = useServiceAreas(branchId || undefined);
   const history = useStaffHistory(editing && editing !== 'new' ? editing.id : undefined);
   const e = form.formState.errors;
 
   useEffect(() => {
     setFormError(null);
-    if (editing === 'new') form.reset({ ...DEFAULTS, branchId: user?.isCompanyWide ? scopeBranchId ?? 0 : user?.branchId ?? 0 });
+    if (editing === 'new') {
+      // Own branch for branch users; company-wide users default to Raipur (Chhattisgarh).
+      const raipur = branches?.find((b) => b.code === DEFAULT_LOCATION.BRANCH_CODE)?.id;
+      form.reset({ ...DEFAULTS, branchId: user?.isCompanyWide ? scopeBranchId ?? raipur ?? 0 : user?.branchId ?? 0 });
+    }
     else if (editing)
       form.reset({
         name: editing.user.name,
         mobile: editing.user.mobile,
+        companyMobile: editing.companyMobile ?? '',
         email: editing.user.email ?? '',
         username: editing.user.username ?? '',
         password: '',
@@ -75,10 +88,18 @@ export default function StaffPage() {
         isTechnician: editing.isTechnician,
         isAvailable: editing.isAvailable,
         status: editing.user.status as StaffForm['status'],
+        statusReason: editing.user.statusReason ?? '',
         skillIds: editing.skills.map((s) => s.skill.id),
         serviceAreaIds: editing.serviceAreas.map((a) => a.serviceArea.id),
       });
-  }, [editing, form, user, scopeBranchId]);
+  }, [editing, form, user, scopeBranchId, branches]);
+  // The state follows the chosen branch (or Chhattisgarh when none is chosen yet).
+  useEffect(() => {
+    if (!editing) return;
+    const own = branches?.find((b) => b.id === Number(form.getValues('branchId')))?.city?.state.id;
+    const cg = branchStates.find((st) => (branches ?? []).some((b) => b.city?.state.id === st.id && b.code === DEFAULT_LOCATION.BRANCH_CODE))?.id;
+    setStateId(own ?? cg ?? '');
+  }, [editing, branches, branchStates, form]);
 
   const save = form.handleSubmit(async (v) => {
     // "Field technician" is not a separate switch: anyone with the Technician role gets jobs.
@@ -107,7 +128,7 @@ export default function StaffPage() {
     { key: 'branch', header: 'Branch', cell: (s) => s.branch.name },
     { key: 'skills', header: 'Skills', cell: (s) => <span className="line-clamp-1 max-w-[200px] text-xs text-slate-600">{s.skills.map((k) => k.skill.name).join(', ') || '—'}</span> },
     { key: 'jobs', header: 'Active jobs', align: 'right', cell: (s) => <span className="num">{s.activeJobs ?? 0}</span> },
-    { key: 'status', header: 'Status', cell: (s) => <div className="flex flex-col items-start gap-1"><StatusBadge status={s.user.status} />{s.isTechnician && !s.isAvailable && <Badge tone="amber">Unavailable</Badge>}</div> },
+    { key: 'status', header: 'Status', cell: (s) => <div className="flex flex-col items-start gap-1"><StatusBadge status={s.user.status} />{s.user.statusReason && s.user.status !== 'ACTIVE' && <p className="max-w-[200px] truncate text-[11px] text-muted-foreground" title={s.user.statusReason}>{s.user.statusReason}</p>}{s.isTechnician && !s.isAvailable && <Badge tone="amber">Unavailable</Badge>}</div> },
     {
       key: 'actions',
       header: ROW_ACTIONS.HEADER,
@@ -116,7 +137,6 @@ export default function StaffPage() {
         <RowActions
           onEdit={can('staff.edit') ? () => openEditor(s) : undefined}
           // Your own login cannot be deleted (the server refuses it too).
-          onDelete={can('staff.delete') && s.userId !== user?.id ? () => setToDelete(s) : undefined}
         />
       ),
     },
@@ -160,7 +180,8 @@ export default function StaffPage() {
                 <TabsContent value="profile" className="space-y-6">
                   <FormGroup icon={<UserRound />} title="Personal details">
                     <Field label="Full name" required error={e.name?.message}><Input {...form.register('name')} placeholder={PLACEHOLDERS.FULL_NAME} maxLength={100} /></Field>
-                    <Field label="Mobile" required error={e.mobile?.message}><Input {...form.register('mobile')} placeholder={PLACEHOLDERS.MOBILE} inputMode="numeric" maxLength={10} /></Field>
+                    <Field label="Personal number" required error={e.mobile?.message} hint="Used to sign in"><Input {...form.register('mobile')} placeholder={PLACEHOLDERS.MOBILE} inputMode="numeric" maxLength={10} /></Field>
+                    <Field label="Company number" error={e.companyMobile?.message}><Input {...form.register('companyMobile')} placeholder={PLACEHOLDERS.MOBILE} inputMode="numeric" maxLength={10} /></Field>
                     <Field label="Email" error={e.email?.message}><Input type="email" {...form.register('email')} placeholder={PLACEHOLDERS.EMAIL} /></Field>
                     <Field label="Designation" error={e.designation?.message}><Input {...form.register('designation')} placeholder={PLACEHOLDERS.DESIGNATION} maxLength={100} /></Field>
                     <Field label="Experience (years)" error={e.experienceYears?.message}><Input type="number" min={0} {...form.register('experienceYears')} placeholder={PLACEHOLDERS.EXPERIENCE_YEARS} /></Field>
@@ -169,13 +190,18 @@ export default function StaffPage() {
                   <FormGroup icon={<KeyRound />} title="Login & access">
                     <Field label="Username" error={e.username?.message} hint="For login, e.g. ravi.k"><Input autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={LIMITS.USERNAME_MAX} {...form.register('username')} placeholder={PLACEHOLDERS.USERNAME} /></Field>
                     <Field label={editing === 'new' ? 'Password' : 'New password'} error={e.password?.message} hint={editing === 'new' ? 'Min 8 chars, letter + number' : 'Leave empty to keep the current one'}><Input type="password" autoComplete="new-password" {...form.register('password')} placeholder={PLACEHOLDERS.NEW_PASSWORD} /></Field>
-                    <Field label="Account status"><NativeSelect {...form.register('status')}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="SUSPENDED">Suspended</option></NativeSelect></Field>
+                    <Field label="Account status" hint="Staff are not deleted: make them Inactive, or Suspended with a reason."><NativeSelect {...form.register('status')}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="SUSPENDED">Suspended</option></NativeSelect></Field>
+                    {accountStatus !== 'ACTIVE' && (
+                      <Field label={accountStatus === 'SUSPENDED' ? 'Reason for suspension' : 'Reason (optional)'} required={accountStatus === 'SUSPENDED'} error={e.statusReason?.message} className="sm:col-span-3">
+                        <Input {...form.register('statusReason')} maxLength={500} placeholder={PLACEHOLDERS.REASON} />
+                      </Field>
+                    )}
                     <Field label="Roles" required error={e.roleCodes?.message} className="sm:col-span-3" hint="Technician / Staff makes them a field technician who can be assigned jobs.">
                       <Controller control={form.control} name="roleCodes" render={({ field }) => (
                         <MultiSelectDropdown
                           placeholder="Select roles"
                           invalid={!!e.roleCodes}
-                          options={(roles ?? []).filter((r) => r.code !== 'CUSTOMER' && (r.code !== 'SUPER_ADMIN' || user?.isSuperAdmin)).map((r) => ({ id: r.id, name: r.name, hint: r.code }))}
+                          options={(roles ?? []).filter((r) => r.code !== 'CUSTOMER' && r.code !== 'SUPER_ADMIN').map((r) => ({ id: r.id, name: r.name, hint: r.code }))}
                           value={(roles ?? []).filter((r) => field.value.includes(r.code)).map((r) => r.id)}
                           onChange={(ids) => field.onChange((roles ?? []).filter((r) => ids.includes(r.id)).map((r) => r.code))}
                         />
@@ -184,10 +210,25 @@ export default function StaffPage() {
                   </FormGroup>
 
                   <FormGroup icon={<Building2 />} title="Work">
+                    <Field label="State" required>
+                      <NativeSelect
+                        searchable
+                        value={stateId}
+                        disabled={!user?.isCompanyWide}
+                        onChange={(ev) => {
+                          const next = ev.target.value ? Number(ev.target.value) : '';
+                          setStateId(next);
+                          if (next && branches?.find((b) => b.id === Number(branchId))?.city?.state.id !== next) form.setValue('branchId', 0);
+                        }}
+                      >
+                        <option value="">All states</option>
+                        {branchStates.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                      </NativeSelect>
+                    </Field>
                     <Field label="Branch" required error={e.branchId?.message}>
                       <NativeSelect searchable {...form.register('branchId')} disabled={!user?.isCompanyWide}>
                         <option value={0}>Select branch</option>
-                        {branches?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        {stateBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </NativeSelect>
                     </Field>
                     <Field label="Shift start" error={e.workStartTime?.message}><Input type="time" {...form.register('workStartTime')} /></Field>
@@ -250,16 +291,6 @@ export default function StaffPage() {
           </form>
         </DialogContent>
       </Dialog>
-      <ConfirmDialog
-        open={!!toDelete}
-        onOpenChange={(o) => !o && setToDelete(null)}
-        title={`Delete ${toDelete?.user.name}?`}
-        description={`Their login is disabled and they are signed out everywhere. ${ROW_ACTIONS.ARCHIVE_NOTE}`}
-        confirmLabel={ROW_ACTIONS.DELETE}
-        destructive
-        loading={actions.remove.isPending}
-        onConfirm={() => toDelete && actions.remove.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })}
-      />
     </>
   );
 }

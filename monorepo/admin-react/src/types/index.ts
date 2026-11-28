@@ -182,6 +182,7 @@ export interface Address {
 
 export interface Customer {
   id: number;
+  source?: 'ADMIN' | 'APP';
   customerCode: string;
   fullName: string;
   countryCode: string;
@@ -202,6 +203,7 @@ export interface Customer {
 
 export interface Staff {
   id: number;
+  companyMobile?: string | null;
   userId: number;
   staffCode: string;
   designation: string | null;
@@ -212,7 +214,7 @@ export interface Staff {
   isAvailable: boolean;
   isTechnician: boolean;
   activeJobs?: number;
-  user: { id: number; name: string; email: string | null; username: string | null; mobile: string; countryCode: string; status: string; lastLoginAt: string | null; roles: Array<{ role: { id: number; code: string; name: string } }> };
+  user: { id: number; name: string; email: string | null; username: string | null; mobile: string; countryCode: string; status: string; statusReason?: string | null; lastLoginAt: string | null; roles: Array<{ role: { id: number; code: string; name: string } }> };
   branch: Ref;
   skills: Array<{ skill: Ref }>;
   serviceAreas: Array<{ serviceArea: Ref }>;
@@ -258,6 +260,7 @@ export interface BookingItem {
   gstRate?: Money;
   lineTotal: Money;
   isPerformed?: boolean;
+  isExtra?: boolean;
 }
 
 export interface AssignmentLite {
@@ -297,11 +300,19 @@ export interface Booking {
   items: BookingItem[];
   assignments: AssignmentLite[];
   statusHistory?: Array<{ id: number; fromStatus: string | null; toStatus: string; note: string | null; createdAt: string; actor?: Ref | null }>;
-  notes?: Array<{ id: number; note: string; createdAt: string; author: Ref }>;
+  notes?: Array<{ id: number; kind?: string; note: string; createdAt: string; author: Ref }>;
   attachments?: Array<{ id: number; kind: string; filePath: string; mimeType: string; createdAt: string }>;
   invoices?: Array<{ id: number; invoiceNumber: string; grandTotal: Money; status: string; balanceDue: Money }>;
   payments?: Array<{ id: number; paymentNumber: string; amount: Money; method: string; status: string; referenceNumber: string | null; createdAt: string }>;
   amcVisit?: { id: number; visitNumber: number; amcContract: { id: number; amcNumber: string } } | null;
+}
+
+/** Payload of the assign form: technician plus the manually chosen visit date and time. */
+export interface AssignInput {
+  staffId: number;
+  notes?: string;
+  scheduledDate: string;
+  scheduledTime: string;
 }
 
 export interface Suggestion {
@@ -361,6 +372,10 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
+  roundOff?: Money;
+  notes?: string | null;
+  customer: { id: number; fullName: string; mobile: string; customerCode: string; email?: string | null };
+  amcUsage?: AmcUsage | null;
   id: number;
   invoiceNumber: string;
   invoiceDate: string;
@@ -382,16 +397,39 @@ export interface Invoice {
   balanceDue: Money;
   status: string;
   isFreeService: boolean;
-  notes: string | null;
-  customer: { id: number; fullName: string; mobile: string; customerCode: string; email?: string | null; countryCode?: string };
   branch: Ref;
-  booking?: { id: number; bookingNumber: string } | null;
+  booking?: { id: number; bookingNumber: string; assignments?: Array<{ staff: { user: { name: string } } }> } | null;
   amcContract?: { id: number; amcNumber: string } | null;
   items?: InvoiceItem[];
   payments?: Payment[];
 }
 
+/** A company UPI account money can be received into. */
+export interface UpiAccount {
+  key: number;
+  label: string;
+  upiId: string;
+  payeeName: string;
+}
+export interface ReceivingAccounts {
+  accounts: UpiAccount[];
+  defaultAccount: number | null;
+}
+export interface AmcUsage {
+  amcNumber: string;
+  startDate: string;
+  endDate: string;
+  totalVisits: number;
+  usedVisits: number;
+  remainingVisits: number;
+  visitNumber: number | null;
+  asOn: string;
+}
+
 export interface Payment {
+  receivedBy?: string | null;
+  receivingAccount?: string | null;
+  chargeAmount?: Money;
   id: number;
   paymentNumber: string;
   customerId: number;
@@ -586,6 +624,7 @@ export interface InvoiceTotals {
   sgst: number;
   igst: number;
   gstTotal: number;
+  roundOff?: number;
   grandTotal: number;
 }
 

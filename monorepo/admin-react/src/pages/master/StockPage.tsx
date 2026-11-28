@@ -124,6 +124,7 @@ export default function StockPage() {
     {
       key: 'quantity',
       header: 'In Stock',
+      viewCell: (s) => `${s.quantity} ${s.unit} (low-stock alert at ${s.lowStockLevel})`,
       cell: (s) => (
         <div className="flex items-center gap-2">
           <span className="num font-semibold">{s.quantity} {s.unit}</span>

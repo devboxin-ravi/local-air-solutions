@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { toYmd, toNumber } from '@/lib/utils';
 import type { InvoiceOptionsValue } from '@/components/FinanceWidgets';
 import type { PaymentForm } from '@/lib/validation';
+import type { AssignInput } from '@/types';
 import { useAvailableSlots, useBooking, useBookingActions, useSuggestions } from './useOperations';
 import { useInvoiceActions, useInvoicePreview, usePaymentActions } from './useFinance';
 import { useInvoiceParts } from './useStock';
@@ -36,7 +37,9 @@ export function useBookingDetail(id: number) {
   const previewBody = useMemo(() => ({ lines: invoiceLines, ...invoiceOptions }), [invoiceLines, invoiceOptions]);
   const preview = useInvoicePreview(previewBody, dialog === 'invoice' && invoiceLines.length > 0);
 
-  const activeInvoice = b?.invoices?.[0];
+  // Payments go against the approved invoice; a bill still in For Invoice is not payable.
+  const activeInvoice = b?.invoices?.find((i) => i.status !== 'DRAFT');
+  const pendingBill = b?.invoices?.find((i) => i.status === 'DRAFT');
   const close = () => setDialog(null);
 
   return {
@@ -59,9 +62,10 @@ export function useBookingDetail(id: number) {
     parts,
     preview,
     activeInvoice,
+    pendingBill,
     actions,
     changeStatus: (note: string) => actions.changeStatus.mutate({ status: nextStatus, note: note || undefined }, { onSuccess: close }),
-    assign: (staffId: number, notes: string) => actions.assign.mutate({ staffId, notes: notes || undefined }, { onSuccess: close }),
+    assign: (input: AssignInput) => actions.assign.mutate(input, { onSuccess: close }),
     reschedule: (v: { scheduledDate: string; slotId: number | null; note: string }) => actions.reschedule.mutate({ ...v, note: v.note || undefined }, { onSuccess: close }),
     cancel: (reason: string) => actions.cancel.mutate(reason, { onSuccess: close }),
     generateInvoice: () =>
@@ -80,7 +84,7 @@ export function useBookingDetail(id: number) {
       payments.record.mutate(
         {
           key: crypto.randomUUID(),
-          body: { customerId: b.customerId, bookingId: b.id, invoiceId: activeInvoice?.id ?? null, method: v.method, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null },
+          body: { customerId: b.customerId, bookingId: b.id, invoiceId: activeInvoice?.id ?? null, method: v.method, account: v.account, receivedBy: v.receivedBy, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null },
         },
         { onSuccess: close },
       ),

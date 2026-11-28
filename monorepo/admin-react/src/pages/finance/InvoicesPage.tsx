@@ -9,7 +9,7 @@ import { useListState } from '@/hooks/useListState';
 import { useInvoiceActions, useInvoiceList } from '@/hooks/useFinance';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { ROW_ACTIONS } from '@/constants/ui';
+import { GST_FILTER_OPTIONS, ROW_ACTIONS } from '@/constants/ui';
 import { formatDate, formatMoney, humanize, toNumber } from '@/lib/utils';
 import type { Invoice } from '@/types';
 import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
@@ -31,7 +31,7 @@ export default function InvoicesPage() {
     { key: 'invoiceNumber', header: 'Invoice', cell: (i) => <div><p className="font-semibold text-brand-blue">{i.invoiceNumber}</p><p className="text-xs text-muted-foreground">{i.booking?.bookingNumber ?? i.amcContract?.amcNumber ?? 'Manual'}</p></div> },
     { key: 'date', header: 'Date', cell: (i) => formatDate(i.invoiceDate) },
     { key: 'customer', header: 'Customer', cell: (i) => <div><p className="font-medium">{i.customer.fullName}</p><p className="text-xs text-muted-foreground">{i.customer.mobile}</p></div> },
-    { key: 'gst', header: 'GST', align: 'right', cell: (i) => <span className="num">{i.applyGst ? formatMoney(i.gstTotal) : '—'}</span> },
+    { key: 'gst', header: 'GST', align: 'right', cell: (i) => (toNumber(i.gstTotal) > 0 ? <span className="num">{formatMoney(i.gstTotal)}</span> : <Badge tone="neutral">Non-GST</Badge>) },
     { key: 'total', header: 'Total', align: 'right', cell: (i) => <span className="num font-semibold">{formatMoney(i.grandTotal)}</span> },
     { key: 'balance', header: 'Balance', align: 'right', cell: (i) => <span className={`num ${Number(i.balanceDue) > 0 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>{formatMoney(i.balanceDue)}</span> },
     { key: 'status', header: 'Status', cell: (i) => <div className="flex flex-wrap gap-1"><StatusBadge status={i.status} />{i.isFreeService && <Badge tone="green">Free service</Badge>}</div> },
@@ -51,7 +51,7 @@ export default function InvoicesPage() {
 
   return (
     <>
-      <PageHeader title="Invoices" description="GST invoices for completed jobs, AMC contracts and manual billing." breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Invoices' }]} actions={can('invoices.create') && <Button onClick={() => navigate(ROUTES.INVOICE_NEW)}><FilePlus2 /> Manual invoice</Button>} />
+      <PageHeader title="Invoices" description="Approved invoices for completed jobs, AMC contracts and manual billing." breadcrumbs={[{ label: 'Accounts', to: ROUTES.INVOICES }, { label: 'Invoices' }]} actions={can('invoices.create') && <Button onClick={() => navigate(ROUTES.INVOICE_NEW)}><FilePlus2 /> Manual invoice</Button>} />
       {ids.length > 0 && (
         <div className="sticky top-[77px] lg:top-[81px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-blue-200 bg-brand-blue-50 px-4 py-2.5 shadow-sm animate-slide-down">
           <span className="text-[13px] font-semibold text-brand-blue-800">{ids.length} selected</span>
@@ -77,6 +77,7 @@ export default function InvoicesPage() {
         toolbar={
           <FilterBar right={<DateRange from={list.state.filters.from} to={list.state.filters.to} onChange={(from, to) => list.update({ from, to })} />}>
             <SearchInput value={list.state.search} onChange={list.setSearch} placeholder="Invoice no., customer, mobile…" />
+            <SelectFilter placeholder="GST & non-GST" value={list.state.filters.gst} onChange={(v) => list.setFilter('gst', v)} options={GST_FILTER_OPTIONS} className="sm:w-44" />
             <SelectFilter placeholder="All statuses" value={list.state.filters.status} onChange={(v) => list.setFilter('status', v)} options={['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED'].map((s) => ({ value: s, label: humanize(s) }))} />
             <SelectFilter placeholder="All invoices" value={list.state.filters.isFreeService} onChange={(v) => list.setFilter('isFreeService', v)} options={[{ value: 'true', label: 'Free services' }, { value: 'false', label: 'Paid services' }]} className="sm:w-40" />
           </FilterBar>

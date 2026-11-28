@@ -11,11 +11,14 @@ import { useColumnResize, type ColumnResize } from '@/hooks/useColumnResize';
 import type { PageMeta } from '@/types';
 import { Button, Card, Checkbox, NativeSelect } from './ui/primitives';
 import { EmptyState, ErrorState } from './common';
+import { Dialog, DialogBody, DialogContent, DialogHeader } from './ui/overlays';
 
 export interface Column<T> {
   key: string;
   header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
+  /** Read-only rendering for the View dialog, when `cell` holds controls (switches, buttons). */
+  viewCell?: (row: T) => React.ReactNode;
   sortable?: boolean;
   align?: 'left' | 'right' | 'center';
   className?: string;
@@ -25,6 +28,8 @@ export interface Column<T> {
 export interface DataTableProps<T> {
   columns: Column<T>[];
   rows: T[] | undefined;
+  /** Extra classes for a row, e.g. to highlight a kind of record. */
+  rowClassName?: (row: T) => string | undefined;
   rowKey: (row: T) => string | number;
   loading?: boolean;
   error?: string | null;
@@ -51,14 +56,19 @@ export interface DataTableProps<T> {
 
 const PAGE_SIZES = [10, 20, 50, 100];
 
+/** Opens the surrounding table row in the read-only View dialog. */
+const RowViewContext = React.createContext<(() => void) | undefined>(undefined);
+
 /**
  * Icon buttons for a table row's Actions column. Pass only the handlers the user may run;
  * missing handlers hide their button. Clicks never trigger the row's own onRowClick.
+ * Inside a DataTable, View is always offered: without `onView` it shows the row's details in a dialog.
  */
 export const RowActions = ({ onView, onDownload, onEdit, onCancel, onDelete }: { onView?: () => void; onDownload?: () => void; onEdit?: () => void; onCancel?: () => void; onDelete?: () => void }) => {
+  const showDetails = React.useContext(RowViewContext);
   const items: Array<{ key: string; label: string; icon: React.ReactNode; onClick?: () => void }> = [
     { key: 'download', label: ROW_ACTIONS.DOWNLOAD, icon: <Download />, onClick: onDownload },
-    { key: 'view', label: ROW_ACTIONS.VIEW, icon: <Eye />, onClick: onView },
+    { key: 'view', label: ROW_ACTIONS.VIEW, icon: <Eye />, onClick: onView ?? showDetails },
     { key: 'edit', label: ROW_ACTIONS.EDIT, icon: <Pencil />, onClick: onEdit },
     { key: 'cancel', label: ROW_ACTIONS.CANCEL, icon: <XCircle className="text-amber-600" />, onClick: onCancel },
     { key: 'delete', label: ROW_ACTIONS.DELETE, icon: <Trash2 className="text-red-500" />, onClick: onDelete },
@@ -121,8 +131,10 @@ export function DataTable<T>({
   className,
   dense,
   showSerial = true,
+  rowClassName,
 }: DataTableProps<T>) {
   const keys = (rows ?? []).map(rowKey);
+  const [viewing, setViewing] = React.useState<T | null>(null);
   const allSelected = selectable && keys.length > 0 && keys.every((k) => selected?.has(k));
   const toggleAll = () => {
     if (!onSelectedChange) return;
@@ -219,7 +231,7 @@ export function DataTable<T>({
                   <tr
                     key={k}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={cn('border-b transition-colors duration-micro last:border-0', onRowClick && 'cursor-pointer hover:bg-brand-blue-50/40', isSel && 'bg-brand-blue-50/60')}
+                    className={cn('border-b transition-colors duration-micro last:border-0', onRowClick && 'cursor-pointer hover:bg-brand-blue-50/40', isSel && 'bg-brand-blue-50/60', rowClassName?.(row))}
                   >
                     {selectable && (
                       <td className={cellPad} onClick={(e) => e.stopPropagation()}>
@@ -231,7 +243,7 @@ export function DataTable<T>({
                     )}
                     {columns.map((c) => (
                       <td key={c.key} className={cn(cellPad, 'align-middle', alignCls(c.align), c.className)}>
-                        {c.cell(row)}
+                        <RowViewContext.Provider value={() => setViewing(row)}>{c.cell(row)}</RowViewContext.Provider>
                       </td>
                     ))}
                   </tr>
@@ -271,6 +283,26 @@ export function DataTable<T>({
           </div>
         </div>
       )}
+      <Dialog open={viewing !== null} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent size="lg">
+          <DialogHeader title={ROW_ACTIONS.VIEW_TITLE} />
+          <DialogBody>
+            {viewing !== null && (
+              // Disabled fieldset: nothing in the details can be changed from here.
+              <fieldset disabled className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                {columns
+                  .filter((c) => !c.key.startsWith('action'))
+                  .map((c) => (
+                    <div key={c.key} className="min-w-0">
+                      <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">{c.header}</p>
+                      <div className="mt-1 break-words text-[13.5px] text-brand-navy">{(c.viewCell ?? c.cell)(viewing)}</div>
+                    </div>
+                  ))}
+              </fieldset>
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

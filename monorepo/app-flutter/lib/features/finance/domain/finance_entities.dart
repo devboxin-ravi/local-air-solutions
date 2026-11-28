@@ -20,6 +20,7 @@ class Invoice {
     required this.discount,
     required this.gstTotal,
     required this.grandTotal,
+    this.roundOff = 0,
     required this.amountPaid,
     required this.balanceDue,
     required this.isFreeService,
@@ -41,6 +42,9 @@ class Invoice {
   final double igst;
   final double gstTotal;
   final double grandTotal;
+
+  /// Added so the total is a whole rupee (always rounded up).
+  final double roundOff;
   final double amountPaid;
   final double balanceDue;
   final bool isFreeService;

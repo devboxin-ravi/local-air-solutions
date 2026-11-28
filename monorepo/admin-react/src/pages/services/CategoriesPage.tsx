@@ -62,7 +62,7 @@ export default function CategoriesPage() {
       <PageHeader
         title="Service Categories"
         description="Group services for the customer app. Order here controls display order."
-        breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: 'Categories' }]}
+        breadcrumbs={[{ label: 'Master Data', to: ROUTES.STATES }, { label: 'Services', to: ROUTES.SERVICES_HOME }, { label: 'Categories' }]}
         actions={can('services.create') && <Button onClick={() => setEditing('new')}><Plus /> Add category</Button>}
       />
       {isLoading ? (

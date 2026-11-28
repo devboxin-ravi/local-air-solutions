@@ -94,6 +94,7 @@ export interface InvoiceTotals {
   sgst: number;
   igst: number;
   gstTotal: number;
+  roundOff: number;
   grandTotal: number;
 }
 

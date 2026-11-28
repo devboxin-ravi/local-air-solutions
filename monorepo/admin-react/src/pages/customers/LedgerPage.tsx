@@ -75,7 +75,7 @@ export default function LedgerPage() {
       <PageHeader
         title="Customer Ledger"
         description="Append-only statement. Corrections are posted as adjustments — history is never edited or deleted."
-        breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Customer Ledger' }]}
+        breadcrumbs={[{ label: 'Accounts', to: ROUTES.INVOICES }, { label: 'Customer Ledger' }]}
         actions={customer && can('ledger.create') && <Button variant="outline" onClick={() => setOpen(true)}><PlusCircle /> Post adjustment</Button>}
       />
       {customerId ? (

@@ -51,6 +51,21 @@ export class ReminderService {
     }
   }
 
+  /** One-off reminder raised from a technician's on-site finding. */
+  createFollowUp(input: { customerId: number; bookingId: number; months: number; note: string }, db: Db = prisma) {
+    return this.repo.createReminder(
+      {
+        customerId: input.customerId,
+        bookingId: input.bookingId,
+        type: 'SERVICE',
+        status: 'UPCOMING',
+        dueDate: parseDateOnly(toDateOnlyString(addMonths(new Date(), input.months))),
+        note: input.note.slice(0, 1000),
+      },
+      db,
+    );
+  }
+
   private bucketWhere(bucket: string): Prisma.ServiceReminderWhereInput {
     const today = todayDateOnly();
     switch (bucket) {

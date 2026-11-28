@@ -3,17 +3,22 @@
  */
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { AssignInput } from '@/types';
+import { QUERY } from '@/constants/api';
 import { assignmentService, bookingService, slotService } from '@/services/operationsService';
 import { settingsService } from '@/services/engagementService';
 import type { QueryParams } from '@/types';
 import { useAction } from './useApi';
 
+/** Keeps booking screens in step with the technician app. */
+const LIVE = { refetchInterval: QUERY.LIVE_REFRESH_MS, refetchOnWindowFocus: true } as const;
+
 const BOOKING_KEYS = [['bookings'], ['booking'], ['assignments'], ['dashboard'], ['slots']];
 
 export const useBookingList = (params: QueryParams, enabled = true) =>
-  useQuery({ queryKey: ['bookings', params], queryFn: () => bookingService.list(params), placeholderData: keepPreviousData, enabled });
+  useQuery({ queryKey: ['bookings', params], queryFn: () => bookingService.list(params), placeholderData: keepPreviousData, enabled, ...LIVE });
 
-export const useBooking = (id: number) => useQuery({ queryKey: ['booking', id], queryFn: () => bookingService.get(id), enabled: id > 0 });
+export const useBooking = (id: number) => useQuery({ queryKey: ['booking', id], queryFn: () => bookingService.get(id), enabled: id > 0, ...LIVE });
 
 export const useCalendar = (params: { from: string; to: string; branchId?: number }) =>
   useQuery({ queryKey: ['bookings', 'calendar', params], queryFn: () => bookingService.calendar(params), placeholderData: keepPreviousData });
@@ -32,7 +37,7 @@ export function useBookingActions(id: number) {
     reschedule: useAction((v: { scheduledDate: string; slotId?: number | null; note?: string }) => bookingService.reschedule(id, v), { success: 'Booking rescheduled', invalidate: BOOKING_KEYS }),
     addNote: useAction((note: string) => bookingService.addNote(id, note), { success: 'Note added', invalidate: [['booking', id]] }),
     upload: useAction((v: { files: File[]; kind: string }) => bookingService.upload(id, v.files, v.kind), { success: 'Files uploaded', invalidate: [['booking', id]] }),
-    assign: useAction((v: { staffId: number; notes?: string }) => bookingService.assign(id, v.staffId, v.notes), { success: 'Technician assigned', invalidate: BOOKING_KEYS }),
+    assign: useAction((v: AssignInput) => bookingService.assign(id, v), { success: 'Technician assigned', invalidate: BOOKING_KEYS }),
     unassign: useAction(() => bookingService.unassign(id), { success: 'Technician unassigned', invalidate: BOOKING_KEYS }),
     update: useAction((body: unknown) => bookingService.update(id, body), { success: 'Booking updated', invalidate: BOOKING_KEYS }),
     whatsapp: useAction((type: 'booking' | 'assignment') => settingsService.whatsappLink(type, id), {
@@ -42,7 +47,7 @@ export function useBookingActions(id: number) {
 }
 
 export const useAssignAction = () =>
-  useAction((v: { bookingId: number; staffId: number; notes?: string }) => bookingService.assign(v.bookingId, v.staffId, v.notes), { success: 'Technician assigned', invalidate: BOOKING_KEYS });
+  useAction(({ bookingId, ...body }: AssignInput & { bookingId: number }) => bookingService.assign(bookingId, body), { success: 'Technician assigned', invalidate: BOOKING_KEYS });
 
 export const useCreateBooking = (onDone: (id: number) => void) =>
   useAction((body: unknown) => bookingService.create(body), { success: (b) => `Booking ${b.bookingNumber} created`, invalidate: BOOKING_KEYS, onSuccess: (b) => onDone(b.id), silentError: true });
@@ -65,7 +70,7 @@ export function useSlotActions() {
 }
 
 export const useAssignmentList = (params: QueryParams, enabled = true) =>
-  useQuery({ queryKey: ['assignments', params], queryFn: () => assignmentService.list(params), placeholderData: keepPreviousData, enabled });
+  useQuery({ queryKey: ['assignments', params], queryFn: () => assignmentService.list(params), placeholderData: keepPreviousData, enabled, ...LIVE });
 
 export const useTechAvailability = (params: { date: string; branchId?: number }) =>
   useQuery({ queryKey: ['assignments', 'availability', params], queryFn: () => assignmentService.availability(params), placeholderData: keepPreviousData });

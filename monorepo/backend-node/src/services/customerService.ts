@@ -20,7 +20,7 @@ export interface AddressInput {
   landmark?: string | null;
   stateId: number;
   cityId: number;
-  pincode: string;
+  pincode: string | null;
   latitude?: number | null;
   longitude?: number | null;
   isDefault?: boolean;
@@ -107,7 +107,7 @@ export class CustomerService {
     const city = await this.master.findCity(a.cityId);
     if (!city || city.stateId !== a.stateId) throw new ValidationError(ErrorMessages.CITY_STATE_MISMATCH);
     return (
-      (await this.master.findServiceAreaByPincode(undefined, a.pincode)) ??
+      (a.pincode ? await this.master.findServiceAreaByPincode(undefined, a.pincode) : null) ??
       (await this.master.findServiceAreaInCity(a.cityId)) ??
       (await this.master.findServiceAreaInState(a.stateId))
     );
@@ -122,7 +122,7 @@ export class CustomerService {
     customerId: number;
     stateId: number;
     cityId: number;
-    pincode: string;
+    pincode: string | null;
     serviceArea?: { branchId: number } | null;
   }): Promise<number | null> {
     let branchId = address.serviceArea?.branchId ?? null;

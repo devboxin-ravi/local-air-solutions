@@ -9,13 +9,13 @@ import { useListState } from '@/hooks/useListState';
 import { useCustomerActions, useCustomerList } from '@/hooks/usePeople';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { formatDate, humanize, initials } from '@/lib/utils';
+import { cn, formatDate, humanize, initials } from '@/lib/utils';
 import type { Customer } from '@/types';
 import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
 import { DataTable, RowActions, type Column } from '@/components/DataTable';
 import { FilterBar, SearchInput, SelectFilter } from '@/components/Filters';
 import { Avatar, Button } from '@/components/ui/primitives';
-import { ROW_ACTIONS } from '@/constants/ui';
+import { CUSTOMER_SOURCE, ROW_ACTIONS } from '@/constants/ui';
 
 export default function CustomersListPage() {
   const navigate = useNavigate();
@@ -34,7 +34,10 @@ export default function CustomersListPage() {
         <div className="flex items-center gap-3">
           <Avatar fallback={initials(c.fullName)} />
           <div className="min-w-0">
-            <p className="truncate font-semibold text-brand-navy">{c.fullName}</p>
+            <p className={cn('flex items-center gap-1.5 truncate font-semibold', CUSTOMER_SOURCE[c.source ?? 'ADMIN'].text)}>
+              {c.fullName}
+              <span className={cn('rounded px-1.5 py-px text-[10.5px] font-semibold', CUSTOMER_SOURCE[c.source ?? 'ADMIN'].badge)}>{CUSTOMER_SOURCE[c.source ?? 'ADMIN'].label}</span>
+            </p>
             <p className="text-xs text-muted-foreground">{c.customerCode}</p>
           </div>
         </div>

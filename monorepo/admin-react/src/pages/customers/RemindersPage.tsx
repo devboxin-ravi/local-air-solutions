@@ -35,7 +35,7 @@ export default function RemindersPage() {
 
   const columns: Column<Reminder>[] = [
     { key: 'customer', header: 'Customer', cell: (r) => <div><p className="font-semibold text-brand-navy">{r.customer.fullName}</p><p className="text-xs text-muted-foreground">{r.customer.mobile}</p></div> },
-    { key: 'service', header: 'Service', cell: (r) => <div><p>{r.service?.name ?? 'General service'}</p>{r.booking && <p className="text-xs text-muted-foreground">from {r.booking.bookingNumber}</p>}</div> },
+    { key: 'service', header: 'Service', cell: (r) => <div><p>{r.service?.name ?? 'General service'}</p>{r.booking && <p className="text-xs text-muted-foreground">from {r.booking.bookingNumber}</p>}{r.note && <p className="max-w-[260px] truncate text-xs text-amber-700" title={r.note}>{r.note}</p>}</div> },
     { key: 'type', header: 'Type', cell: (r) => <Badge tone={r.type === 'AMC' ? 'violet' : 'blue'}>{r.type}</Badge> },
     { key: 'due', header: 'Due date', cell: (r) => <div><p className="font-medium">{formatDate(r.dueDate)}</p><p className="text-xs text-muted-foreground">{formatRelative(r.dueDate)}</p></div> },
     { key: 'notified', header: 'Notified', cell: (r) => (r.notifyCount ? `${r.notifyCount}× · ${formatRelative(r.lastNotifiedAt)}` : 'Not yet') },

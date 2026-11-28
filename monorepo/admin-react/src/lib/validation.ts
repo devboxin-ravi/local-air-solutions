@@ -74,7 +74,7 @@ export const addressSchema = z.object({
   landmark: opt(200),
   stateId: idField,
   cityId: idField,
-  pincode: pincodeField,
+  pincode: z.union([z.literal(''), pincodeField]).optional(),
   latitude: z.union([z.coerce.number().min(-90).max(90), z.literal('')]).optional(),
   longitude: z.union([z.coerce.number().min(-180).max(180), z.literal('')]).optional(),
   isDefault: z.boolean().optional(),
@@ -119,6 +119,7 @@ export type ServiceForm = z.infer<typeof serviceSchema>;
 export const staffSchema = z.object({
   name: nameField,
   mobile: mobileField,
+  companyMobile: z.union([z.literal(''), mobileField]).optional(),
   email: optionalEmail,
   username: optionalUsername,
   password: z.union([passwordField, z.literal('')]).optional(),
@@ -131,9 +132,12 @@ export const staffSchema = z.object({
   isTechnician: z.boolean(),
   isAvailable: z.boolean(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
+  statusReason: opt(500),
   skillIds: z.array(z.number()),
   serviceAreaIds: z.array(z.number()),
-}).refine((v) => v.workEndTime > v.workStartTime, { message: 'Shift must end after it starts', path: ['workEndTime'] });
+})
+  .refine((v) => v.workEndTime > v.workStartTime, { message: 'Shift must end after it starts', path: ['workEndTime'] })
+  .refine((v) => v.status !== 'SUSPENDED' || (v.statusReason ?? '').trim().length >= 3, { message: 'Give the reason for suspending this account', path: ['statusReason'] });
 export type StaffForm = z.infer<typeof staffSchema>;
 
 export const amcSchema = z
@@ -157,9 +161,11 @@ export type AmcForm = z.infer<typeof amcSchema>;
 export const paymentSchema = z
   .object({
     method: z.enum(['UPI_MANUAL', 'CASH', 'BANK_TRANSFER']),
+    account: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.coerce.number().int().optional()),
     amount: moneyField.refine((v) => v > 0, 'Amount must be greater than 0'),
     referenceNumber: opt(100),
     receivedAt: z.string().optional(),
+    receivedBy: z.string().trim().min(2, 'Enter who received the payment').max(100),
     note: notesField,
   })
   .refine((v) => v.method === 'CASH' || !!v.referenceNumber, { message: 'Reference number is required', path: ['referenceNumber'] });
@@ -233,9 +239,14 @@ export const settingsSchemas: Record<string, z.ZodTypeAny> = {
       upiPayeeName: opt(100),
       cashEnabled: z.boolean(),
       razorpayEnabled: z.boolean(),
+      upiId2: optionalPattern(PATTERNS.UPI_ID, MESSAGES.UPI_ID),
+      defaultUpiAccount: z.coerce.number().int().min(1).max(2).optional(),
+      upiChargePercent: z.coerce.number().min(0).max(10, 'Between 0 and 10').optional(),
+      razorpayChargePercent: z.coerce.number().min(0).max(10, 'Between 0 and 10').optional(),
     })
     .passthrough()
     .superRefine((v, ctx) => {
+      if (v.defaultUpiAccount === 2 && !v.upiId2) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId2'], message: 'Enter the second UPI ID or make account 1 the default' });
       if (v.upiEnabled && !v.upiId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiId'], message: 'Enter the UPI ID customers pay to' });
       if (v.upiEnabled && !v.upiPayeeName?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['upiPayeeName'], message: 'Enter the name shown to customers' });
       if (!v.upiEnabled && !v.cashEnabled && !v.razorpayEnabled) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cashEnabled'], message: 'Turn on at least one payment method' });

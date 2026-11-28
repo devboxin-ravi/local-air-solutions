@@ -230,7 +230,7 @@ class InvoicesScreen extends ConsumerWidget {
                       const IconBox(Icons.receipt_long_rounded),
                       const SizedBox(width: Space.md),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(inv.number, style: Theme.of(context).textTheme.titleSmall), Text(Fmt.date(inv.date), style: Theme.of(context).textTheme.bodySmall)])),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [Text(Fmt.money(inv.grandTotal), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy)), const SizedBox(height: 4), StatusBadge(inv.status)]),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [Row(mainAxisSize: MainAxisSize.min, children: [Text(Fmt.money(inv.grandTotal), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.navy)), const SizedBox(width: Space.sm), PaidPill(inv.status)])]),
                     ]),
                   );
                 },
@@ -255,9 +255,14 @@ class InvoiceDetailScreen extends ConsumerWidget {
         data: (inv) => ListView(padding: const EdgeInsets.all(Space.page), children: [
           AppCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [const BrandLogo(height: 36), const Spacer(), StatusBadge(inv.status)]),
+              const BrandLogo(height: 36),
+              const SizedBox(height: Space.md),
+              Row(children: [
+                Expanded(child: Text(Fmt.money(inv.grandTotal), style: t.headlineSmall?.copyWith(fontWeight: FontWeight.w800, color: AppColors.navy))),
+                PaidPill(inv.status, large: true),
+              ]),
               const SizedBox(height: Space.lg),
-              Text(inv.isFreeService ? 'FREE SERVICE INVOICE' : 'TAX INVOICE', style: t.titleMedium),
+              Text(inv.isFreeService ? 'FREE SERVICE INVOICE' : 'INVOICE', style: t.titleMedium),
               Text('${inv.number} · ${Fmt.date(inv.date)}', style: t.bodySmall),
               if (inv.bookingNumber != null) Text('Booking ${inv.bookingNumber}', style: t.bodySmall),
               const Divider(height: Space.xxl),
@@ -268,6 +273,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
               if (inv.cgst > 0) InfoRow(label: 'CGST', value: Fmt.money(inv.cgst)),
               if (inv.sgst > 0) InfoRow(label: 'SGST', value: Fmt.money(inv.sgst)),
               if (inv.igst > 0) InfoRow(label: 'IGST', value: Fmt.money(inv.igst)),
+              if (inv.roundOff > 0) InfoRow(label: 'Round off', value: '+ ${Fmt.money(inv.roundOff)}'),
               InfoRow(label: 'Grand total', value: Fmt.money(inv.grandTotal), bold: true, valueColor: AppColors.blue),
               InfoRow(label: 'Paid', value: Fmt.money(inv.amountPaid), valueColor: AppColors.greenDark),
               InfoRow(label: 'Balance due', value: Fmt.money(inv.balanceDue), bold: true, valueColor: inv.balanceDue > 0 ? AppColors.red : AppColors.greenDark),
@@ -486,6 +492,24 @@ class RemindersScreen extends ConsumerWidget {
                 },
               ),
       ),
+    );
+  }
+}
+
+/// Payment state for customers, beside the amount: white on blue "Paid", white on red "Unpaid".
+class PaidPill extends StatelessWidget {
+  const PaidPill(this.status, {super.key, this.large = false});
+  final String status;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == 'CANCELLED') return StatusBadge(status);
+    final paid = status == 'PAID';
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: large ? 14 : 10, vertical: large ? 6 : 3.5),
+      decoration: BoxDecoration(color: paid ? AppColors.blue : AppColors.red, borderRadius: BorderRadius.circular(Radii.pill)),
+      child: Text(paid ? 'Paid' : 'Unpaid', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: large ? 13 : 11.5)),
     );
   }
 }

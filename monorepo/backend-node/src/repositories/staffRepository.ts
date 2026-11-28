@@ -15,6 +15,7 @@ export const staffInclude = {
       mobile: true,
       countryCode: true,
       status: true,
+      statusReason: true,
       lastLoginAt: true,
       roles: { include: { role: { select: { id: true, code: true, name: true } } } },
     },

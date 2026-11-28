@@ -63,7 +63,7 @@ r.get('/staff', authenticate, admin, requireAnyPermission(perm('staff', 'view'),
 r.post('/staff', authenticate, admin, requirePermission(perm('staff', 'create')), validate({ body: staffSchema }), people.createStaff);
 r.get('/staff/:id', authenticate, admin, requirePermission(perm('staff', 'view')), validate({ params: idParams }), people.getStaff);
 r.patch('/staff/:id', authenticate, admin, requirePermission(perm('staff', 'edit')), validate({ params: idParams, body: staffUpdateSchema }), people.updateStaff);
-r.delete('/staff/:id', authenticate, admin, requirePermission(perm('staff', 'delete')), validate({ params: idParams }), people.deleteStaff);
+// Staff are never deleted: they are deactivated or suspended (with a reason) from the edit form.
 r.get('/staff/:id/history', authenticate, admin, requirePermission(perm('staff', 'view')), validate({ params: idParams, query: listQuery }), people.staffHistory);
 
 // ─── Roles & permissions ───

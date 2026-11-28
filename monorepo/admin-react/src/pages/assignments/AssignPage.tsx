@@ -62,8 +62,8 @@ export default function AssignPage() {
         suggestions={suggestions.data}
         loading={suggestions.isLoading}
         submitting={assign.isPending}
-        bookingLabel={target?.bookingNumber}
-        onAssign={(staffId, notes) => target && assign.mutate({ bookingId: target.id, staffId, notes: notes || undefined }, { onSuccess: () => setTarget(null) })}
+        booking={target}
+        onAssign={(input) => target && assign.mutate({ bookingId: target.id, ...input }, { onSuccess: () => setTarget(null) })}
       />
     </>
   );

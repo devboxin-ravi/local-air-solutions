@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BellRing, Download, IndianRupee, Mail, MessageCircle, Printer, Users, XCircle } from 'lucide-react';
-import { useInvoice, useInvoiceActions, usePaymentActions } from '@/hooks/useFinance';
+import { useInvoice, useInvoiceActions, usePaymentActions, useReceivingAccounts } from '@/hooks/useFinance';
 import { useTechnicians } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
@@ -33,6 +33,7 @@ export default function InvoiceDetailPage() {
   const pay = usePaymentActions();
   // Staff of the invoice's own branch.
   const { data: staff } = useTechnicians(inv?.branchId);
+  const { data: accounts } = useReceivingAccounts();
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -50,7 +51,7 @@ export default function InvoiceDetailPage() {
       <PageHeader onBack={goBack}
         title={inv.invoiceNumber}
         description={`${inv.customer.fullName} · ${formatDate(inv.invoiceDate)}`}
-        breadcrumbs={[{ label: 'Finance', to: ROUTES.INVOICES }, { label: 'Invoices', to: ROUTES.INVOICES }, { label: inv.invoiceNumber }]}
+        breadcrumbs={[{ label: 'Accounts', to: ROUTES.INVOICES }, { label: 'Invoices', to: ROUTES.INVOICES }, { label: inv.invoiceNumber }]}
         actions={
           <>
             <Button variant="outline" onClick={() => actions.downloadPdf(inv.id, inv.invoiceNumber)}><Download /> PDF</Button>
@@ -58,7 +59,7 @@ export default function InvoiceDetailPage() {
             <Button variant="outline" loading={actions.whatsapp.isPending} onClick={() => actions.whatsapp.mutate({ id: inv.id, invoiceNumber: inv.invoiceNumber })}><MessageCircle className="text-green-600" /> WhatsApp</Button>
             <Button variant="outline" onClick={() => setShareOpen(true)}><Mail /> Email</Button>
             {!cancelled && balance > 0 && <Button variant="outline" onClick={() => actions.paymentReminder.mutate(inv.id)}><BellRing /> Payment reminder</Button>}
-            {!cancelled && balance > 0 && can('payments.create') && <Button onClick={() => setPayOpen(true)}><IndianRupee /> Record payment</Button>}
+            {!cancelled && balance > 0 && can('payments.create') && <Button onClick={() => setPayOpen(true)}><IndianRupee /> Receive payment</Button>}
             {!cancelled && can('invoices.delete') && toNumber(inv.amountPaid) === 0 && <Button variant="ghost" onClick={() => setCancelOpen(true)}><XCircle className="text-red-500" /> Cancel</Button>}
           </>
         }
@@ -71,7 +72,7 @@ export default function InvoiceDetailPage() {
             <div className="flex flex-col justify-between gap-6 sm:flex-row">
               <BrandLogo className="h-12" />
               <div className="text-left sm:text-right">
-                <p className="font-display text-2xl font-extrabold text-brand-navy">{inv.isFreeService ? 'FREE SERVICE INVOICE' : 'TAX INVOICE'}</p>
+                <p className="font-display text-2xl font-extrabold text-brand-navy">{inv.isFreeService ? 'FREE SERVICE INVOICE' : 'INVOICE'}</p>
                 <p className="num mt-1 text-[13px] text-slate-600">{inv.invoiceNumber} · {formatDate(inv.invoiceDate)}</p>
                 <div className="mt-2 flex gap-1.5 sm:justify-end"><StatusBadge status={inv.status} />{inv.isFreeService && <Badge tone="green">Free service</Badge>}</div>
               </div>
@@ -133,11 +134,23 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="mt-6 flex justify-end">
               <div className="w-full max-w-xs space-y-2">
-                <TotalsSummary totals={{ subtotal: toNumber(inv.subtotal), discount: toNumber(inv.discount), taxableAmount: toNumber(inv.taxableAmount), cgst: toNumber(inv.cgst), sgst: toNumber(inv.sgst), igst: toNumber(inv.igst), gstTotal: toNumber(inv.gstTotal), grandTotal: toNumber(inv.grandTotal) }} applyGst={inv.applyGst} isInterState={inv.isInterState} />
+                <TotalsSummary totals={{ subtotal: toNumber(inv.subtotal), discount: toNumber(inv.discount), taxableAmount: toNumber(inv.taxableAmount), cgst: toNumber(inv.cgst), sgst: toNumber(inv.sgst), igst: toNumber(inv.igst), gstTotal: toNumber(inv.gstTotal), roundOff: toNumber(inv.roundOff), grandTotal: toNumber(inv.grandTotal) }} applyGst={inv.applyGst} isInterState={inv.isInterState} />
                 <div className="flex justify-between border-t pt-2 text-[13.5px]"><span className="text-muted-foreground">Paid</span><span className="num font-semibold text-brand-green-700">{formatMoney(inv.amountPaid)}</span></div>
                 <div className="flex justify-between text-[13.5px]"><span className="font-semibold">Balance due</span><span className={`num font-bold ${balance > 0 ? 'text-red-600' : 'text-brand-green-700'}`}>{formatMoney(inv.balanceDue)}</span></div>
               </div>
             </div>
+            {inv.amcUsage && (
+              <div className="mt-6 rounded-lg border border-brand-blue-100 bg-brand-blue-50/40 p-3 text-[12.5px] text-slate-700">
+                <p className="font-semibold text-brand-navy">AMC usage · {inv.amcUsage.amcNumber}</p>
+                <p>
+                  Plan {formatDate(inv.amcUsage.startDate)} to {formatDate(inv.amcUsage.endDate)}
+                  {inv.amcUsage.visitNumber ? ` · this bill is for visit ${inv.amcUsage.visitNumber}` : ''}
+                </p>
+                <p>
+                  Visits used {inv.amcUsage.usedVisits} of {inv.amcUsage.totalVisits}, remaining {inv.amcUsage.remainingVisits} (as on {formatDate(inv.amcUsage.asOn)})
+                </p>
+              </div>
+            )}
             {inv.notes && <p className="mt-6 whitespace-pre-line rounded-lg bg-slate-50 p-3 text-[12.5px] text-slate-600">{inv.notes}</p>}
             <p className="mt-10 text-center font-display text-sm font-semibold italic text-brand-green-600">{snap.company?.tagline || 'Cool Comfort Care'}</p>
           </div>
@@ -162,6 +175,7 @@ export default function InvoiceDetailPage() {
                     <div>
                       <p className="num font-semibold">{formatMoney(p.amount)}</p>
                       <p className="text-xs text-muted-foreground">{humanize(p.method)} · {p.referenceNumber ?? p.paymentNumber} · {formatDate(p.receivedAt)}</p>
+                      {p.receivingAccount && <p className="text-xs text-muted-foreground">In: {p.receivingAccount}</p>}
                     </div>
                     <StatusBadge status={p.status} />
                   </li>
@@ -172,7 +186,7 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      <RecordPaymentDialog open={payOpen} onOpenChange={setPayOpen} defaultAmount={balance} maxAmount={balance} context={`${inv.invoiceNumber} · ${inv.customer.fullName}`} submitting={pay.record.isPending} onSubmit={(v) => pay.record.mutate({ key: crypto.randomUUID(), body: { customerId: inv.customerId, invoiceId: inv.id, method: v.method, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null } }, { onSuccess: () => setPayOpen(false) })} />
+      <RecordPaymentDialog accounts={accounts} team={inv.booking?.assignments?.map((x) => x.staff.user.name) ?? []} open={payOpen} onOpenChange={setPayOpen} defaultAmount={balance} maxAmount={balance} context={`${inv.invoiceNumber} · ${inv.customer.fullName}`} submitting={pay.record.isPending} onSubmit={(v) => pay.record.mutate({ key: crypto.randomUUID(), body: { customerId: inv.customerId, invoiceId: inv.id, method: v.method, account: v.account, receivedBy: v.receivedBy, amount: v.amount, referenceNumber: v.referenceNumber || null, receivedAt: v.receivedAt || undefined, note: v.note || null } }, { onSuccess: () => setPayOpen(false) })} />
       <ConfirmDialog open={cancelOpen} onOpenChange={setCancelOpen} title="Cancel invoice?" description="A reversal entry is posted to the customer ledger. The invoice record is kept for audit." confirmLabel="Cancel invoice" destructive requireReason loading={actions.cancel.isPending} onConfirm={(reason) => actions.cancel.mutate({ id: inv.id, reason }, { onSuccess: () => setCancelOpen(false) })} />
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent>

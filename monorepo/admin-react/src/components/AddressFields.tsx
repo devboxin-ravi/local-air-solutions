@@ -31,7 +31,7 @@ export function AddressFields<T extends Record<string, unknown>>({
       <Field label="Label" required error={errors?.label?.message} hint="Home, Office, Shop…">
         <Input {...r('label')} placeholder={PLACEHOLDERS.ADDRESS_LABEL} maxLength={50} />
       </Field>
-      <Field label="PIN code" required error={errors?.pincode?.message}>
+      <Field label="PIN code" error={errors?.pincode?.message}>
         <Input {...r('pincode')} placeholder={PLACEHOLDERS.PINCODE} inputMode="numeric" maxLength={6} aria-invalid={!!errors?.pincode} />
       </Field>
       <Field label="Address line 1" required className="sm:col-span-2" error={errors?.line1?.message}>

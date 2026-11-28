@@ -101,6 +101,7 @@ export const globalSearch = asyncHandler(async (req, res) => {
 const runReport = (key: ReportKey, actor: AuthUser, q: never): Promise<Record<string, unknown>[]> => {
   const r = services().reports;
   const map: Record<ReportKey, () => Promise<Record<string, unknown>[]>> = {
+    cancellations: () => r.cancellationReport(actor, q),
     bookings: () => r.bookingReport(actor, q),
     revenue: () => r.revenueReport(actor, q),
     services: () => r.serviceReport(actor, q),

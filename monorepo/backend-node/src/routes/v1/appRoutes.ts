@@ -13,17 +13,8 @@ import { uploadFiles } from '../../middleware/upload';
 import { UploadRules } from '../../constants';
 import { idParams, listQuery, name, optionalEmail, optionalMobile } from '../../validations/common';
 import { addressInput } from '../../validations/auth';
-import {
-  bookingCancelSchema,
-  bookingCreateSchema,
-  bookingListQuery,
-  noteSchema,
-  techCompleteSchema,
-  techJobsQuery,
-  techRespondSchema,
-  techStatusSchema,
-} from '../../validations/operations';
-import { amcListQuery, invoiceListQuery, ledgerQuery, paymentListQuery, razorpayOrderSchema, razorpayVerifySchema, reminderListQuery } from '../../validations/finance';
+import { bookingCancelSchema, bookingCreateSchema, bookingListQuery, noteSchema, techCompleteSchema, techJobsQuery, techRespondSchema, techStatusSchema, techExtraWorkSchema, techFindingSchema, techItemParams } from '../../validations/operations';
+import { amcListQuery, invoiceListQuery, jobCollectSchema, ledgerQuery, paymentListQuery, razorpayOrderSchema, razorpayVerifySchema, reminderListQuery } from '../../validations/finance';
 import * as eng from '../../controllers/engagementController';
 
 // ─── Customer ───
@@ -66,7 +57,12 @@ t.get('/jobs/:id', validate({ params: idParams }), ops.techJob);
 t.post('/jobs/:id/respond', validate({ params: idParams, body: techRespondSchema }), ops.techRespond);
 t.post('/jobs/:id/status', validate({ params: idParams, body: techStatusSchema }), ops.techStatus);
 t.post('/jobs/:id/complete', validate({ params: idParams, body: techCompleteSchema }), ops.techComplete);
+t.get('/jobs/:id/payment', validate({ params: idParams }), fin.jobPaymentInfo);
+t.post('/jobs/:id/payment', validate({ params: idParams, body: jobCollectSchema }), fin.collectJobPayment);
 t.post('/jobs/:id/notes', validate({ params: idParams, body: noteSchema }), ops.techNote);
+t.post('/jobs/:id/extra-work', validate({ params: idParams, body: techExtraWorkSchema }), ops.techExtraWork);
+t.delete('/jobs/:id/extra-work/:itemId', validate({ params: techItemParams }), ops.techRemoveExtra);
+t.post('/jobs/:id/findings', validate({ params: idParams, body: techFindingSchema }), ops.techFinding);
 t.post('/jobs/:id/photos', validate({ params: idParams }), uploadFiles('jobs', 'files', UploadRules.IMAGE_MIME_TYPES), ops.techPhotos);
 t.get('/history', validate({ query: listQuery }), (req, res, next) => {
   req.query = { ...req.query, scope: 'history' } as never;

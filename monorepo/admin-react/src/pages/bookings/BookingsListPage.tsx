@@ -4,13 +4,14 @@
 
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CalendarPlus, Wrench } from 'lucide-react';
+import { CalendarPlus, HardHat, Wrench } from 'lucide-react';
 import { useListState } from '@/hooks/useListState';
-import { useBookingList, useBookingListActions } from '@/hooks/useOperations';
+import { useAssignAction, useBookingList, useBookingListActions, useSuggestions } from '@/hooks/useOperations';
+import { AssignDialog } from '@/components/BookingWidgets';
 import { useAuth } from '@/hooks/useAuth';
 import { useServiceLookup } from '@/hooks/useApi';
 import { BOOKING_VIEWS, ROUTES } from '@/constants/routes';
-import { BOOKING_STATUSES, CANCELLABLE_STATUSES, ROW_ACTIONS } from '@/constants/ui';
+import { APP_BOOKING, ASSIGNABLE_STATUSES, BOOKING_STATUSES, CANCELLABLE_STATUSES, ROW_ACTIONS } from '@/constants/ui';
 import { formatDate, formatMoney, humanize } from '@/lib/utils';
 import type { Booking } from '@/types';
 import { Badge, ConfirmDialog, PageHeader, StatusBadge } from '@/components/common';
@@ -38,6 +39,9 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
   const { data: services } = useServiceLookup(list.query.branchId as number | undefined);
   const actions = useBookingListActions();
   const [toCancel, setToCancel] = useState<Booking | null>(null);
+  const [toAssign, setToAssign] = useState<Booking | null>(null);
+  const suggestions = useSuggestions(toAssign?.id);
+  const assign = useAssignAction();
 
   const title = presetDef?.title ?? viewDef?.title ?? 'All Bookings';
   const description = presetDef?.description ?? viewDef?.description ?? 'Every service and repair booking across branches.';
@@ -51,6 +55,7 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
         <div>
           <p className="font-semibold text-brand-blue">{b.bookingNumber}</p>
           <p className="text-xs text-muted-foreground">{b.bookingType === 'REPAIR' ? 'Repair' : 'Service'} · {b.branch.name}</p>
+          {b.source === APP_BOOKING.SOURCE && <Badge tone="violet" className="mt-1">{APP_BOOKING.BADGE}</Badge>}
         </div>
       ),
     },
@@ -102,11 +107,18 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
       header: ROW_ACTIONS.HEADER,
       align: 'right',
       cell: (b) => (
+        <div className="flex items-center justify-end gap-1">
+          {can('assignments.assign') && ASSIGNABLE_STATUSES.includes(b.status) && (
+            <Button size="sm" variant="soft" onClick={(e) => { e.stopPropagation(); setToAssign(b); }}>
+              <HardHat /> {b.assignments.length ? 'Reassign' : 'Assign'}
+            </Button>
+          )}
         <RowActions
           onView={() => navigate(ROUTES.BOOKING_DETAIL(b.id))}
           onEdit={can('bookings.edit') && b.status !== 'CANCELLED' && b.status !== 'COMPLETED' ? () => navigate(ROUTES.BOOKING_DETAIL(b.id)) : undefined}
           onCancel={can('bookings.edit') && CANCELLABLE_STATUSES.includes(b.status) ? () => setToCancel(b) : undefined}
         />
+        </div>
       ),
     },
   ];
@@ -117,7 +129,7 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
     <>
       <PageHeader
         title={title}
-        description={description}
+        description={`${description} ${APP_BOOKING.LEGEND}`}
         breadcrumbs={[{ label: 'Bookings', to: ROUTES.BOOKINGS }, { label: title }]}
         actions={
           can('bookings.create') && (
@@ -131,6 +143,7 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
         columns={columns}
         rows={data?.items}
         rowKey={(b) => b.id}
+        rowClassName={(b) => (b.source === APP_BOOKING.SOURCE ? APP_BOOKING.ROW_CLASS : undefined)}
         loading={isLoading}
         error={error ? (error as Error).message : null}
         onRetry={refetch}
@@ -156,6 +169,15 @@ export default function BookingsListPage({ preset }: { preset?: Preset }) {
             <SelectFilter searchable placeholder="All services" value={list.state.filters.serviceId} onChange={(v) => list.setFilter('serviceId', v)} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))} />
           </FilterBar>
         }
+      />
+      <AssignDialog
+        open={!!toAssign}
+        onOpenChange={(o) => !o && setToAssign(null)}
+        booking={toAssign}
+        suggestions={suggestions.data}
+        loading={suggestions.isLoading}
+        submitting={assign.isPending}
+        onAssign={(input) => toAssign && assign.mutate({ bookingId: toAssign.id, ...input }, { onSuccess: () => setToAssign(null) })}
       />
       <ConfirmDialog
         open={!!toCancel}

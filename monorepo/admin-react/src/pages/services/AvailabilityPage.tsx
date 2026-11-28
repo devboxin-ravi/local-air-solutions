@@ -29,7 +29,7 @@ export default function AvailabilityPage() {
 
   return (
     <>
-      <PageHeader title="Service Availability" description="Turn services on/off globally or per branch. A service with no branch restriction is offered everywhere." breadcrumbs={[{ label: 'Services', to: ROUTES.SERVICES }, { label: 'Availability' }]} />
+      <PageHeader title="Service Availability" description="Turn services on/off globally or per branch. A service with no branch restriction is offered everywhere." breadcrumbs={[{ label: 'Master Data', to: ROUTES.STATES }, { label: 'Services', to: ROUTES.SERVICES_HOME }, { label: 'Availability' }]} />
       {services.isLoading ? (
         <LoadingBlock />
       ) : services.error ? (

@@ -322,6 +322,7 @@ export const ConfirmDialog = ({
   requireReason,
   reasonLabel = 'Reason',
   onConfirm,
+  children,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -333,6 +334,8 @@ export const ConfirmDialog = ({
   requireReason?: boolean;
   reasonLabel?: string;
   onConfirm: (reason: string) => void;
+  /** Extra fields shown above the reason. */
+  children?: React.ReactNode;
 }) => {
   const [reason, setReason] = React.useState('');
   React.useEffect(() => {
@@ -343,6 +346,7 @@ export const ConfirmDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader title={title} description={description} />
+        {children && <DialogBody>{children}</DialogBody>}
         {requireReason && (
           <DialogBody>
             <Field label={reasonLabel} required hint="At least 3 characters" counter={{ value: reason.length, max: 1000 }}>

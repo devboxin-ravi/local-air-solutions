@@ -90,10 +90,14 @@ export const API = {
   INVOICE: (id: number) => `/invoices/${id}`,
   INVOICE_PDF: (id: number) => `/invoices/${id}/pdf`,
   INVOICE_PREVIEW: '/invoices/preview',
-  INVOICE_FROM_BOOKING: '/invoices/from-booking',
+  DRAFT_INVOICES: '/draft-invoices',
+  DRAFT_INVOICE: (id: number) => `/draft-invoices/${id}`,
+  DRAFT_INVOICE_APPROVE: (id: number) => `/draft-invoices/${id}/approve`,
+  DRAFT_INVOICE_DISCARD: (id: number) => `/draft-invoices/${id}/discard`,
   INVOICE_CANCEL: (id: number) => `/invoices/${id}/cancel`,
   INVOICE_SHARE: '/invoices/share',
   PAYMENTS: '/payments',
+  PAYMENT_ACCOUNTS: '/payments/accounts',
   PAYMENT_VERIFY: (id: number) => `/payments/${id}/verify`,
   PAYMENT_REFUND: (id: number) => `/payments/${id}/refund`,
   LEDGER_ADJUST: '/ledger/adjustments',
@@ -128,13 +132,20 @@ export const HTTP = {
 
 export const QUERY = {
   STALE_MS: 30_000,
+  /** Bookings change from the technician app, so open screens re-read them. */
+  LIVE_REFRESH_MS: 15_000,
   NOTIFICATION_POLL_MS: 60_000,
   DEFAULT_PAGE_SIZE: 20,
+  /** Restoring the session retries while the server is unreachable (e.g. restarting). */
+  SESSION_RETRY_ATTEMPTS: 10,
+  SESSION_RETRY_MS: 3_000,
   LOOKUP_PAGE_SIZE: 100,
 } as const;
 
 export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'las.admin.rt',
+  /** Web Lock name: one tab refreshes the shared session at a time. */
+  REFRESH_LOCK: 'las.admin.refresh',
   BRANCH: 'las.admin.branch',
   /** "1" when the settings sidebar is collapsed to icons. */
   SETTINGS_SIDEBAR_COLLAPSED: 'las.admin.settingsSidebarCollapsed',

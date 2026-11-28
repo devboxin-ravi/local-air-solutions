@@ -44,6 +44,8 @@ export const TERMINAL_BOOKING_STATUSES: BookingStatus[] = ['COMPLETED', 'CANCELL
 export const NumberPrefixes = {
   BOOKING: 'LAS',
   INVOICE: 'INV',
+  /** Bills waiting in For Invoice; they get an INV number on approval. */
+  DRAFT_INVOICE: 'DRF',
   PAYMENT: 'PAY',
   AMC: 'AMC',
   CUSTOMER: 'CUS',

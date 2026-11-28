@@ -33,6 +33,9 @@ const useVisibleNav = () => {
     .filter((m) => m.children.length > 0);
 };
 
+/** A module is active on its own base path and on any extra prefixes it owns. */
+const isModuleActive = (m: NavModule, pathname: string) => [m.basePath, ...(m.alsoActiveFor ?? [])].some((p) => pathname.startsWith(p));
+
 const NAV_ITEM =
   'relative isolate flex h-10 items-center gap-0.5 whitespace-nowrap rounded-lg px-1.5 text-[13px] min-[1440px]:gap-1 min-[1440px]:px-2 min-[1440px]:text-[13.5px] 2xl:px-2.5 2xl:text-[14px] min-[1680px]:px-3 font-semibold outline-none transition-colors duration-micro focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring';
 const NAV_ACTIVE = 'text-brand-blue';
@@ -120,7 +123,7 @@ const MainNav = ({ nav, className }: { nav: NavModule[]; className?: string }) =
     <div className={cn('min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', className)}>
       <nav aria-label="Main" className={cn('flex w-max items-center justify-center', NAV_GAP)}>
         {nav.map((m) => (
-          <ModuleMenu key={m.key} module={m} active={pathname.startsWith(m.basePath)} />
+          <ModuleMenu key={m.key} module={m} active={isModuleActive(m, pathname)} />
         ))}
       </nav>
     </div>
@@ -251,11 +254,11 @@ const MobileNav = ({ nav, open, onOpenChange }: { nav: NavModule[]; open: boolea
         </div>
         <nav className="scrollbar-thin flex-1 overflow-y-auto p-3" aria-label="Main">
           {nav.map((m) => {
-            const isOpen = expanded === m.key || (expanded === null && pathname.startsWith(m.basePath));
+            const isOpen = expanded === m.key || (expanded === null && isModuleActive(m, pathname));
             // Single-page modules (e.g. Dashboard) are a direct link, like the desktop menu — no empty dropdown.
             if (m.children.length === 1) {
               return (
-                <NavLink key={m.key} to={m.children[0].to} onClick={() => onOpenChange(false)} className={cn('mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', pathname.startsWith(m.basePath) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
+                <NavLink key={m.key} to={m.children[0].to} onClick={() => onOpenChange(false)} className={cn('mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', isModuleActive(m, pathname) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
                   <m.icon className="h-4 w-4" />
                   <span className="flex-1 text-left">{m.label}</span>
                 </NavLink>
@@ -263,7 +266,7 @@ const MobileNav = ({ nav, open, onOpenChange }: { nav: NavModule[]; open: boolea
             }
             return (
               <div key={m.key} className="mb-1">
-                <button type="button" onClick={() => setExpanded(isOpen ? '' : m.key)} className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', pathname.startsWith(m.basePath) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
+                <button type="button" onClick={() => setExpanded(isOpen ? '' : m.key)} className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-semibold', isModuleActive(m, pathname) ? 'bg-brand-blue-50 text-brand-blue' : 'text-slate-700 hover:bg-slate-50')}>
                   <m.icon className="h-4 w-4" />
                   <span className="flex-1 text-left">{m.label}</span>
                   <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />

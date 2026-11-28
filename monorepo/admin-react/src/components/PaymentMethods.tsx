@@ -9,7 +9,7 @@ import { PAYMENT_METHODS_UI, PLACEHOLDERS } from '@/constants/ui';
 import { cn } from '@/lib/utils';
 import type { RazorpayKeyInput, RazorpayKeyStatus } from '@/types';
 import { Badge, Field } from './common';
-import { Button, Input, Switch } from './ui/primitives';
+import { Button, Input, NativeSelect, Switch } from './ui/primitives';
 import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from './ui/overlays';
 
 export interface PaymentMethodValues {
@@ -18,7 +18,20 @@ export interface PaymentMethodValues {
   upiPayeeName: string;
   razorpayEnabled: boolean;
   cashEnabled: boolean;
+  upiAccountName?: string;
+  upiId2?: string;
+  upiPayeeName2?: string;
+  upiAccountName2?: string;
+  defaultUpiAccount?: number;
+  upiChargePercent?: number | string;
+  razorpayChargePercent?: number | string;
 }
+
+/** Setting keys of the two UPI accounts. */
+const UPI_FIELDS = [
+  { account: 1, name: 'upiAccountName', id: 'upiId', payee: 'upiPayeeName' },
+  { account: 2, name: 'upiAccountName2', id: 'upiId2', payee: 'upiPayeeName2' },
+] as const;
 
 const MethodCard = ({
   icon,
@@ -90,13 +103,34 @@ export function PaymentMethodsEditor({
 
       {/* UPI */}
       <MethodCard icon={<QrCode />} title="UPI" description={PAYMENT_METHODS_UI.UPI_DESCRIPTION} enabled={value.upiEnabled} onToggle={(on) => onChange({ upiEnabled: on })} disabled={disabled}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="UPI ID" required={value.upiEnabled} error={errors.upiId} hint="Shown to customers in the app">
-            <Input value={value.upiId ?? ''} disabled={disabled} maxLength={100} placeholder="name@bank" onChange={(e) => onChange({ upiId: e.target.value })} aria-invalid={!!errors.upiId} />
-          </Field>
-          <Field label="Payee name" error={errors.upiPayeeName}>
-            <Input value={value.upiPayeeName ?? ''} disabled={disabled} maxLength={100} placeholder={PLACEHOLDERS.UPI_PAYEE} onChange={(e) => onChange({ upiPayeeName: e.target.value })} />
-          </Field>
+        <div className="space-y-4">
+          {UPI_FIELDS.map((f) => (
+            <div key={f.account} className="grid gap-4 sm:grid-cols-3">
+              <Field label={`Account ${f.account} name`} error={errors[f.name]} hint="Bank or account, for your records">
+                <Input value={String(value[f.name] ?? '')} disabled={disabled} maxLength={60} placeholder={PAYMENT_METHODS_UI.ACCOUNT_NAME_PLACEHOLDER} onChange={(e) => onChange({ [f.name]: e.target.value })} />
+              </Field>
+              <Field label="UPI ID" required={f.account === 1 && value.upiEnabled} error={errors[f.id]} hint={f.account === 2 ? 'Optional second bank account' : undefined}>
+                <Input value={String(value[f.id] ?? '')} disabled={disabled} maxLength={100} placeholder="name@bank" onChange={(e) => onChange({ [f.id]: e.target.value })} aria-invalid={!!errors[f.id]} />
+              </Field>
+              <Field label="Payee name" error={errors[f.payee]}>
+                <Input value={String(value[f.payee] ?? '')} disabled={disabled} maxLength={100} placeholder={PLACEHOLDERS.UPI_PAYEE} onChange={(e) => onChange({ [f.payee]: e.target.value })} />
+              </Field>
+            </div>
+          ))}
+          <div className="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
+            <Field label="Default account" hint="Shown to customers and on the technician's QR first">
+              <NativeSelect value={String(value.defaultUpiAccount ?? 1)} disabled={disabled} onChange={(e) => onChange({ defaultUpiAccount: Number(e.target.value) })}>
+                {UPI_FIELDS.map((f) => (
+                  <option key={f.account} value={f.account}>
+                    {String(value[f.name] || `Account ${f.account}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label={PAYMENT_METHODS_UI.CHARGE_LABEL} error={errors.upiChargePercent} hint={PAYMENT_METHODS_UI.CHARGE_HINT}>
+              <Input type="number" min={0} max={10} step="0.01" value={String(value.upiChargePercent ?? 0)} disabled={disabled} onChange={(e) => onChange({ upiChargePercent: e.target.value })} />
+            </Field>
+          </div>
         </div>
       </MethodCard>
 
@@ -120,6 +154,9 @@ export function PaymentMethodsEditor({
           )
         }
       >
+        <Field label={PAYMENT_METHODS_UI.CHARGE_LABEL} error={errors.razorpayChargePercent} hint={PAYMENT_METHODS_UI.CHARGE_HINT} className="mb-4 max-w-xs">
+          <Input type="number" min={0} max={10} step="0.01" value={String(value.razorpayChargePercent ?? 0)} disabled={disabled} onChange={(e) => onChange({ razorpayChargePercent: e.target.value })} />
+        </Field>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 text-[13px]">
             {configured ? (

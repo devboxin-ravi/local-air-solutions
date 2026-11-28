@@ -72,10 +72,10 @@ export function buildContainer() {
   const slots = new SlotService(repos.slots, settings);
   const bookings = new BookingService(repos.bookings, repos.customers, repos.users, catalog, slots, notifications, settings, customers);
   const reminders = new ReminderService(repos.engagement, repos.bookings, notifications, settings);
-  const assignments = new AssignmentService(repos.bookings, repos.staff, bookings, catalog, reminders, notifications, settings);
   const ledger = new LedgerService(repos.finance, repos.customers, settings);
   const stock = new StockService(repos.stock, settings);
   const invoices = new InvoiceService(repos.finance, repos.bookings, repos.customers, repos.master, ledger, notifications, settings, stock);
+  const assignments = new AssignmentService(repos.bookings, repos.staff, bookings, catalog, reminders, notifications, settings, invoices);
   const amc = new AmcService(repos.amc, repos.customers, repos.bookings, invoices, bookings, assignments, notifications, settings);
   const payments = new PaymentService(repos.finance, repos.bookings, repos.customers, repos.amc, invoices, ledger, bookings, amc, notifications, settings);
   const reports = new ReportService(repos.reports);

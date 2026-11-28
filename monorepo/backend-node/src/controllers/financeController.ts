@@ -6,7 +6,7 @@ import { Request } from 'express';
 import { services } from '../dependencies/dependencies';
 import { HeaderNames, perm } from '../constants';
 import type { UploadedFileInfo } from '../models';
-import { actorOf, asyncHandler, idParam, metaOf, sendCreated, sendOk, sendPage } from '../utils/http';
+import { actorOf, asyncHandler, idParam, metaOf, sendCreated, sendNoContent, sendOk, sendPage } from '../utils/http';
 
 const idempotencyKey = (req: Request) => req.get(HeaderNames.IDEMPOTENCY_KEY)?.slice(0, 100);
 
@@ -20,8 +20,25 @@ export const getInvoice = asyncHandler(async (req, res) => {
 export const previewInvoice = asyncHandler(async (req, res) => {
   sendOk(res, services().invoices.preview(req.body.lines, req.body));
 });
-export const createInvoiceFromBooking = asyncHandler(async (req, res) => {
-  sendCreated(res, await services().invoices.createFromBooking(actorOf(req), req.body, metaOf(req)));
+// ─── For Invoice (drafts) ───
+export const listDraftInvoices = asyncHandler(async (req, res) => {
+  sendPage(res, await services().invoices.listDrafts(actorOf(req), req.query as never));
+});
+export const getDraftInvoice = asyncHandler(async (req, res) => {
+  sendOk(res, await services().invoices.getDraft(actorOf(req), idParam(req)));
+});
+export const generateDraftInvoice = asyncHandler(async (req, res) => {
+  sendCreated(res, await services().invoices.generateDraft(actorOf(req), req.body, metaOf(req)));
+});
+export const updateDraftInvoice = asyncHandler(async (req, res) => {
+  sendOk(res, await services().invoices.updateDraft(actorOf(req), idParam(req), req.body, metaOf(req)));
+});
+export const approveDraftInvoice = asyncHandler(async (req, res) => {
+  sendOk(res, await services().invoices.approveDraft(actorOf(req), idParam(req), metaOf(req)));
+});
+export const discardDraftInvoice = asyncHandler(async (req, res) => {
+  await services().invoices.discardDraft(actorOf(req), idParam(req), req.body.reason, metaOf(req));
+  sendNoContent(res);
 });
 export const createManualInvoice = asyncHandler(async (req, res) => {
   sendCreated(res, await services().invoices.createManual(actorOf(req), req.body, metaOf(req)));
@@ -59,14 +76,21 @@ export const listPayments = asyncHandler(async (req, res) => {
 export const getPayment = asyncHandler(async (req, res) => {
   sendOk(res, await services().payments.get(actorOf(req), idParam(req)));
 });
+/** Every received payment waits for the office to confirm the money arrived (Payment Verification). */
 export const recordPayment = asyncHandler(async (req, res) => {
-  const actor = actorOf(req);
-  // Users holding payments.approve record cash/bank payments as verified immediately.
-  const canApprove = actor.isSuperAdmin || actor.permissions.includes(perm('payments', 'approve'));
-  sendCreated(res, await services().payments.record(actor, req.body, canApprove, idempotencyKey(req), metaOf(req)));
+  sendCreated(res, await services().payments.record(actorOf(req), req.body, idempotencyKey(req), metaOf(req)));
 });
 export const verifyPayment = asyncHandler(async (req, res) => {
-  sendOk(res, await services().payments.verify(actorOf(req), idParam(req), req.body.approve, req.body.note, metaOf(req)));
+  sendOk(res, await services().payments.verify(actorOf(req), idParam(req), req.body.approve, req.body.note, metaOf(req), req.body.account));
+});
+export const receivingAccounts = asyncHandler(async (_req, res) => {
+  sendOk(res, await services().payments.receivingAccounts());
+});
+export const jobPaymentInfo = asyncHandler(async (req, res) => {
+  sendOk(res, await services().payments.jobPaymentInfo(actorOf(req), idParam(req)));
+});
+export const collectJobPayment = asyncHandler(async (req, res) => {
+  sendCreated(res, await services().payments.collectOnJob(actorOf(req), idParam(req), req.body, idempotencyKey(req), metaOf(req)));
 });
 export const refundPayment = asyncHandler(async (req, res) => {
   sendOk(res, await services().payments.refund(actorOf(req), idParam(req), req.body.amount, req.body.reason, metaOf(req)));
